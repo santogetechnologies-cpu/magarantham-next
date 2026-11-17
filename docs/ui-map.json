@@ -1,0 +1,2914 @@
+{
+  "source": "src/components, src/components/erp, src/lib/admin-fields.ts and src/lib/erp-fields.ts",
+  "routes": [
+    "/",
+    "/shop",
+    "/products/[slug]",
+    "/cart",
+    "/checkout",
+    "/bulk",
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/mfa",
+    "/account",
+    "/account/orders/[id]",
+    "/admin",
+    "/admin/products",
+    "/admin/inventory",
+    "/admin/orders",
+    "/admin/orders/[id]",
+    "/admin/banners",
+    "/admin/offers",
+    "/admin/shipping",
+    "/admin/bulk",
+    "/admin/settings",
+    "/admin/staff",
+    "/admin/audit",
+    "/admin/pos",
+    "/admin/categories",
+    "/admin/discounts",
+    "/admin/suppliers",
+    "/admin/purchases",
+    "/admin/labels",
+    "/admin/expenses",
+    "/admin/expense-categories",
+    "/admin/employees",
+    "/admin/attendance",
+    "/admin/payroll",
+    "/admin/salary-policies",
+    "/admin/pos-settings",
+    "/admin/reports"
+  ],
+  "controls": [
+    {
+      "page": "All public pages",
+      "label": "Menu / Open full menu",
+      "instructions": "Open the full collection navigation dialog.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Close × / Close menu",
+      "instructions": "Close the full menu. Escape also closes the dialog.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Brand logo / name",
+      "instructions": "Return to the home page.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "All sarees / All collections",
+      "instructions": "Open /shop with all published products.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Account / My account",
+      "instructions": "Open your account; sign in when required.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Bag / Shopping bag",
+      "instructions": "Open /cart. Header count is the sum of quantities.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Wedding sarees / Everyday sarees",
+      "instructions": "Open Bridal or Cotton filtered collection.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Bulk purchase",
+      "instructions": "Open the bulk inquiry and shop phone page.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Sign in",
+      "instructions": "Open email/password login.",
+      "access": "All visitors"
+    },
+    {
+      "page": "All public pages",
+      "label": "Collection category links",
+      "instructions": "Open /shop?category= with that category selected.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Home /",
+      "label": "Shop sarees / View all sarees / See all styles",
+      "instructions": "Open the shop.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Home /",
+      "label": "Shop collection / collection image",
+      "instructions": "Open the corresponding saree category.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Home /",
+      "label": "Shop bridal sarees",
+      "instructions": "Open Bridal category.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Home /",
+      "label": "Saree type cloud links",
+      "instructions": "Open the selected type in the shop.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Home /",
+      "label": "Banner button text",
+      "instructions": "Open the internal destination configured by staff. Only published in-window banners display.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Search sarees",
+      "instructions": "Type a name, colour or category fragment. Filtering is case-insensitive.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Saree type",
+      "instructions": "Choose All or an available category.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Sort by",
+      "instructions": "Choose Featured, Price: low to high, or Price: high to low.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Category chips",
+      "instructions": "All, Kanchipuram, Bridal, Soft Silk, Cotton, Organza or Linen appears when present. Click to filter.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Product image / product name",
+      "instructions": "Open /products/[slug].",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "♡ / Save [product name]",
+      "instructions": "Add the product to Favourites. Requires an authenticated active account.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Shop /shop",
+      "label": "Add to bag ＋ / Add [name] to bag",
+      "instructions": "Add one unit to the local bag. Disabled when ordering is paused, rate is zero or available stock is below one.",
+      "access": "Browse: all visitors. Wishlist: authenticated account."
+    },
+    {
+      "page": "Product /products/[slug]",
+      "label": "← All sarees",
+      "instructions": "Return to shop.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Product /products/[slug]",
+      "label": "Add to bag ＋",
+      "instructions": "Add one unit; ordering, nonzero rate and available stock are required.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Product /products/[slug]",
+      "label": "Ask about bulk orders",
+      "instructions": "Open /bulk.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Product /products/[slug]",
+      "label": "Delivery & payment",
+      "instructions": "Expand delivery/payment explanation.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Product /products/[slug]",
+      "label": "Returns & help",
+      "instructions": "Expand return/help explanation.",
+      "access": "All visitors"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Shop sarees",
+      "instructions": "Open shop from the empty bag.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Product name",
+      "instructions": "Open product detail.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Quantity",
+      "instructions": "Enter 1–20 units; server rechecks stock at order save.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Remove",
+      "instructions": "Set this product quantity to zero and remove its line.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Continue to order",
+      "instructions": "Open checkout. A paused store still refuses order creation.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Bag /cart",
+      "label": "Clear bag",
+      "instructions": "Remove every bag line.",
+      "access": "All visitors; bag is local browser data"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Add sarees first",
+      "instructions": "Open shop if bag is empty.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Sign in",
+      "instructions": "Open login before order submission.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Use a saved address",
+      "instructions": "Choose Enter a new address or a saved label to fill shipping inputs.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Full name",
+      "instructions": "Required recipient name, maximum 80 characters.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Phone number",
+      "instructions": "Required phone, 7–20 characters using digits, optional +, spaces, parentheses or hyphens.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Address line 1",
+      "instructions": "Required street/building, maximum 180 characters.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Address line 2 (optional)",
+      "instructions": "Optional additional address, maximum 180 characters.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "City",
+      "instructions": "Required, maximum 80 characters.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "State",
+      "instructions": "Required, maximum 80 characters.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "PIN code",
+      "instructions": "Six digits; first digit cannot be zero.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Coupon code (optional)",
+      "instructions": "Enter up to 40 characters. Invalid or ineligible coupon blocks order save.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "WhatsApp order · staff check your payment",
+      "instructions": "Available unless store mode is online_only. Saves a WhatsApp-channel unpaid order.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "UPI · staff check your payment",
+      "instructions": "Available in online-enabled mode when online_method=manual_upi.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "UPI · secure online payment",
+      "instructions": "Available in online-enabled mode when online_method=razorpay_upi.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "I agree to share my order and delivery details…",
+      "instructions": "Required for WhatsApp checkout. Customer will still press Send in WhatsApp.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Checkout /checkout",
+      "label": "Save order & view final total",
+      "instructions": "Server validates account/cart/stock/rate/address/coupon, calculates total and reserves stock. Opens unpaid order. This does not charge money.",
+      "access": "Authenticated active account; order creation requires ordering enabled"
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "Call [bulk number]",
+      "instructions": "Open telephone dialer if a number is configured.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "Your name",
+      "instructions": "Required, maximum 80 characters.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "Phone number",
+      "instructions": "Enter the contact phone.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "Number of sarees",
+      "instructions": "1–100000; starts with the shop bulk minimum quantity.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "What do you need?",
+      "instructions": "Required inquiry text, maximum 2000 characters.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Bulk /bulk",
+      "label": "Send inquiry",
+      "instructions": "Save the inquiry for shop follow-up. Sign in first; limited to 5 per hour.",
+      "access": "Phone link: all visitors. Inquiry: authenticated account."
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Your name",
+      "instructions": "Registration only; 2–80 characters.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Email address",
+      "instructions": "Valid email, maximum 254 characters. Not shown for new password.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Password · at least 12 characters",
+      "instructions": "12–128 characters. Not shown on forgot-password.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "CAPTCHA",
+      "instructions": "Complete registration challenge when configured. Production registration requires valid server CAPTCHA.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Create account",
+      "instructions": "Submit protected website registration. Check confirmation email before sign-in.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Sign in",
+      "instructions": "Authenticate and route customers to Account or staff to MFA.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Send reset email",
+      "instructions": "Request a time-limited password reset email. Response does not reveal whether account exists.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Save password",
+      "instructions": "Save new password from authenticated/recovery session.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Sign in / Create account / Forgot password? links",
+      "instructions": "Open the related auth page.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Need a new confirmation email?",
+      "instructions": "Enter email on login page.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Auth /login /register /forgot-password /reset-password",
+      "label": "Resend confirmation",
+      "instructions": "Request another signup confirmation email; throttled to 3 per hour per email.",
+      "access": "Public auth forms; password update requires a valid session"
+    },
+    {
+      "page": "Staff MFA /mfa",
+      "label": "Set up authenticator",
+      "instructions": "Enroll TOTP when no verified factor exists. Scan QR or privately enter shown secret in an authenticator app.",
+      "access": "Authenticated staff account; no in-app MFA bypass"
+    },
+    {
+      "page": "Staff MFA /mfa",
+      "label": "6-digit code",
+      "instructions": "Enter current authenticator code. Only six digits accepted.",
+      "access": "Authenticated staff account; no in-app MFA bypass"
+    },
+    {
+      "page": "Staff MFA /mfa",
+      "label": "Verify & open admin",
+      "instructions": "Challenge/verify TOTP then open staff admin. Existing verified factor is reused.",
+      "access": "Authenticated staff account; no in-app MFA bypass"
+    },
+    {
+      "page": "Staff MFA /mfa",
+      "label": "Authenticator QR / secret",
+      "instructions": "Sensitive enrollment display. Keep private; lost factor recovery is by project owner in Supabase Auth.",
+      "access": "Authenticated staff account; no in-app MFA bypass"
+    },
+    {
+      "page": "Account /account",
+      "label": "Open admin",
+      "instructions": "Shown only to staff. Open staff tools; MFA and permission checks still apply.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Sign out",
+      "instructions": "Sign out this local session and return home.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Orders",
+      "instructions": "Open own order cards.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Order card MS-[number]",
+      "instructions": "Open /account/orders/[id].",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Favourites",
+      "instructions": "View saved products.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Remove favourite",
+      "instructions": "Remove this wishlist entry.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Addresses",
+      "instructions": "View address book and add/delete controls.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Delete address",
+      "instructions": "Delete that address-book entry. Existing orders retain their saved address.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Address label",
+      "instructions": "Label up to 40 characters, default Home.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Full name",
+      "instructions": "Required recipient name, maximum 80 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Phone number",
+      "instructions": "Required phone, 7–20 characters using digits, optional +, spaces, parentheses or hyphens.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Address line 1",
+      "instructions": "Required street/building, maximum 180 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Address line 2 (optional)",
+      "instructions": "Optional additional address, maximum 180 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "City",
+      "instructions": "Required, maximum 80 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "State",
+      "instructions": "Required, maximum 80 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "PIN code",
+      "instructions": "Six digits; first digit cannot be zero.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Save address",
+      "instructions": "Add one complete address, at most 10 saved addresses. No edit-existing button is present.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Notifications",
+      "instructions": "Show own account notifications.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "View order",
+      "instructions": "Open the order related to the notification.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Mark as read",
+      "instructions": "Set read time for this notification.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Profile",
+      "instructions": "Show name and password controls.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Name",
+      "instructions": "Display name, 2–80 characters.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Save name",
+      "instructions": "Save display name.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Account /account",
+      "label": "Change password",
+      "instructions": "Open /reset-password for current session.",
+      "access": "Authenticated active account; only own data"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "← Back to orders / Back to orders",
+      "instructions": "Return to Account.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Track with [provider]",
+      "instructions": "Open generated HTTPS provider link in new tab when tracking exists.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Send order on WhatsApp",
+      "instructions": "Open prefilled order/address message. Review it and press Send in WhatsApp. Shown on awaiting-payment WhatsApp orders.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Open UPI app",
+      "instructions": "Launch shop UPI intent with exact amount/order reference. On desktop use displayed UPI ID and total on phone.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Pay by UPI",
+      "instructions": "Open Razorpay UPI checkout. Await server verification. If money was taken and status is pending, do not pay twice.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "UPI transaction reference / UTR",
+      "instructions": "6–80 letters, digits, spaces or hyphens. Must match actual bank transaction.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Payment screenshot (JPEG, PNG or WebP, up to 5 MB)",
+      "instructions": "Choose a real permitted image, no more than 5 MiB. Manual/WhatsApp order only, when proof is allowed.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Submit payment proof",
+      "instructions": "Upload private proof and mark payment submitted. Staff still verify bank credit. Proof may be submitted for permitted pending/failed/submitted expired or cancelled orders so late credits can be investigated.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Cancel unpaid order",
+      "instructions": "Available only while awaiting_payment. Releases reservation.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Reason for return",
+      "instructions": "Required return request text, maximum 500 characters.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "Customer order /account/orders/[id]",
+      "label": "Request a return",
+      "instructions": "Available on delivered orders; records return_requested. Physical receipt/refund is a separate staff process.",
+      "access": "Authenticated order owner"
+    },
+    {
+      "page": "/admin/products",
+      "label": "SKU",
+      "instructions": "Unique stock identifier, maximum 50 characters.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Product barcode (optional; SKU also scans)",
+      "instructions": "Optional unique ASCII product barcode, maximum 48 characters. SKU also scans. Never use the reserved MSU plus digits namespace for a product code.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Subcategory",
+      "instructions": "Select an active child category. The main category follows this mapping; manage hierarchy under Categories.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Page name (lowercase-with-hyphens)",
+      "instructions": "Unique lowercase letters/numbers with single hyphen separators, maximum 120 characters.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Saree name",
+      "instructions": "Required product/provider name.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Colour",
+      "instructions": "Product colour, maximum 50 characters.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Description",
+      "instructions": "Required product description, maximum 2000 characters.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Image URL",
+      "instructions": "Use /assets/... or an HTTPS image URL. Upload separately then paste returned URL.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Price (Rs)",
+      "instructions": "Enter rupees with up to two decimals. Form converts to paise. Zero displays 00 Rs and blocks order save.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Product discount (%)",
+      "instructions": "Integer percentage 0–90. Product discount applies before order offer.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Publish product",
+      "instructions": "Tick to publish; untick to hide. Publication and schedule jointly control banners.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Show in home collection",
+      "instructions": "Tick to include product in home featured collection.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Archive product",
+      "instructions": "Tick to prevent new sales while preserving historical orders.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Add product ＋",
+      "instructions": "Open a blank record form. A product starts with zero stock; add stock separately.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Edit",
+      "instructions": "Load row fields into the edit form; also used for bulk inquiry status.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Save changes",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/products",
+      "label": "Cancel editing",
+      "instructions": "Close the form without saving pending edits.",
+      "access": "Staff MFA + catalogue permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Title",
+      "instructions": "Required public banner/offer title.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Short text",
+      "instructions": "Optional banner text, maximum 300 characters.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Image URL",
+      "instructions": "Use /assets/... or an HTTPS image URL. Upload separately then paste returned URL.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Button text",
+      "instructions": "Required banner button text, maximum 40 characters.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Button page (starts with /)",
+      "instructions": "Internal path starting with one slash. External URLs are rejected.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Show on",
+      "instructions": "home or shop.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Display order",
+      "instructions": "Integer -100 to 100; controls banner ordering.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Publish banner",
+      "instructions": "Tick to publish; untick to hide. Publication and schedule jointly control banners.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Start time (optional)",
+      "instructions": "Optional scheduled start, entered and displayed in browser local time; saved as a timestamp.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "End time (optional)",
+      "instructions": "Optional scheduled end, later than start.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Add banner ＋",
+      "instructions": "Open a blank record form. A product starts with zero stock; add stock separately.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Edit",
+      "instructions": "Load row fields into the edit form; also used for bulk inquiry status.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Save changes",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/banners",
+      "label": "Cancel editing",
+      "instructions": "Close the form without saving pending edits.",
+      "access": "Staff MFA + content permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Offer name",
+      "instructions": "Required public banner/offer title.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Coupon code (blank = automatic)",
+      "instructions": "Blank means automatic offer. Coupon code 2–40 uppercase letters/digits/underscore/hyphen.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Discount type",
+      "instructions": "percent or fixed. Fixed amount is entered as paise in Discount value.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Discount value (% or paise for fixed)",
+      "instructions": "Percent: 1–90. Fixed: positive integer paise; 10000 means Rs 100. Not a rupee-converted field.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Minimum purchase (Rs)",
+      "instructions": "Minimum eligible purchase in rupees; form converts to paise.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Maximum discount (Rs, optional)",
+      "instructions": "Optional cap in rupees; blank means uncapped by this field.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Total use limit (optional)",
+      "instructions": "Optional positive total redemption limit.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Uses per customer",
+      "instructions": "Positive integer, at most 1000.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Enable offer",
+      "instructions": "Tick to enable offer, subject to validity and limits.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Start time (optional)",
+      "instructions": "Optional scheduled start, entered and displayed in browser local time; saved as a timestamp.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "End time (optional)",
+      "instructions": "Optional scheduled end, later than start.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Add offer ＋",
+      "instructions": "Open a blank record form. A product starts with zero stock; add stock separately.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Edit",
+      "instructions": "Load row fields into the edit form; also used for bulk inquiry status.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Save changes",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/offers",
+      "label": "Cancel editing",
+      "instructions": "Close the form without saving pending edits.",
+      "access": "Staff MFA + offers permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Provider name",
+      "instructions": "Required product/provider name.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "HTTPS tracking URL with {tracking_id}",
+      "instructions": "HTTPS URL containing exactly {tracking_id}; may be blank to store tracking without a link.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Enable provider",
+      "instructions": "Tick to make provider selectable.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Add provider ＋",
+      "instructions": "Open a blank record form. A product starts with zero stock; add stock separately.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Edit",
+      "instructions": "Load row fields into the edit form; also used for bulk inquiry status.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Save changes",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/shipping",
+      "label": "Cancel editing",
+      "instructions": "Close the form without saving pending edits.",
+      "access": "Staff MFA + shipping permission"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Brand name",
+      "instructions": "Public brand name, maximum 100 characters.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Short store description",
+      "instructions": "Short store description, maximum 180 characters.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Support email",
+      "instructions": "Valid support email or blank.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Support phone",
+      "instructions": "Support contact phone or blank.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Bulk purchase contact number",
+      "instructions": "Public bulk call contact or blank.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Bulk minimum quantity",
+      "instructions": "Bulk inquiry suggested minimum, 1–100000.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "WhatsApp number (country code, digits only)",
+      "instructions": "Country code and digits only, no plus/spaces; required for active WhatsApp channel.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Order channels",
+      "instructions": "whatsapp_only, online_only or both. This is store-wide.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Online payment method",
+      "instructions": "manual_upi or razorpay_upi. Gateway credentials remain server environment secrets.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "UPI ID",
+      "instructions": "Verified shop UPI ID. Required with manual UPI online ordering.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "UPI payee name",
+      "instructions": "Actual UPI beneficiary/payee name.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Enable orders",
+      "instructions": "Tick only after real prices, stock and payment setup are checked.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Shipping fee (Rs)",
+      "instructions": "Shipping fee in rupees, converted to paise.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Free shipping minimum (Rs, 0 = off)",
+      "instructions": "Rupee threshold after discount; 0 disables threshold-based free shipping.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Tax rate (basis points: 100 = 1%)",
+      "instructions": "Integer basis points, 0–10000. 100 = 1%.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Stock hold time (minutes)",
+      "instructions": "10–1440 minutes stock hold.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Announcement",
+      "instructions": "Required public announcement, maximum 300 characters.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Home heading",
+      "instructions": "Home heading, maximum 120 characters.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Home short text",
+      "instructions": "Home short text, maximum 300 characters.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Hero image URL",
+      "instructions": "Local asset or HTTPS hero image URL.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Logo image URL",
+      "instructions": "Local asset or HTTPS logo URL.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/settings",
+      "label": "Save settings",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + superadmin permission (superadmin only)"
+    },
+    {
+      "page": "/admin/bulk",
+      "label": "Inquiry status",
+      "instructions": "new, contacted or closed. Contact customer before recording contacted.",
+      "access": "Staff MFA + bulk permission"
+    },
+    {
+      "page": "/admin/bulk",
+      "label": "Edit",
+      "instructions": "Load row fields into the edit form; also used for bulk inquiry status.",
+      "access": "Staff MFA + bulk permission"
+    },
+    {
+      "page": "/admin/bulk",
+      "label": "Save changes",
+      "instructions": "Validate and persist every form field. Review status/error notice. Saving upload URL alone does not upload a file.",
+      "access": "Staff MFA + bulk permission"
+    },
+    {
+      "page": "/admin/bulk",
+      "label": "Cancel editing",
+      "instructions": "Close the form without saving pending edits.",
+      "access": "Staff MFA + bulk permission"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "Overview / Products / Stock / Orders / Banners / Offers / Tracking / Bulk inquiries / Settings / Staff / Activity log",
+      "instructions": "Open matching admin route. Navigation includes only current permitted groups. Settings, Staff and Activity log are superadmin only.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "Manage quick links",
+      "instructions": "Open the matching operation from Overview.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "View store",
+      "instructions": "Open public home.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "Refresh",
+      "instructions": "Reload current server records. Overview readiness indicates presence of environment values only, not tested connectivity.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "JPEG, PNG or WebP · up to 5 MB",
+      "instructions": "Select public shop image. Available on configuration screens to content-authorized staff.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "Upload image",
+      "instructions": "Upload a real image up to 5 MiB into public store-media.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "Admin shared navigation",
+      "label": "Uploaded image URL (copy into an image field)",
+      "instructions": "Read-only returned URL; focus selects it. Copy to the owning image field and Save changes/settings.",
+      "access": "Staff MFA; media requires content permission; routes also enforce each capability"
+    },
+    {
+      "page": "/admin/inventory",
+      "label": "Product",
+      "instructions": "Select SKU/name for the physical adjustment.",
+      "access": "Staff MFA + inventory"
+    },
+    {
+      "page": "/admin/inventory",
+      "label": "Change in units (positive adds, negative removes)",
+      "instructions": "Nonzero integer -100000 to 100000. Stock after adjustment cannot fall below reserved.",
+      "access": "Staff MFA + inventory"
+    },
+    {
+      "page": "/admin/inventory",
+      "label": "Reason",
+      "instructions": "Required 3–300 character explanation.",
+      "access": "Staff MFA + inventory"
+    },
+    {
+      "page": "/admin/inventory",
+      "label": "Save stock adjustment",
+      "instructions": "Apply signed change and audit it. Review on-hand/reserved/available table.",
+      "access": "Staff MFA + inventory"
+    },
+    {
+      "page": "/admin/orders",
+      "label": "Filter order status",
+      "instructions": "All orders or one of awaiting payment, confirmed, packing, shipped, delivered, cancelled, expired, review required, return requested, returned.",
+      "access": "Staff MFA + orders"
+    },
+    {
+      "page": "/admin/orders",
+      "label": "Open order",
+      "instructions": "Open /admin/orders/[id] with payment, tracking and state controls limited by permission.",
+      "access": "Staff MFA + orders"
+    },
+    {
+      "page": "/admin/staff",
+      "label": "Name / Email / Temporary password (12–128 characters)",
+      "instructions": "New manager identity and initial password. Name is 2–80 characters.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/staff",
+      "label": "Create manager & send confirmation",
+      "instructions": "Create trusted manager, request confirmation email. Starts with all configured manager capabilities; restrict immediately below.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/staff",
+      "label": "catalogue / inventory / orders / payments / content / offers / shipping / bulk / pos / purchases / expenses / attendance / reports",
+      "instructions": "Manager capability checkboxes. Disabled for non-manager accounts and your own card. Review and restrict a new manager before first use.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/staff",
+      "label": "Suspend account",
+      "instructions": "Block this account after Save account access. Your own suspension checkbox is disabled.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/staff",
+      "label": "Save account access",
+      "instructions": "Save permissions and suspension. Disabled for your own account; server protects last superadmin.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "← Back to orders / Track with [provider]",
+      "instructions": "Return to staff list or open customer tracking URL.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "View payment proofs",
+      "instructions": "Load private proof links and claimed references.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Open private proof (60 seconds)",
+      "instructions": "Open short-lived signed URL. Keep customer payment evidence private.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Bank payment reference",
+      "instructions": "Enter independently verified actual bank reference, 6–80 allowed characters.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "I checked the bank record, payee and exact amount…",
+      "instructions": "Tick only after confirming real credit. Required for manual confirmation.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Confirm manual payment",
+      "instructions": "Record bank-verified payment. Late arrival releases reservation and enters review/refund handling instead of fulfillment.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Razorpay payment ID",
+      "instructions": "Enter actual pay_ identifier for gateway reconciliation.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Verify gateway payment",
+      "instructions": "Fetch gateway records, verify amount/order/currency/UPI/capture, then reconcile.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Refund reason",
+      "instructions": "Required 3–500 characters. Full refund only when payment state is refund_pending or late_paid.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Completed bank refund reference",
+      "instructions": "For manual refund enter actual completed refund reference, at least 6 characters.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "I have completed the refund outside the app…",
+      "instructions": "Manual refund attestation. Tick only after actual bank refund and verification.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Record completed manual refund",
+      "instructions": "Record completed bank refund; this button does not transfer funds.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Start full gateway refund",
+      "instructions": "Start full Razorpay refund. Review provider outcome; never repeat blindly after timeout.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Razorpay refund ID",
+      "instructions": "Existing rfnd_ identifier for refund recovery/check.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Check existing refund",
+      "instructions": "Reconcile already-started refund, especially manual_review; do not start another refund.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Provider",
+      "instructions": "Select enabled tracking provider. Setting tracking requires shipping capability.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Tracking ID",
+      "instructions": "2–100 characters; order must be confirmed, packing or shipped.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Save tracking",
+      "instructions": "Save provider/ID and notify customer.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Next status",
+      "instructions": "Choose only current allowed transition. Confirmed: packing/cancelled; packing: shipped/cancelled; shipped: delivered; delivered: return requested; return requested: returned; awaiting payment: cancelled.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Update note / received return details",
+      "instructions": "Up to 500 characters. Receiving a return requires at least 3 characters and actual physical inspection.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "Staff order /admin/orders/[id]",
+      "label": "Update order status",
+      "instructions": "Perform validated transition. Shipping requires paid status and tracking ID. Terminal/review states disable this button.",
+      "access": "View: staff MFA + orders. Proof/payment/refund: payments. Tracking: shipping. Status: orders."
+    },
+    {
+      "page": "All pages / footer",
+      "label": "Skip to content",
+      "instructions": "Keyboard accessibility link moves to the main content anchor.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "All pages / footer",
+      "label": "All sarees / Bridal sarees / Cotton sarees / Bulk purchase",
+      "instructions": "Open shop, prefiltered Bridal/Cotton shop or bulk inquiry page.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "All pages / footer",
+      "label": "My orders / My account",
+      "instructions": "Open Account, which defaults to Orders.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "All pages / footer",
+      "label": "Support phone",
+      "instructions": "Open telephone dialer if a support number is configured.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "All pages / footer",
+      "label": "Support email",
+      "instructions": "Open an email composer if support email is configured.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "All pages / footer",
+      "label": "Staff sign in",
+      "instructions": "Open /admin; unauthenticated staff are directed through login/MFA before protected tools.",
+      "access": "All visitors; destination pages enforce authentication"
+    },
+    {
+      "page": "Admin record lists",
+      "label": "Load more records",
+      "instructions": "Append the next page of up to 100 server records. Repeat until no further page is offered. Current route/filter and capability checks still apply.",
+      "access": "Staff MFA + capability for the current list"
+    },
+    {
+      "page": "Account /account",
+      "label": "Load more",
+      "instructions": "Append the next page of up to 100 records for the current account tab. Repeat until no further page is offered.",
+      "access": "Authenticated account; only own records"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Category name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Page name (lowercase-with-hyphens)",
+      "instructions": "Unique lowercase letters/numbers separated by hyphens.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Main category (blank creates a main category)",
+      "instructions": "Blank creates a main category; otherwise select a main category to make a second-level subcategory. No third level or self-parenting.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Show this category",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Add new record ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/categories",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Discount name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Apply to",
+      "instructions": "category, subcategory or product. Changing scope clears the target selection.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Category / subcategory / product",
+      "instructions": "Select the exact category/subcategory/product matching Apply to.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Discount (%)",
+      "instructions": "Enter percent from 0.01 to 90.00; stored as basis points. Strongest applicable catalog percentage wins, rather than stacking.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Enable in POS and online shop",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Start time (optional)",
+      "instructions": "Optional schedule start in browser local time.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "End time (optional)",
+      "instructions": "Optional schedule end, strictly later than start.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Add new record ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/discounts",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Supplier name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Phone",
+      "instructions": "Contact number; ERP fields allow at most 25 characters.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Email",
+      "instructions": "Valid email or blank.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Address",
+      "instructions": "Supplier/shop address, at most 2000 characters.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "GSTIN (optional)",
+      "instructions": "Optional shop/supplier GSTIN, at most 30 characters.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Active supplier",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Add new record ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/suppliers",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Expense category name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Enable category",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Add new record ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/expense-categories",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Staff code",
+      "instructions": "Unique staff code, at most 40 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Staff name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Phone",
+      "instructions": "Contact number; ERP fields allow at most 25 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Employment type",
+      "instructions": "full_time or part_time; this does not automatically change the salary basis.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Salary basis",
+      "instructions": "monthly, daily or hourly. The rate field is interpreted in this selected unit.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Monthly / daily / hourly rate (Rs)",
+      "instructions": "Enter rupees for the selected salary basis. Form converts to paise.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Daily working time (minutes)",
+      "instructions": "Normal working day length, 60–1440 minutes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Overtime hourly rate (Rs)",
+      "instructions": "Overtime rate in rupees per hour; converted to paise.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Attendance & salary policy",
+      "instructions": "Select an active attendance/salary policy.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Joining date",
+      "instructions": "Actual employee joining date.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Last working date (optional)",
+      "instructions": "Optional last employment date; cannot precede joining.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Recurring monthly allowances",
+      "instructions": "Recurring employee components. Add named rupee amounts; combined with extra monthly allowances and bonus.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Recurring monthly deductions",
+      "instructions": "Recurring employee components. Add named rupee amounts; combined with extra monthly deductions.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Active staff member",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Add staff member ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/employees",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Policy name",
+      "instructions": "Enter the displayed record value. Review required fields and save.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Monthly salary divisor",
+      "instructions": "scheduled counts configured weekdays across the full month; calendar counts every date. Employment dates prorate eligible units.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Scheduled working days",
+      "instructions": "Tick one or more Sunday–Saturday checkboxes. Sunday is 0, Saturday 6. No duplicate weekdays.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Paid leave units per month",
+      "instructions": "Monthly paid leave quota, 0–31 units in half-unit increments.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Leave rule applies by",
+      "instructions": "ordinal looks up the current half-unit leave ordinal; monthly_total looks up total monthly leave for each nonquota unit.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Leave loss-of-pay rules",
+      "instructions": "Add nonoverlapping inclusive half-unit ranges and loss-of-pay percentages. Paid quota applies first.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Loss of pay outside rules (%)",
+      "instructions": "Enter 0–100 percent LOP outside configured ranges; 100 means fully unpaid.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Half-day salary paid (%)",
+      "instructions": "Percent salary paid for a half-day monthly/daily record, 0–100. Hourly uses actual worked minutes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Paid permission time per month (minutes)",
+      "instructions": "Paid monthly permission allowance, 0–14400 minutes. Consumed in date order.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Permission time above allowance",
+      "instructions": "Excess permission: proportional minutes, half_day or full_day loss.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Pay marked holidays",
+      "instructions": "Tick if marked holidays count as paid under the shop policy.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Active policy",
+      "instructions": "Turn on for new selection/sales; review the effect before saving.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Add new record ＋",
+      "instructions": "Open a new record form. New employee defaults to today and first active policy; review every field.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/salary-policies",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Enable POS billing",
+      "instructions": "Tick only after rates, stock, tender checks and printer setup are verified.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Shop name",
+      "instructions": "Shop name for receipt snapshots.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "English shop name",
+      "instructions": "English shop name for receipt snapshots.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Shop address",
+      "instructions": "Supplier/shop address, at most 2000 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Phone",
+      "instructions": "Contact number; ERP fields allow at most 25 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "GSTIN (optional)",
+      "instructions": "Optional shop/supplier GSTIN, at most 30 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Bill number prefix",
+      "instructions": "1–20 uppercase letters, digits or hyphens. Used in new numbered invoices.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Receipt footer",
+      "instructions": "Receipt footer, at most 300 characters.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "POS tax (%)",
+      "instructions": "Enter POS percent, 0–100. Stored as basis points. Use the shop configured rate.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Maximum extra walk-in discount (%)",
+      "instructions": "Maximum extra walk-in percent, 0–90, applied to already discounted catalog subtotal.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Receipt paper width (mm)",
+      "instructions": "Choose 58 or 80 mm for receipt width.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Edit POS settings",
+      "instructions": "Load the singleton POS configuration form. The generic Add new record control is disabled here.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Refresh records",
+      "instructions": "Reload the first 100-row page and current record states.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Edit record",
+      "instructions": "Load this record for editing.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Save record",
+      "instructions": "Validate and save form fields, then refresh references and records.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Cancel editing",
+      "instructions": "Close the form without submitting unsaved changes.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "/admin/pos-settings",
+      "label": "Load more records",
+      "instructions": "Append another page of up to 100 records when offered.",
+      "access": "Staff MFA + superadmin role"
+    },
+    {
+      "page": "Allowance/deduction component editors",
+      "label": "Add item ＋",
+      "instructions": "Append a named component row; up to 15 extra or recurring components per input group.",
+      "access": "Superadmin; employee recurring components and payroll extra components"
+    },
+    {
+      "page": "Allowance/deduction component editors",
+      "label": "Item name",
+      "instructions": "Required name, at most 100 characters.",
+      "access": "Superadmin; employee recurring components and payroll extra components"
+    },
+    {
+      "page": "Allowance/deduction component editors",
+      "label": "Amount (Rs)",
+      "instructions": "Nonnegative rupee amount, converted to integer paise.",
+      "access": "Superadmin; employee recurring components and payroll extra components"
+    },
+    {
+      "page": "Allowance/deduction component editors",
+      "label": "Remove item",
+      "instructions": "Remove that unsaved component row. Save the owning employee or payroll draft to persist changes.",
+      "access": "Superadmin; employee recurring components and payroll extra components"
+    },
+    {
+      "page": "/admin/salary-policies — leave rules",
+      "label": "Sunday / Monday / Tuesday / Wednesday / Thursday / Friday / Saturday",
+      "instructions": "Set scheduled work weekdays. At least one is required.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/salary-policies — leave rules",
+      "label": "Add leave rule ＋",
+      "instructions": "Append a tier; review overlap before saving.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/salary-policies — leave rules",
+      "label": "From leave unit / To leave unit",
+      "instructions": "Inclusive 0.5-step range from 0.5 to 31. Ranges cannot overlap.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/salary-policies — leave rules",
+      "label": "Loss of pay (%)",
+      "instructions": "0–100 percent; 100 is fully unpaid, 50 is half unpaid.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/salary-policies — leave rules",
+      "label": "Remove rule",
+      "instructions": "Remove that unsaved tier. Save record to persist the policy.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Create / link login",
+      "instructions": "Shown for an active employee with no profile link. Payroll and attendance do not require a login.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Link an existing staff login (optional)",
+      "instructions": "Select an unlinked billing/manager account, or choose Create a new login.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Role for a new login",
+      "instructions": "Billing staff or Manager. Billing is POS-only and must link to an active employee.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Email for a new login",
+      "instructions": "Valid email for the new account.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Temporary password for a new login",
+      "instructions": "12–128 characters. Share privately; user confirms email and enrolls MFA.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Create or link staff login",
+      "instructions": "Create trusted Auth account and link it, or link the selected existing account. New accounts receive requested confirmation email.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/employees — login setup",
+      "label": "Cancel login setup",
+      "instructions": "Close setup without submitting.",
+      "access": "Superadmin MFA"
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Refresh stock & prices",
+      "instructions": "Reload catalog/settings. Visible page also refreshes every 20 seconds; save still rechecks stock.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Focus barcode scanner",
+      "instructions": "Place cursor in scan input.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Scan unit sticker, product barcode or type SKU",
+      "instructions": "Scan/type exact code, then Enter. Unit identity must be in stock and not already in bill.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Add scanned item",
+      "instructions": "Resolve code and add the unit/product.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Find a product",
+      "instructions": "Filter current product cards by name, SKU, category or subcategory.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Category / subcategory",
+      "instructions": "Choose a main or child category; All products removes filter.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Product card",
+      "instructions": "Add quantity-based item. Disabled if zero price or no available stock.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Qty",
+      "instructions": "1–100 whole units; disabled for serialized-unit lines because count follows scanned stickers.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Remove line",
+      "instructions": "Remove all units for that product. Required before switching between quantity and unit-sticker mode.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Walk-in customer name (optional)",
+      "instructions": "At most 80 characters.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Customer phone (optional)",
+      "instructions": "At most 25 characters.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Extra walk-in discount (Rs)",
+      "instructions": "Separate rupee bill discount, within configured percentage cap.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Discount reason (required / if used)",
+      "instructions": "At least 3 characters when discount is positive, at most 300.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "CASH amount (Rs) / UPI amount (Rs) / CARD amount (Rs)",
+      "instructions": "Allocate final bill total across selected positive tenders.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Use remaining",
+      "instructions": "On each tender fills the amount not allocated to the other two. CASH also initializes Cash received to the cash allocation.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "UPI transaction reference / CARD transaction reference",
+      "instructions": "Required 6–100 characters when that noncash tender is positive.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Cash received from customer (Rs)",
+      "instructions": "Actual notes received; change is received less allocated cash. With no cash tender enter 0.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "I checked the UPI/card receipt and exact amount…",
+      "instructions": "Required for any noncash tender. Verify the actual merchant receipt independently.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Complete bill & save stock",
+      "instructions": "Server validates and commits invoice, tenders and stock once. Disabled until quote/tenders/cash balance.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Clear current bill",
+      "instructions": "Reset cart, bill discount, tender amounts and cash received.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Refresh recent bills",
+      "instructions": "Reload most recent bill page. Billing sees only own bills; permitted managers/superadmin see all.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Open / reprint bill",
+      "instructions": "Open saved immutable bill snapshot.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Load more bills",
+      "instructions": "Append next page of up to 50 bills.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Print receipt",
+      "instructions": "Open system print dialog for current 58/80 mm receipt.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Close receipt",
+      "instructions": "Close receipt and return form.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Record full sale return",
+      "instructions": "Open full-return form for completed bill. Billing-only role cannot use this.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Received return details / reason",
+      "instructions": "3–500 characters, after receiving all physical pieces.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Completed refund reference",
+      "instructions": "6–100 characters for actual refund completed outside app.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "All items were physically received and the full refund…",
+      "instructions": "Required confirmation; this action records a completed outside refund.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/pos",
+      "label": "Confirm full return & restock",
+      "instructions": "Restore original units once and mark whole sale returned. No partial return control is present.",
+      "access": "Staff MFA + pos; billing needs active employee link. Full return additionally requires inventory and is unavailable to billing."
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "New purchase ＋",
+      "instructions": "Create draft with one initial line.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Refresh purchases",
+      "instructions": "Reload first purchase page.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Manage suppliers",
+      "instructions": "Open supplier records.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Supplier",
+      "instructions": "Choose active supplier.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Supplier invoice number (optional)",
+      "instructions": "At most 100 characters. Nonblank values unique per supplier ignoring case.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Expected delivery date (optional)",
+      "instructions": "Optional date.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Purchase note",
+      "instructions": "At most 2000 characters.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Product",
+      "instructions": "Choose one distinct product per line.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Quantity",
+      "instructions": "1–10000 whole pieces.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Unit cost (Rs)",
+      "instructions": "Nonnegative rupee cost, converted to paise.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Purchase tax (%)",
+      "instructions": "0–100 percent, converted to basis points.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Remove purchase line",
+      "instructions": "Remove unsaved line; disabled when only one line remains.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Add purchase line ＋",
+      "instructions": "Append line; at most 100 distinct product lines.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Save purchase draft",
+      "instructions": "Persist editable draft. Does not change stock.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Cancel editing",
+      "instructions": "Discard unsaved form changes.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Open purchase",
+      "instructions": "Open selected order, receipt totals and due/credit.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Close purchase details",
+      "instructions": "Close selected details panel.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Confirm purchase order",
+      "instructions": "Draft to ordered; locks draft fields.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Edit draft",
+      "instructions": "Reopen fields while purchase remains draft.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Cancel purchase order",
+      "instructions": "Cancel draft/ordered purchase only before any receipt.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Print received stock labels",
+      "instructions": "Open Barcode labels prefiltered to purchase; inventory permission is required there.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Action",
+      "instructions": "Receive stock or Return unsold stock to supplier.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Per-product quantity inputs",
+      "instructions": "Enter 0 to skip or positive actual quantity. Receive cannot exceed outstanding; return cannot exceed unreturned received units, available stock or purchase units.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Receipt / return note",
+      "instructions": "Return requires at least 3 characters; at most 1000.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Receive selected quantities",
+      "instructions": "Commit receipt and generate one unique unit code per added piece.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Return selected quantities",
+      "instructions": "Remove eligible original-purchase units and reduce supplier balance.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Amount (Rs)",
+      "instructions": "Positive completed payment/refund, no larger than absolute outstanding due/credit.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Payment method",
+      "instructions": "cash, upi, card or bank.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Bank reference / cash voucher",
+      "instructions": "6–100 characters for actual completed movement.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "I checked and completed this payment or refund…",
+      "instructions": "Required outside-app transfer/reconciliation confirmation.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Save supplier payment / refund",
+      "instructions": "Record paid when due positive or refund when due negative. Does not initiate transfer.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/purchases",
+      "label": "Load more purchases",
+      "instructions": "Append next page of up to 100 orders.",
+      "access": "Staff MFA + purchases capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Expense category",
+      "instructions": "Choose active category.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Date",
+      "instructions": "Actual expense date, initially current Asia/Kolkata date.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Description",
+      "instructions": "Required, at most 500 characters.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Payee / shop (optional)",
+      "instructions": "At most 120 characters.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Amount paid (Rs)",
+      "instructions": "Positive actual amount.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Payment method",
+      "instructions": "cash, upi, card or bank.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Receipt / payment reference",
+      "instructions": "At most 100 characters; noncash requires at least 6.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Save expense",
+      "instructions": "Post once using durable request key. Paid payroll is logged automatically; do not duplicate salary expense.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Void expense",
+      "instructions": "Open correction form for posted manual expense only.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Correction reason",
+      "instructions": "3–500 characters.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Confirm expense void",
+      "instructions": "Mark original manual entry void and retain audit.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Keep expense",
+      "instructions": "Close void form without changing record.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Refresh expenses",
+      "instructions": "Reload first page. Managers see manual expenses; payroll-source expenses are restricted.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Export loaded expenses CSV",
+      "instructions": "Download only currently loaded rows. Load more before export when needed.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "/admin/expenses",
+      "label": "Load more expenses",
+      "instructions": "Append next page of up to 100 expenses.",
+      "access": "Staff MFA + expenses capability"
+    },
+    {
+      "page": "ERP shared navigation",
+      "label": "POS billing / Categories / Shared discounts / Suppliers / Purchases / Barcode labels / Expenses / Expense categories / Staff management / Attendance / Payroll / Salary rules / POS settings / Reports",
+      "instructions": "Open the named /admin module. Sidebar includes only permitted operations. Categories, shared discounts, employee records, payroll, salary rules, POS settings and expense categories are superadmin-only.",
+      "access": "Staff MFA; billing sidebar includes POS only"
+    },
+    {
+      "page": "ERP shared navigation",
+      "label": "View online shop / Online shop",
+      "instructions": "Open public home or shop.",
+      "access": "Staff MFA; billing sidebar includes POS only"
+    },
+    {
+      "page": "ERP shared navigation",
+      "label": "My account / sign out",
+      "instructions": "Open Account to change password or sign out.",
+      "access": "Staff MFA; billing sidebar includes POS only"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Staff member",
+      "instructions": "Select employee whose attendance you are marking/reviewing.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Attendance month",
+      "instructions": "Choose the list month. Changing the list month does not change the actual entry Date automatically.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Date",
+      "instructions": "Actual attendance date, within employment and no later than today in Asia/Kolkata.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Attendance status",
+      "instructions": "full day, half day, leave, permission, weekly off, holiday or absent.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Leave units",
+      "instructions": "Full day leave (1) or Half day leave (0.5), shown for leave status.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Permission minutes",
+      "instructions": "Positive minutes no greater than employee normal daily minutes; shown for permission.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Worked minutes (used for hourly pay)",
+      "instructions": "0 to normal day length; a half day cannot exceed half normal minutes.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Approved overtime minutes",
+      "instructions": "0–1440; only full/half/permission status supports overtime.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Attendance note",
+      "instructions": "Optional explanation, at most 2000 characters.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Save attendance",
+      "instructions": "Create/update employee/date. Approved or paid payroll month rejects further edits.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Mark a full day for several staff",
+      "instructions": "Expand batch full-day form.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Actual attendance date",
+      "instructions": "Batch date, no future date.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Staff name checkboxes",
+      "instructions": "Choose active staff whose actual full-day attendance was checked.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "I checked that each selected staff member worked a full day…",
+      "instructions": "Required confirmation. Batch replaces existing entries for the selected date.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Mark selected staff full day",
+      "instructions": "Save each selected employee independently. Read saved/failed counts; investigate partial failures before payroll.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Refresh attendance",
+      "instructions": "Reload first page for selected employee/month.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Edit attendance",
+      "instructions": "Load an existing day into the entry form. Review status-dependent quantities before saving.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/attendance",
+      "label": "Load more attendance",
+      "instructions": "Append next page of up to 100 day records.",
+      "access": "Staff MFA + attendance capability"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Staff member",
+      "instructions": "Choose employee; no login is required for salary.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Salary month",
+      "instructions": "Closed month only. Request uses the first day of that month.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Bonus for this month (Rs)",
+      "instructions": "Nonnegative monthly bonus in rupees, converted to paise.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Extra allowances for this month / Extra deductions for this month",
+      "instructions": "Use Add item, Item name, Amount (Rs), Remove item component controls. Recurring employee components are included automatically.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Preview attendance calculation",
+      "instructions": "Compute current attendance/policy snapshot; missing scheduled day or unclosed month blocks calculation.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Generate / update payroll draft",
+      "instructions": "Generate from current attendance and current extra fields. Replaces monthly extras on regeneration; approved/paid payroll is locked.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Show every attendance day",
+      "instructions": "Expand date-level paid/LOP units and notes.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Refresh payroll runs",
+      "instructions": "Reload first page.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Export loaded payroll CSV",
+      "instructions": "Export only currently loaded runs and payment references. Load more first if needed.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "View payslip",
+      "instructions": "Open saved salary breakdown, components and status.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Edit draft extras",
+      "instructions": "Restore saved monthly bonus, extra allowances and extra deductions to the form. Regenerate to save edits.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Approve payroll",
+      "instructions": "Recompute/hash-check draft against current employee/policy/attendance. Stale draft must be regenerated.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Record salary payment",
+      "instructions": "Open payment form for approved run. Complete payment outside app first.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Payment method",
+      "instructions": "bank, upi, cash or card.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Payment reference / cash voucher",
+      "instructions": "6–100 characters for actual completed salary payment.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "I completed and checked the salary payment outside the app",
+      "instructions": "Required confirmation of real movement.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Mark salary paid & log expense",
+      "instructions": "Record paid state and one payroll-source expense for positive net. This does not initiate a transfer.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Cancel payment entry",
+      "instructions": "Close payment form without posting.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Load more payroll runs",
+      "instructions": "Append next page of up to 100 runs.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Print payslip",
+      "instructions": "Open system print dialog with current saved payslip.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/payroll",
+      "label": "Close payslip",
+      "instructions": "Close payslip preview.",
+      "access": "Superadmin MFA only"
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Product",
+      "instructions": "All products or one product.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Purchase ID (optional)",
+      "instructions": "Optional valid purchase UUID; opened prefilled from purchase details.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Stickers in this batch (maximum 500)",
+      "instructions": "Load 1–500 unique in-stock unit identities. This is a number of distinct pieces, not copies per barcode.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Paper",
+      "instructions": "A4 sticker sheet (2 columns) or Single-label roll.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Sticker width (mm, 80–95)",
+      "instructions": "Match supported label stock; paper choice initializes width.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Sticker height (mm, 30–60)",
+      "instructions": "Match physical label height.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Load stock labels",
+      "instructions": "Load first matching batch. Reprinting never adds stock.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Print labels",
+      "instructions": "Record print request for loaded identities, then open browser print dialog. App cannot confirm physical printing.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Refresh this label batch",
+      "instructions": "Reload current cursor batch.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "Next label batch",
+      "instructions": "Replace preview with next set of distinct units.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/labels",
+      "label": "First label batch",
+      "instructions": "Return to first batch when cursor is beyond first.",
+      "access": "Staff MFA + inventory. Enable Code 39 on scanner; test one label at 100% scale with quiet margins."
+    },
+    {
+      "page": "/admin/reports",
+      "label": "From / To",
+      "instructions": "Inclusive India-date range, maximum 366 days.",
+      "access": "Staff MFA + reports capability; only permitted metric groups are returned"
+    },
+    {
+      "page": "/admin/reports",
+      "label": "Run report",
+      "instructions": "Fetch summary. POS sales/returns use respective event dates, tenders show gross sale-day receipts, online totals use creation-period orders currently paid, stock and supplier balances are current.",
+      "access": "Staff MFA + reports capability; only permitted metric groups are returned"
+    },
+    {
+      "page": "/admin/reports",
+      "label": "Export report CSV",
+      "instructions": "Export the currently displayed summary and gross POS tender receipts.",
+      "access": "Staff MFA + reports capability; only permitted metric groups are returned"
+    }
+  ]
+}
