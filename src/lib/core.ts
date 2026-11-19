@@ -22,6 +22,40 @@ export type Profile = {
   suspended: boolean;
   permissions: string[];
 };
+export type PieceStatus =
+  | "available"
+  | "reserved"
+  | "sold"
+  | "damaged"
+  | "returned";
+
+export type IndividualPiece = {
+  id: string;
+  product_id: string;
+  piece_code: string;
+  barcode: string;
+  colour: string;
+  price_paise: number;
+  purchase_cost_paise?: number; // admin-only
+  status: PieceStatus;
+  image_path?: string;
+  location?: string; // admin-only
+  created_at: string;
+  unit_id?: number | string;
+};
+
+export type CategoryItem = {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  slug: string;
+  active: boolean;
+  image_path?: string;
+  description?: string;
+  subcategory_count?: number;
+  product_count?: number;
+  piece_count?: number;
+};
 export type Product = {
   id: string;
   sku: string;
@@ -39,6 +73,16 @@ export type Product = {
   subcategory_id?: string;
   subcategory_name?: string;
   category_id?: string;
+  fabric?: string;
+  design?: string;
+  saree_type?: string;
+  barcode?: string;
+  compare_at_price_paise?: number;
+  stock_on_hand?: number;
+  pieces?: IndividualPiece[];
+  total_pieces?: number;
+  available_pieces?: number;
+  sold_pieces?: number;
 };
 export type Settings = {
   brand_name: string;
@@ -90,21 +134,56 @@ export function safeReturn(value: string | null) {
     ? value
     : "/account";
 }
-export const publicProduct = (p: Record<string, unknown>): Product => ({
-  id: String(p.id),
-  sku: String(p.sku),
-  slug: String(p.slug),
-  name: String(p.name),
-  category: String(p.category_name ?? p.category),
-  colour: String(p.colour),
-  description: String(p.description),
-  image_path: String(p.image_path),
-  price_paise: Number(p.price_paise),
-  discount_percent: p.effective_price_paise!=null&&Number(p.price_paise)>0 ? Math.round((1-Number(p.effective_price_paise)/Number(p.price_paise))*10000)/100 : Number(p.discount_percent),
-  available: Math.max(0, Number(p.stock_on_hand) - Number(p.reserved)),
-  featured: Boolean(p.featured),
-  effective_price_paise: p.effective_price_paise==null?undefined:Number(p.effective_price_paise),
-  subcategory_id: p.subcategory_id==null?undefined:String(p.subcategory_id),
-  subcategory_name: p.subcategory_name==null?undefined:String(p.subcategory_name),
-  category_id: p.category_id==null?undefined:String(p.category_id),
-});
+export const publicProduct = (p: Record<string, unknown>): Product => {
+  const rawPieces = Array.isArray(p.pieces) ? (p.pieces as IndividualPiece[]) : [];
+  // Strip admin-only fields (purchase_cost_paise, location) for public customer consumption
+  const publicPieces: IndividualPiece[] | undefined = rawPieces.length > 0
+    ? rawPieces.map((piece) => ({
+        id: String(piece.id),
+        product_id: String(piece.product_id),
+        piece_code: String(piece.piece_code || ""),
+        barcode: String(piece.barcode || ""),
+        colour: String(piece.colour || p.colour || ""),
+        price_paise: Number(piece.price_paise || p.price_paise || 0),
+        status: (piece.status || "available") as PieceStatus,
+        image_path: piece.image_path ? String(piece.image_path) : undefined,
+        created_at: String(piece.created_at || new Date().toISOString()),
+        unit_id: piece.unit_id != null ? piece.unit_id : undefined,
+      }))
+    : undefined;
+
+  const totalPieces = publicPieces ? publicPieces.length : undefined;
+  const availPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "available").length : undefined;
+  const soldPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "sold").length : undefined;
+
+  return {
+    id: String(p.id),
+    sku: String(p.sku),
+    slug: String(p.slug),
+    name: String(p.name),
+    category: String(p.category_name ?? p.category),
+    colour: String(p.colour),
+    description: String(p.description),
+    image_path: String(p.image_path),
+    price_paise: Number(p.price_paise),
+    discount_percent: p.effective_price_paise != null && Number(p.price_paise) > 0
+      ? Math.round((1 - Number(p.effective_price_paise) / Number(p.price_paise)) * 10000) / 100
+      : Number(p.discount_percent),
+    available: Math.max(0, Number(p.stock_on_hand) - Number(p.reserved)),
+    stock_on_hand: Number(p.stock_on_hand || 0),
+    featured: Boolean(p.featured),
+    effective_price_paise: p.effective_price_paise == null ? undefined : Number(p.effective_price_paise),
+    subcategory_id: p.subcategory_id == null ? undefined : String(p.subcategory_id),
+    subcategory_name: p.subcategory_name == null ? undefined : String(p.subcategory_name),
+    category_id: p.category_id == null ? undefined : String(p.category_id),
+    fabric: p.fabric ? String(p.fabric) : undefined,
+    design: p.design ? String(p.design) : undefined,
+    saree_type: p.saree_type ? String(p.saree_type) : undefined,
+    barcode: p.barcode ? String(p.barcode) : undefined,
+    compare_at_price_paise: p.compare_at_price_paise != null ? Number(p.compare_at_price_paise) : undefined,
+    pieces: publicPieces,
+    total_pieces: totalPieces,
+    available_pieces: availPieces,
+    sold_pieces: soldPieces,
+  };
+};

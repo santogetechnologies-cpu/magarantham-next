@@ -21,9 +21,16 @@ export async function GET(
   },
 ) {
   try {
-    const s = await identity();
     const { resource } = await params;
-    if (resource === "session") return ok({ profile: s.profile });
+    if (resource === "session") {
+      try {
+        const s = await identity();
+        return ok({ profile: s.profile });
+      } catch {
+        return ok({ profile: null });
+      }
+    }
+    const s = await identity();
     const allowed = ["orders", "notifications", "addresses", "wishlist"];
     if (!allowed.includes(resource)) throw new Fault(404, "NOT_FOUND");
     const page = z.coerce

@@ -1,0 +1,1056 @@
+"use client";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
+import { compressImage, validateImageFile } from "@/lib/image-compress";
+
+export type ProductFormData = {
+  id?: string;
+  name: string;
+  sku: string;
+  barcode: string | null;
+  slug: string;
+  category: string;
+  subcategory_id: string | null;
+  saree_type: string;
+  fabric: string;
+  colour: string;
+  design: string;
+  description: string;
+  image_path: string;
+  purchase_price_paise: number;
+  price_paise: number;
+  compare_at_price_paise: number;
+  discount_percent: number;
+  stock_on_hand?: number;
+  min_stock_level: number;
+  published: boolean;
+  featured: boolean;
+  archived: boolean;
+};
+
+type CategoryOption = {
+  id: string;
+  parent_id?: string | null;
+  name: string;
+  slug?: string;
+  active?: boolean;
+  image_path?: string;
+};
+
+type PieceRow = {
+  key: string;
+  id?: string;
+  piece_code: string;
+  barcode: string;
+  colour: string;
+  priceRupees: string;
+  purchaseCostRupees: string;
+  status: "available" | "reserved" | "sold" | "damaged" | "returned";
+  location: string;
+  image_path?: string;
+};
+
+type VariantRow = {
+  key: string;
+  existingProductId?: string;
+  existingSku?: string;
+  existingSlug?: string;
+  existingStock?: number;
+  typeName: string;
+  colour: string;
+  priceRupees: string;
+  stock: string;
+  minStock: string;
+  image_path: string;
+  uploading?: boolean;
+};
+
+const COLOUR_PRESETS: { name: string; hex: string }[] = [
+  { name: "Purple", hex: "#7C3AED" },
+  { name: "Green", hex: "#2E7D32" },
+  { name: "Red", hex: "#C62828" },
+  { name: "Crimson Red", hex: "#B91C1C" },
+  { name: "Maroon", hex: "#800020" },
+  { name: "Beige", hex: "#D4A373" },
+  { name: "Blue", hex: "#1D4ED8" },
+  { name: "Gold", hex: "#C49A52" },
+  { name: "Pink", hex: "#DB2777" },
+  { name: "Magenta", hex: "#A21CAF" },
+  { name: "Ivory", hex: "#E7DFD3" },
+  { name: "Yellow", hex: "#CA8A04" },
+  { name: "Teal", hex: "#0F766E" },
+  { name: "Orange", hex: "#EA580C" },
+  { name: "Terracotta", hex: "#B45309" },
+  { name: "Wine", hex: "#650019" },
+];
+
+function colourHex(name: string): string {
+  const found = COLOUR_PRESETS.find(
+    (c) => c.name.toLowerCase() === (name || "").trim().toLowerCase(),
+  );
+  return found ? found.hex : "#800020";
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function uniqueSuffix(): string {
+  return Math.random().toString(36).slice(2, 6);
+}
+
+export function ProductModal({
+  product,
+  categories = [],
+  onClose,
+  onSaved,
+}: {
+  product?: Partial<ProductFormData> | null;
+  categories: CategoryOption[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEditing = Boolean(product?.id);
+
+  const [internalCategories, setInternalCategories] = useState<CategoryOption[]>(
+    categories && categories.length > 0 ? categories : [],
+  );
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      setInternalCategories(categories);
+    } else {
+      api<{ rows: CategoryOption[] }>("/api/erp/product_categories?page=0")
+        .then((res) => {
+          if (res?.rows?.length) setInternalCategories(res.rows);
+        })
+        .catch(() => {});
+    }
+  }, [categories]);
+
+  const mainCategories = useMemo(
+    () => internalCategories.filter((c) => !c.parent_id && c.active !== false),
+    [internalCategories],
+  );
+
+  const initialCategory = useMemo(() => {
+    if (product?.subcategory_id) {
+      const sub = internalCategories.find((c) => c.id === product.subcategory_id);
+      if (sub?.parent_id) {
+        const parent = internalCategories.find((c) => c.id === sub.parent_id);
+        if (parent) return parent.name;
+      }
+    }
+    return product?.category || mainCategories[0]?.name || "Kanchipuram";
+  }, [product, internalCategories, mainCategories]);
+
+  const [productName, setProductName] = useState(product?.name || "");
+  const [description, setDescription] = useState(product?.description || "");
+  const [category, setCategory] = useState(initialCategory);
+  const [subcategoryId, setSubcategoryId] = useState<string>(product?.subcategory_id || "");
+  const [newSubcategoryName, setNewSubcategoryName] = useState("");
+  const [showNewSubcategoryInput, setShowNewSubcategoryInput] = useState(false);
+  const [fabric, setFabric] = useState(product?.fabric || "Pure Mulberry Silk");
+  const [design, setDesign] = useState(product?.design || "Traditional Zari Border");
+  const [basePriceRupees, setBasePriceRupees] = useState(
+    product?.price_paise ? String(product.price_paise / 100) : "",
+  );
+  const [purchasePriceRupees, setPurchasePriceRupees] = useState(
+    product?.purchase_price_paise ? String(product.purchase_price_paise / 100) : "",
+  );
+  const [published, setPublished] = useState(product?.published ?? true);
+  const [featured, setFeatured] = useState(product?.featured ?? false);
+  const [mainImage, setMainImage] = useState(product?.image_path || "");
+  const [mainUploading, setMainUploading] = useState(false);
+
+  // Sync category if product arrives late
+  useEffect(() => {
+    if (!category && initialCategory) {
+      setCategory(initialCategory);
+    }
+  }, [initialCategory, category]);
+
+  // Selected Main Category Object
+  const selectedMainObj = useMemo(() => {
+    return (
+      mainCategories.find(
+        (m) => m.name.toLowerCase() === (category || "").trim().toLowerCase(),
+      ) || null
+    );
+  }, [mainCategories, category]);
+
+  // Subcategories strictly belonging to the selected main category
+  const existingSubcategories = useMemo(() => {
+    if (!selectedMainObj) return [];
+    return internalCategories.filter(
+      (c) =>
+        c.parent_id === selectedMainObj.id &&
+        c.active !== false &&
+        c.name.toLowerCase() !== "all styles",
+    );
+  }, [internalCategories, selectedMainObj]);
+
+  // Automatically select the first subcategory if none selected
+  useEffect(() => {
+    if (existingSubcategories.length > 0 && !subcategoryId) {
+      setSubcategoryId(existingSubcategories[0].id);
+    }
+  }, [existingSubcategories, subcategoryId]);
+
+  // -------------------------------------------------------------
+  // LEVEL 4: INDIVIDUAL PHYSICAL PIECES MANAGEMENT
+  // -------------------------------------------------------------
+  const [pieces, setPieces] = useState<PieceRow[]>([]);
+  const [piecesTab, setPiecesTab] = useState<"pieces" | "variants">("pieces");
+
+  // Load existing individual pieces if editing product
+  useEffect(() => {
+    if (product?.id) {
+      api<{ pieces: any[] }>(`/api/admin/pieces?product_id=${product.id}`)
+        .then((res) => {
+          if (res?.pieces && Array.isArray(res.pieces) && res.pieces.length > 0) {
+            setPieces(
+              res.pieces.map((p) => ({
+                key: p.id || `pc-${Math.random().toString(36).slice(2, 6)}`,
+                id: p.id,
+                piece_code: p.piece_code || "",
+                barcode: p.barcode || "",
+                colour: p.colour || "Purple",
+                priceRupees: p.price_paise ? String(p.price_paise / 100) : "",
+                purchaseCostRupees: p.purchase_cost_paise
+                  ? String(p.purchase_cost_paise / 100)
+                  : "",
+                status: p.status || "available",
+                location: p.location || "Rack A-1",
+                image_path: p.image_path || "",
+              })),
+            );
+          } else {
+            // Initialize 1 default piece from product info
+            setPieces([
+              {
+                key: `pc-init-1`,
+                piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
+                barcode: `MSU${Date.now().toString().slice(-7)}001`,
+                colour: product.colour || "Purple",
+                priceRupees: product.price_paise ? String(product.price_paise / 100) : "",
+                purchaseCostRupees: product.purchase_price_paise
+                  ? String(product.purchase_price_paise / 100)
+                  : "",
+                status: "available",
+                location: "Rack A-1",
+              },
+            ]);
+          }
+        })
+        .catch(() => {});
+    } else {
+      // New Product: Initialize default 1st piece
+      setPieces([
+        {
+          key: `pc-new-1`,
+          piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
+          barcode: `MSU${Date.now().toString().slice(-7)}001`,
+          colour: "Purple",
+          priceRupees: basePriceRupees || "5000",
+          purchaseCostRupees: purchasePriceRupees || "3500",
+          status: "available",
+          location: "Rack A-1",
+        },
+      ]);
+    }
+  }, [product?.id]);
+
+  // Variant Rows (for legacy multi-variant mode if needed)
+  const [variants, setVariants] = useState<VariantRow[]>([
+    {
+      key: "v-1",
+      typeName: "",
+      colour: "Purple",
+      priceRupees: "",
+      stock: "",
+      minStock: "0",
+      image_path: "",
+    },
+  ]);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const mainFileRef = useRef<HTMLInputElement>(null);
+  const variantFileRef = useRef<HTMLInputElement>(null);
+  const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null);
+
+  // Piece inventory counts
+  const pieceStats = useMemo(() => {
+    const total = pieces.length;
+    const available = pieces.filter((p) => p.status === "available").length;
+    const reserved = pieces.filter((p) => p.status === "reserved").length;
+    const sold = pieces.filter((p) => p.status === "sold").length;
+    const damaged = pieces.filter((p) => p.status === "damaged").length;
+    const returned = pieces.filter((p) => p.status === "returned").length;
+    return { total, available, reserved, sold, damaged, returned };
+  }, [pieces]);
+
+  function addPieceRow() {
+    const nextIdx = pieces.length + 1;
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+    const nextCol = COLOUR_PRESETS[(nextIdx - 1) % COLOUR_PRESETS.length].name;
+    const colCode = nextCol.slice(0, 3).toUpperCase();
+    const pieceCode = `${catCode}-${colCode}-${String(nextIdx).padStart(3, "0")}`;
+    const barcode = `MSU${Date.now().toString().slice(-7)}${String(nextIdx).padStart(3, "0")}`;
+
+    setPieces((prev) => [
+      ...prev,
+      {
+        key: `pc-${Date.now()}-${nextIdx}`,
+        piece_code: pieceCode,
+        barcode,
+        colour: nextCol,
+        priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || "5000"),
+        purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || "3500"),
+        status: "available",
+        location: `Rack A-${nextIdx}`,
+      },
+    ]);
+  }
+
+  function updatePiece(key: string, patch: Partial<PieceRow>) {
+    setPieces((prev) =>
+      prev.map((p) => (p.key === key ? { ...p, ...patch } : p)),
+    );
+  }
+
+  function removePiece(key: string) {
+    setPieces((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((p) => p.key !== key);
+    });
+  }
+
+  function autoGeneratePieceCodes() {
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+    setPieces((prev) =>
+      prev.map((p, idx) => {
+        const colCode = (p.colour || "DEF").slice(0, 3).toUpperCase();
+        return {
+          ...p,
+          piece_code: `${catCode}-${colCode}-${String(idx + 1).padStart(3, "0")}`,
+          barcode: p.barcode || `MSU${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`,
+        };
+      }),
+    );
+  }
+
+  async function compressAndUpload(file: File): Promise<string> {
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      throw new Error("Please choose a valid JPG, PNG, or WebP image.");
+    }
+    const compressed = await compressImage(file, {
+      maxSizeKB: 60,
+      minSizeKB: 1,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      preferFormat: "image/webp",
+    });
+    const formData = new FormData();
+    formData.append("kind", "product");
+    formData.append("file", compressed.file);
+    const res = await fetch("/api/uploads", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.error || "Image upload failed.");
+    }
+    return String(data.url);
+  }
+
+  async function handleMainImageSelected(file: File) {
+    setError("");
+    setMainUploading(true);
+    try {
+      const url = await compressAndUpload(file);
+      setMainImage(url);
+    } catch (err) {
+      setError((err as Error).message || "Unable to upload image.");
+    } finally {
+      setMainUploading(false);
+    }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    const trimmedName = productName.trim();
+    if (!trimmedName) {
+      setError("Product Name is required. Please enter a name for the saree.");
+      return;
+    }
+
+    if (!category || !selectedMainObj) {
+      setError("Main Category is required. Please choose a category from the dropdown.");
+      return;
+    }
+
+    // Determine final subcategory ID
+    let finalSubcategoryId = subcategoryId;
+    if (showNewSubcategoryInput && newSubcategoryName.trim()) {
+      try {
+        const newSubSlug = slugify(`${selectedMainObj.name}-${newSubcategoryName.trim()}`);
+        const res = await api<{ id: string }>("/api/erp/product_categories", {
+          id: null,
+          data: {
+            parent_id: selectedMainObj.id,
+            name: newSubcategoryName.trim().slice(0, 80),
+            slug: newSubSlug,
+            active: true,
+          },
+        });
+        if (res?.id) {
+          finalSubcategoryId = res.id;
+        }
+      } catch (subErr) {
+        setError(`Could not create subcategory: ${(subErr as Error).message}`);
+        return;
+      }
+    }
+
+    // If still no subcategory, check if there is an "All styles" subcategory or use first
+    if (!finalSubcategoryId) {
+      const defaultSub = internalCategories.find(
+        (c) => c.parent_id === selectedMainObj.id && c.name.toLowerCase() === "all styles",
+      );
+      if (defaultSub) finalSubcategoryId = defaultSub.id;
+      else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
+    }
+
+    // Price calculation
+    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, ""));
+    const pricePaise = pieces.length > 0
+      ? Math.round(Number(pieces[0].priceRupees || 0) * 100)
+      : Math.round(basePriceNum * 100);
+
+    const purchasePriceNum = Number(String(purchasePriceRupees || "").replace(/,/g, ""));
+    const purchasePricePaise = Math.round(purchasePriceNum * 100);
+
+    // Stock on hand is calculated directly from AVAILABLE pieces
+    const stockOnHand = pieces.filter((p) => p.status === "available").length;
+
+    setSaving(true);
+    try {
+      const catPrefix = slugify(category).slice(0, 4).toUpperCase() || "SAR";
+      const baseSlug =
+        product?.slug ||
+        `${slugify(trimmedName) || "saree"}-${slugify(pieces[0]?.colour || "silk")}-${uniqueSuffix()}`.slice(0, 118);
+      const sku =
+        product?.sku ||
+        `MS-${catPrefix}-${slugify(trimmedName).slice(0, 5).toUpperCase()}-${uniqueSuffix().toUpperCase()}`;
+
+      // 1. Save Product Record
+      const savedProduct = await api<{ id: string }>("/api/admin/products", {
+        id: product?.id || null,
+        data: {
+          name: trimmedName,
+          sku,
+          barcode: product?.barcode || null,
+          slug: baseSlug,
+          category: selectedMainObj.name,
+          subcategory_id: finalSubcategoryId || null,
+          saree_type: `${selectedMainObj.name} Silk`,
+          fabric: fabric.trim() || "Pure Mulberry Silk",
+          colour: pieces[0]?.colour || product?.colour || "Purple",
+          design: design.trim() || "Traditional Zari Border",
+          description: description.trim(),
+          image_path: mainImage || "",
+          purchase_price_paise: purchasePricePaise,
+          price_paise: pricePaise,
+          compare_at_price_paise: product?.compare_at_price_paise || 0,
+          discount_percent: product?.discount_percent || 0,
+          min_stock_level: 0,
+          published,
+          featured,
+          archived: false,
+        },
+      });
+
+      const targetProductId = savedProduct?.id || product?.id;
+      if (!targetProductId) {
+        throw new Error("Product saved, but no product ID was returned.");
+      }
+
+      // 2. Save Level 4 Individual Pieces
+      if (pieces.length > 0) {
+        await api("/api/admin/pieces", {
+          product_id: targetProductId,
+          pieces: pieces.map((p) => ({
+            id: p.id,
+            product_id: targetProductId,
+            piece_code: p.piece_code.trim(),
+            barcode: p.barcode.trim(),
+            colour: p.colour.trim(),
+            price_paise: Math.round(Number(p.priceRupees || 0) * 100),
+            purchase_cost_paise: p.purchaseCostRupees
+              ? Math.round(Number(p.purchaseCostRupees) * 100)
+              : undefined,
+            status: p.status,
+            location: p.location.trim(),
+            image_path: p.image_path || mainImage,
+          })),
+        });
+      }
+
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message || "Failed to save saree.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="ap-page-root" onSubmit={handleSave}>
+      <input
+        ref={mainFileRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void handleMainImageSelected(file);
+        }}
+      />
+
+      {/* Top Header Bar */}
+      <div className="ap-header-bar">
+        <div>
+          <h1 className="ap-title">{isEditing ? "Edit Saree" : "Add Saree"}</h1>
+          <p className="ap-subtitle">
+            4-Level Hierarchy: Main Category → Sub Category → Product → Individual Pieces
+          </p>
+        </div>
+
+        <div className="ap-header-actions">
+          <button
+            type="button"
+            className="button outline-btn ap-cancel-btn"
+            disabled={saving}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="button ap-save-btn"
+            disabled={saving || mainUploading}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{saving ? "Saving Saree..." : "Save Saree"}</span>
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="ap-error-banner" role="alert">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* 2-Column Form Layout */}
+      <div className="ap-columns-grid">
+        {/* LEFT COLUMN: Main Cover Photo */}
+        <section className="ap-card ap-photo-card">
+          <h2 className="ap-photo-heading">Saree Cover Photo</h2>
+          <div className="ap-photo-preview-wrap">
+            {mainImage ? (
+              <img
+                src={mainImage}
+                alt={productName || "Saree cover"}
+                className="ap-photo-preview-img"
+              />
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  minHeight: 220,
+                  color: "#800020",
+                  background: "#FBF7F0",
+                  gap: 10,
+                  cursor: "pointer",
+                }}
+                onClick={() => mainFileRef.current?.click()}
+              >
+                <span style={{ fontSize: 32, opacity: 0.6 }}>📷</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#800020" }}>
+                  Upload Saree Photo
+                </span>
+                <span style={{ fontSize: 11, color: "#666" }}>
+                  PNG, JPG or WEBP
+                </span>
+              </div>
+            )}
+            {mainUploading && (
+              <div className="ap-photo-loading" role="status">
+                <span className="spinner-gold" />
+                <span>Optimizing Image...</span>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="ap-change-img-btn"
+            disabled={mainUploading}
+            onClick={() => mainFileRef.current?.click()}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+            <span>{mainUploading ? "Optimizing Image..." : "Change Image"}</span>
+          </button>
+        </section>
+
+        {/* RIGHT COLUMN: Hierarchy, Details & Physical Pieces */}
+        <div className="ap-right-col">
+          {/* Card 1: Product Name, Main Category & Subcategory */}
+          <section className="ap-card ap-details-card">
+            <label className="ap-field">
+              <span className="ap-label">
+                Product Name <em className="ap-req">*</em>
+              </span>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Kanchipuram Purple Gold Zari Saree"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="ap-input"
+              />
+            </label>
+
+            {/* LEVEL 1 & LEVEL 2: DYNAMIC CATEGORY HIERARCHY */}
+            <div className="ap-category-flags-row" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              {/* Level 1: Main Category */}
+              <label className="ap-field" style={{ flex: "1 1 200px" }}>
+                <span className="ap-label">
+                  1. Main Category <em className="ap-req">*</em>
+                </span>
+                <select
+                  value={category}
+                  required
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setSubcategoryId("");
+                    setShowNewSubcategoryInput(false);
+                  }}
+                  className="ap-select"
+                >
+                  <option value="" disabled>-- Select Main Category --</option>
+                  {mainCategories.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Level 2: Sub Category */}
+              <label className="ap-field" style={{ flex: "1 1 200px" }}>
+                <span className="ap-label">
+                  2. Sub Category <em className="ap-req">*</em>
+                </span>
+                <select
+                  value={showNewSubcategoryInput ? "__new__" : subcategoryId}
+                  required={!showNewSubcategoryInput}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setShowNewSubcategoryInput(true);
+                    } else {
+                      setShowNewSubcategoryInput(false);
+                      setSubcategoryId(e.target.value);
+                    }
+                  }}
+                  className="ap-select"
+                >
+                  <option value="" disabled>-- Select {category} Subcategory --</option>
+                  {existingSubcategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                  <option value="__new__">＋ Add New Subcategory...</option>
+                </select>
+              </label>
+
+              <div className="ap-flags-group" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <label className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={published}
+                    onChange={(e) => setPublished(e.target.checked)}
+                  />
+                  <span>Published</span>
+                </label>
+                <label className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={featured}
+                    onChange={(e) => setFeatured(e.target.checked)}
+                  />
+                  <span>Featured</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Inline New Subcategory Input if requested */}
+            {showNewSubcategoryInput && (
+              <div
+                style={{
+                  background: "#FBF7F0",
+                  padding: "10px 14px",
+                  borderRadius: 6,
+                  border: "1px dashed #C49A52",
+                  marginTop: 6,
+                }}
+              >
+                <label className="ap-field" style={{ margin: 0 }}>
+                  <span className="ap-label" style={{ color: "#800020" }}>
+                    New Subcategory for {category}:
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="e.g. Pure Zari, Korvai, Bridal Kanchipuram..."
+                      value={newSubcategoryName}
+                      onChange={(e) => setNewSubcategoryName(e.target.value)}
+                      className="ap-input"
+                    />
+                    <button
+                      type="button"
+                      className="button outline-btn"
+                      onClick={() => setShowNewSubcategoryInput(false)}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+              <label className="ap-field" style={{ flex: "1 1 180px" }}>
+                <span className="ap-label">Fabric</span>
+                <input
+                  type="text"
+                  placeholder="e.g. Pure Mulberry Silk"
+                  value={fabric}
+                  onChange={(e) => setFabric(e.target.value)}
+                  className="ap-input"
+                />
+              </label>
+
+              <label className="ap-field" style={{ flex: "1 1 180px" }}>
+                <span className="ap-label">Design / Weave</span>
+                <input
+                  type="text"
+                  placeholder="e.g. Traditional Zari Border"
+                  value={design}
+                  onChange={(e) => setDesign(e.target.value)}
+                  className="ap-input"
+                />
+              </label>
+            </div>
+
+            <label className="ap-field" style={{ marginTop: 10 }}>
+              <span className="ap-label">Description</span>
+              <textarea
+                rows={2}
+                placeholder="Traditional Kanchipuram silk saree with rich zari work and elegant border."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="ap-textarea"
+              />
+            </label>
+          </section>
+
+          {/* Card 2: LEVEL 4 INDIVIDUAL PHYSICAL PIECES MANAGEMENT */}
+          <section className="ap-card ap-variants-card">
+            <div className="ap-variants-header">
+              <div>
+                <h2 className="ap-variants-title">Level 4: Individual Saree Pieces (Physical Stock)</h2>
+                <p className="ap-variants-subtitle">
+                  Each physical saree has its own unique piece code, individual price, and stock status.
+                </p>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
+                    Available: {pieceStats.available}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
+                    Sold: {pieceStats.sold}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                    Reserved: {pieceStats.reserved}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
+                    Total: {pieceStats.total} Pieces
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  onClick={autoGeneratePieceCodes}
+                  title="Auto format piece codes"
+                  style={{ fontSize: 12, padding: "6px 10px" }}
+                >
+                  ⚡ Auto-Code
+                </button>
+                <button
+                  type="button"
+                  className="button ap-add-variant-btn"
+                  onClick={addPieceRow}
+                >
+                  <span className="ap-btn-plus">+</span>
+                  <span>Add Saree Piece</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="ap-variants-table-wrapper">
+              <table className="ap-variants-table">
+                <thead>
+                  <tr className="ap-variants-thead-row">
+                    <th style={{ width: 130 }}>Piece Code</th>
+                    <th style={{ width: 100 }}>Colour</th>
+                    <th style={{ width: 110 }}>Price (₹)</th>
+                    <th style={{ width: 110 }}>Cost (₹, admin)</th>
+                    <th style={{ width: 110 }}>Location</th>
+                    <th style={{ width: 120 }}>Stock Status</th>
+                    <th style={{ width: 40 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pieces.map((pc, idx) => (
+                    <tr className="ap-variant-table-row" key={pc.key}>
+                      {/* Piece Code */}
+                      <td>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. KAN-PUR-001"
+                          value={pc.piece_code}
+                          onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
+                          className="ap-inline-input"
+                          style={{ fontWeight: 600, color: "#800020" }}
+                        />
+                      </td>
+
+                      {/* Colour */}
+                      <td>
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span
+                            style={{
+                              backgroundColor: colourHex(pc.colour),
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              border: "1px solid rgba(0,0,0,0.15)",
+                            }}
+                          />
+                          <select
+                            value={pc.colour}
+                            onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
+                            className="ap-inline-select"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: "#800020",
+                            }}
+                          >
+                            {COLOUR_PRESETS.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
+
+                      {/* Individual Price (₹) */}
+                      <td>
+                        <div className="ap-inline-price-wrap">
+                          <span className="ap-rupee-symbol">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={pc.priceRupees}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { priceRupees: val });
+                              }
+                            }}
+                            className="ap-inline-input"
+                            aria-label="Individual piece price"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Purchase Cost (₹, admin only) */}
+                      <td>
+                        <div className="ap-inline-price-wrap">
+                          <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={pc.purchaseCostRupees}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { purchaseCostRupees: val });
+                              }
+                            }}
+                            className="ap-inline-input"
+                            aria-label="Admin purchase cost"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Stock Location */}
+                      <td>
+                        <input
+                          type="text"
+                          placeholder="e.g. Rack A-1"
+                          value={pc.location}
+                          onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
+                          className="ap-inline-input"
+                          style={{ fontSize: 12 }}
+                        />
+                      </td>
+
+                      {/* Stock Status */}
+                      <td>
+                        <select
+                          value={pc.status}
+                          onChange={(e) =>
+                            updatePiece(pc.key, {
+                              status: e.target.value as PieceRow["status"],
+                            })
+                          }
+                          className="ap-inline-select"
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            padding: "4px 8px",
+                            borderRadius: 4,
+                            background:
+                              pc.status === "available"
+                                ? "#DCFCE7"
+                                : pc.status === "sold"
+                                  ? "#F1F5F9"
+                                  : pc.status === "reserved"
+                                    ? "#FEF3C7"
+                                    : "#FEE2E2",
+                            color:
+                              pc.status === "available"
+                                ? "#166534"
+                                : pc.status === "sold"
+                                  ? "#475569"
+                                  : pc.status === "reserved"
+                                    ? "#92400E"
+                                    : "#991B1B",
+                          }}
+                        >
+                          <option value="available">Available</option>
+                          <option value="reserved">Reserved</option>
+                          <option value="sold">Sold</option>
+                          <option value="damaged">Damaged</option>
+                          <option value="returned">Returned</option>
+                        </select>
+                      </td>
+
+                      {/* Delete */}
+                      <td>
+                        <button
+                          type="button"
+                          className="ap-variant-del-btn"
+                          disabled={pieces.length <= 1}
+                          onClick={() => removePiece(pc.key)}
+                          title="Remove physical piece"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </form>
+  );
+}

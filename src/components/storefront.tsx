@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Product, Settings, money, unitPrice } from "@/lib/core";
+import { CategoryItem, Product, Settings, money, unitPrice } from "@/lib/core";
 import { Catalogue, ProductCard } from "./catalogue";
 import { useShop } from "./shop-context";
 import { api } from "./api";
@@ -71,10 +71,12 @@ export function Home({
   settings: s,
   products,
   banners,
+  categories = [],
 }: {
   settings: Settings;
   products: Product[];
   banners: Banner[];
+  categories?: CategoryItem[];
 }) {
   return (
     <>
@@ -120,32 +122,65 @@ export function Home({
           </Link>
         </div>
         <div className="collection-grid">
-          {[products[0], products[3], products[16], products[5]]
-            .filter(Boolean)
-            .map((p, i) => (
-              <Link
-                data-reveal
-                className={`collection-card collection-${i}`}
-                key={p.id}
-                href={`/shop?category=${encodeURIComponent(p.category)}`}
-              >
-                <img src={p.image_path} alt={p.category} loading="lazy" />
-                <div>
-                  <span className="eyebrow">
-                    {
-                      [
-                        "The silk collection",
-                        "For your big day",
-                        "Easy, everyday wear",
-                        "Light & lovely",
-                      ][i]
-                    }
-                  </span>
-                  <h3>{p.category}</h3>
-                  <span>Shop collection ↗</span>
-                </div>
-              </Link>
-            ))}
+          {(categories && categories.length > 0
+            ? categories.filter((c) => !c.parent_id && c.active !== false)
+            : []
+          ).length > 0
+            ? categories
+                .filter((c) => !c.parent_id && c.active !== false)
+                .map((cat, i) => {
+                  const fallbackThumb =
+                    cat.image_path ||
+                    products.find(
+                      (p) =>
+                        p.category.toLowerCase() === cat.name.toLowerCase() &&
+                        p.image_path,
+                    )?.image_path ||
+                    "/assets/brand-logo.png";
+                  return (
+                    <Link
+                      data-reveal
+                      className={`collection-card collection-${i % 4}`}
+                      key={cat.id}
+                      href={`/category/${cat.slug}`}
+                    >
+                      <img src={fallbackThumb} alt={cat.name} loading="lazy" />
+                      <div>
+                        <span className="eyebrow">
+                          {cat.description
+                            ? cat.description.slice(0, 42)
+                            : "Handcrafted Pure Silk"}
+                        </span>
+                        <h3>{cat.name}</h3>
+                        <span>Explore Collection ↗</span>
+                      </div>
+                    </Link>
+                  );
+                })
+            : [products[0], products[3], products[16], products[5]]
+                .filter(Boolean)
+                .map((p, i) => (
+                  <Link
+                    data-reveal
+                    className={`collection-card collection-${i % 4}`}
+                    key={p.id}
+                    href={`/shop?category=${encodeURIComponent(p.category)}`}
+                  >
+                    <img src={p.image_path} alt={p.category} loading="lazy" />
+                    <div>
+                      <span className="eyebrow">
+                        {[
+                          "The silk collection",
+                          "For your big day",
+                          "Easy, everyday wear",
+                          "Light & lovely",
+                        ][i % 4]}
+                      </span>
+                      <h3>{p.category}</h3>
+                      <span>Shop collection ↗</span>
+                    </div>
+                  </Link>
+                ))}
         </div>
       </section>
       <section className="section featured-section">
@@ -225,6 +260,29 @@ export function Home({
     </>
   );
 }
+function colourHex(name?: string): string {
+  const map: Record<string, string> = {
+    purple: "#7C3AED",
+    green: "#2E7D32",
+    red: "#C62828",
+    "crimson red": "#B91C1C",
+    maroon: "#800020",
+    beige: "#D4A373",
+    blue: "#1D4ED8",
+    gold: "#C49A52",
+    pink: "#DB2777",
+    magenta: "#A21CAF",
+    ivory: "#E7DFD3",
+    yellow: "#CA8A04",
+    teal: "#0F766E",
+    orange: "#EA580C",
+    terracotta: "#B45309",
+    wine: "#650019",
+  };
+  const key = (name || "").trim().toLowerCase();
+  return map[key] || "#800020";
+}
+
 export function ProductDetail({
   p,
   settings: s,
@@ -233,52 +291,146 @@ export function ProductDetail({
   settings: Settings;
 }) {
   const { add } = useShop();
+  const pieces = p.pieces || [];
+  const firstAvailablePiece = pieces.find((pc) => pc.status === "available") || pieces[0] || null;
+  const [selectedPiece, setSelectedPiece] = useState(firstAvailablePiece);
+
+  // Active pricing calculation
+  const rawPrice = selectedPiece?.price_paise ?? p.price_paise;
+  const effectivePrice = p.discount_percent > 0
+    ? Math.round(rawPrice * (1 - p.discount_percent / 100))
+    : rawPrice;
+
+  const isSoldOut = selectedPiece ? selectedPiece.status !== "available" : p.available < 1;
+
   return (
     <section className="section detail-layout">
       <div className="detail-photo">
-        <img src={p.image_path} alt={p.name} />
+        <img src={selectedPiece?.image_path || p.image_path} alt={p.name} />
       </div>
       <div className="detail-copy">
-        <Link className="text-link" href="/shop">
-          ← All sarees
-        </Link>
+        <nav className="shop-breadcrumbs" aria-label="Breadcrumb">
+          <Link href="/">Home</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/shop">All sarees</Link>
+          <span aria-hidden="true">/</span>
+          <Link href={`/shop/${encodeURIComponent((p.category || "sarees").toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}>
+            {p.category}
+          </Link>
+          {p.subcategory_name &&
+            p.subcategory_name.toLowerCase() !== "all styles" && (
+              <>
+                <span aria-hidden="true">/</span>
+                <Link
+                  href={`/shop/${encodeURIComponent((p.category || "sarees").toLowerCase().replace(/[^a-z0-9]+/g, "-"))}/${encodeURIComponent(p.subcategory_name.toLowerCase().replace(/[^a-z0-9]+/g, "-"))}`}
+                >
+                  {p.subcategory_name}
+                </Link>
+              </>
+            )}
+        </nav>
         <p className="eyebrow">
-          {p.category} · {p.colour}
+          {p.category}
+          {p.subcategory_name && p.subcategory_name.toLowerCase() !== "all styles"
+            ? ` · ${p.subcategory_name}`
+            : ""}{" "}
+          {p.fabric ? ` · ${p.fabric}` : ""}
+          {p.colour ? ` · ${p.colour}` : ""}
         </p>
         <h1>{p.name}</h1>
         <p className="price">
-          {money(unitPrice(p))}{" "}
-          {p.discount_percent > 0 && <del>{money(p.price_paise)}</del>}
+          {money(effectivePrice)}{" "}
+          {p.discount_percent > 0 && <del>{money(rawPrice)}</del>}
         </p>
         <p>{p.description}</p>
+
+        {/* 4-LEVEL PIECE SELECTOR (Level 4: Individual physical saree pieces) */}
+        {pieces.length > 0 && (
+          <div className="product-pieces-selector">
+            <div className="piece-selector-header">
+              <span className="eyebrow" style={{ margin: 0 }}>
+                Select Physical Saree Piece ({p.available} available):
+              </span>
+              {selectedPiece && (
+                <span className="selected-piece-pill">
+                  Active Piece: <strong>{selectedPiece.piece_code}</strong> ({selectedPiece.colour})
+                </span>
+              )}
+            </div>
+            <div className="piece-chips-grid">
+              {pieces.map((pc) => {
+                const isAvail = pc.status === "available";
+                const isSelected = selectedPiece?.id === pc.id;
+                return (
+                  <button
+                    key={pc.id}
+                    type="button"
+                    className={`piece-chip ${isSelected ? "selected" : ""} ${!isAvail ? "sold" : ""}`}
+                    onClick={() => isAvail && setSelectedPiece(pc)}
+                    disabled={!isAvail}
+                    title={!isAvail ? `Piece ${pc.piece_code} is ${pc.status}` : `Select ${pc.piece_code}`}
+                  >
+                    <div className="piece-chip-top">
+                      <span
+                        className="piece-chip-dot"
+                        style={{ backgroundColor: colourHex(pc.colour) }}
+                        aria-hidden="true"
+                      />
+                      <strong className="piece-chip-code">{pc.piece_code}</strong>
+                    </div>
+                    <div className="piece-chip-bottom">
+                      <span className="piece-chip-price">{money(pc.price_paise)}</span>
+                      <span className={`piece-chip-status ${pc.status}`}>
+                        {isAvail ? "Available" : pc.status === "sold" ? "Sold" : pc.status}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <p className="subtle">
-          {p.price_paise === 0
+          {rawPrice === 0
             ? "Please contact us for the price."
-            : p.available > 0
-              ? "Available to order"
-              : "Out of stock"}
+            : isSoldOut
+              ? "This saree piece is currently sold out."
+              : "Available to order"}
         </p>
         <button
           className="button"
           disabled={
-            !s.ordering_enabled || p.price_paise === 0 || p.available < 1
+            !s.ordering_enabled || rawPrice === 0 || isSoldOut
           }
-          onClick={() => add(p.id)}
+          onClick={() => {
+            if (selectedPiece) {
+              add(p.id, {
+                id: selectedPiece.id,
+                piece_code: selectedPiece.piece_code,
+                price_paise: effectivePrice,
+                colour: selectedPiece.colour,
+                image_path: selectedPiece.image_path || p.image_path,
+              });
+            } else {
+              add(p.id);
+            }
+          }}
         >
-          Add to bag ＋
+          {isSoldOut ? "Piece Sold Out" : "Add to bag ＋"}
         </button>
         <Link href="/bulk" className="button button-outline">
           Ask about bulk orders ↗
         </Link>
         <details>
-          <summary>Delivery & payment</summary>
+          <summary>Delivery &amp; payment</summary>
           <p>
             Shipping, tax and any offer are shown in your saved order before you
             pay. Your order is confirmed after payment is checked.
           </p>
         </details>
         <details>
-          <summary>Returns & help</summary>
+          <summary>Returns &amp; help</summary>
           <p>
             Contact the store before returning a saree. You can request a return
             from your delivered order. Staff will confirm the return and refund.
@@ -296,12 +448,17 @@ export function Cart({
   settings: Settings;
 }) {
   const { cart, quantity, clear } = useShop();
-  const items = cart.map((l) => ({
-    l,
-    p: products.find((p) => p.id === l.product_id),
-  }));
+  const items = cart.map((l) => {
+    const prod = products.find((p) => p.id === l.product_id);
+    const linePrice = l.piece_price_paise != null ? l.piece_price_paise : prod ? unitPrice(prod) : 0;
+    return {
+      l,
+      p: prod,
+      linePrice,
+    };
+  });
   const subtotal = items.reduce(
-    (t, { l, p }) => t + (p ? unitPrice(p) * l.quantity : 0),
+    (t, { l, linePrice }) => t + linePrice * l.quantity,
     0,
   );
   return (
@@ -317,8 +474,8 @@ export function Cart({
         </div>
       ) : (
         <>
-          {items.map(({ l, p }) => (
-            <article className="cart-line" key={l.product_id}>
+          {items.map(({ l, p, linePrice }) => (
+            <article className="cart-line" key={l.piece_id ? `${l.product_id}-${l.piece_id}` : l.product_id}>
               {p ? (
                 <>
                   <img src={p.image_path} alt={p.name} />
@@ -326,29 +483,40 @@ export function Cart({
                     <Link href={`/products/${p.slug}`}>
                       <h3>{p.name}</h3>
                     </Link>
-                    <p>{money(unitPrice(p))}</p>
+                    {l.piece_code && (
+                      <span className="cart-piece-tag">
+                        Piece: <strong>{l.piece_code}</strong> {l.piece_colour ? `· ${l.piece_colour}` : ""}
+                      </span>
+                    )}
+                    <p>{money(linePrice)}</p>
                     <p className="subtle">
                       {p.available < l.quantity
                         ? "This quantity is unavailable."
                         : ""}
                     </p>
-                    <label>
-                      Quantity{" "}
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={l.quantity}
-                        onChange={(e) => quantity(p.id, Number(e.target.value))}
-                      />
-                    </label>
+                    {l.piece_id ? (
+                      <small style={{ color: "var(--erp-text-muted, #6e5854)", display: "block", marginTop: 4 }}>
+                        Unique Serialized Piece (Qty: 1)
+                      </small>
+                    ) : (
+                      <label>
+                        Quantity{" "}
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={l.quantity}
+                          onChange={(e) => quantity(p.id, Number(e.target.value))}
+                        />
+                      </label>
+                    )}
                   </div>
                 </>
               ) : (
                 <p>This saree is no longer available.</p>
               )}
               <button
-                onClick={() => quantity(l.product_id, 0)}
+                onClick={() => quantity(l.product_id, 0, l.piece_id)}
                 className="text-link"
               >
                 Remove

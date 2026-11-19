@@ -2,23 +2,66 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Settings } from "@/lib/core";
+import { Settings, Profile } from "@/lib/core";
+import { api } from "./api";
 import { useShop } from "./shop-context";
+
+function UserRoundIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="5" />
+      <path d="M20 21a8 8 0 0 0-16 0" />
+    </svg>
+  );
+}
+
 export function Nav({
   settings,
   categories,
+  initialProfile = null,
 }: {
   settings: Settings;
   categories: string[];
+  initialProfile?: Profile | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
   const dialog = useRef<HTMLDialogElement>(null),
     path = usePathname();
   const { cart } = useShop();
+
   useEffect(() => {
     setOpen(false);
     dialog.current?.close();
   }, [path]);
+
+  useEffect(() => {
+    if (path?.startsWith("/admin")) return;
+    let active = true;
+    api<{ profile?: Profile }>("/api/account/session")
+      .then((res) => {
+        if (active) setProfile(res?.profile ?? null);
+      })
+      .catch(() => {
+        if (active) setProfile(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [path]);
+
+  if (path?.startsWith("/admin")) return null;
+
   function toggle() {
     if (open) dialog.current?.close();
     else dialog.current?.showModal();
@@ -46,12 +89,28 @@ export function Nav({
         </Link>
         <nav aria-label="Main navigation">
           <Link href="/shop">All sarees</Link>
-          <Link href="/account">Account</Link>
           <Link
             href="/cart"
             aria-label={`Shopping bag, ${cart.reduce((s, x) => s + x.quantity, 0)} items`}
           >
             Bag ({cart.reduce((s, x) => s + x.quantity, 0)})
+          </Link>
+          <Link
+            href="/account"
+            className={`header-account-link ${profile ? "is-logged-in" : ""}`}
+            aria-label={
+              profile
+                ? `My Account, signed in as ${profile.display_name || "customer"}`
+                : "Login / My Account"
+            }
+          >
+            <UserRoundIcon className="account-icon-svg" />
+            {profile && <span className="account-status-dot" aria-hidden="true" />}
+            <span className="account-tooltip" role="tooltip">
+              {profile
+                ? `My Account · ${profile.display_name || "Signed in"}`
+                : "Login / My Account"}
+            </span>
           </Link>
         </nav>
       </header>

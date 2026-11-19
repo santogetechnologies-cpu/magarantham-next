@@ -1,16 +1,30 @@
 export async function api<T = Record<string, unknown>>(
   path: string,
   data?: unknown,
-  form?: FormData,
+  form?: FormData | string,
 ): Promise<T> {
-  const res = await fetch(path, {
-    method: data !== undefined || form ? "POST" : "GET",
-    headers: form
-      ? undefined
+  const method =
+    typeof form === "string"
+      ? form
+      : data !== undefined || form
+        ? "POST"
+        : "GET";
+  const body =
+    form && typeof form !== "string"
+      ? form
       : data !== undefined
-        ? { "Content-Type": "application/json" }
-        : undefined,
-    body: form || (data !== undefined ? JSON.stringify(data) : undefined),
+        ? JSON.stringify(data)
+        : undefined;
+
+  const res = await fetch(path, {
+    method,
+    headers:
+      form && typeof form !== "string"
+        ? undefined
+        : data !== undefined
+          ? { "Content-Type": "application/json" }
+          : undefined,
+    body,
     cache: "no-store",
   });
   const result = await res.json();

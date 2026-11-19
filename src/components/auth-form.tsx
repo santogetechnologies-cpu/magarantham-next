@@ -15,10 +15,55 @@ declare global {
     };
   }
 }
+function EyeIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#800020"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#800020"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <line x1="2" x2="22" y1="2" y2="22" />
+    </svg>
+  );
+}
+
 export function AuthForm({ mode }: { mode: string }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [token, setToken] = useState("");
+    [token, setToken] = useState(""),
+    [showPassword, setShowPassword] = useState(false);
   const captchaRef = useRef<HTMLDivElement>(null),
     widget = useRef("");
   const title =
@@ -123,17 +168,33 @@ export function AuthForm({ mode }: { mode: string }) {
           )}
           {mode !== "forgot-password" && (
             <label>
-              Password · at least 12 characters
-              <input
-                name="password"
-                type="password"
-                minLength={12}
-                maxLength={128}
-                autoComplete={
-                  mode === "login" ? "current-password" : "new-password"
-                }
-                required
-              />
+              Password
+              <div className="password-field-wrapper">
+                <input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  minLength={6}
+                  maxLength={128}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  required
+                  className="password-input"
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="password-toggle-icon" />
+                  ) : (
+                    <EyeIcon className="password-toggle-icon" />
+                  )}
+                </button>
+              </div>
             </label>
           )}
           {mode === "register" &&
@@ -171,36 +232,7 @@ export function AuthForm({ mode }: { mode: string }) {
         <div className="auth-links">
           <Link href="/login">Sign in</Link>
           <Link href="/register">Create account</Link>
-          <Link href="/forgot-password">Forgot password?</Link>
         </div>
-        {mode === "login" && (
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                const r = await api<{
-                  message: string;
-                }>("/api/auth/resend", {
-                  email: new FormData(e.currentTarget).get("email"),
-                });
-                setMessage(r.message);
-              } catch (error) {
-                setMessage((error as Error).message);
-              }
-            }}
-          >
-            <label>
-              Need a new confirmation email?
-              <input
-                name="email"
-                type="email"
-                required
-                placeholder="Your email"
-              />
-            </label>
-            <button className="text-link">Resend confirmation</button>
-          </form>
-        )}
       </div>
     </section>
   );

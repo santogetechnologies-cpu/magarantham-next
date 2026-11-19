@@ -55,7 +55,15 @@ export async function POST(req: Request) {
     const extension = mime.split("/")[1];
     const db = service();
     let bucket: string, path: string;
-    if (kind === "media") {
+    if (kind === "product") {
+      await staff("catalogue");
+      bucket = "products";
+      path = `${randomUUID()}.${extension}`;
+    } else if (kind === "employee") {
+      await staff("superadmin");
+      bucket = "employees";
+      path = `${randomUUID()}.${extension}`;
+    } else if (kind === "media") {
       await staff("content");
       bucket = "store-media";
       path = `images/${randomUUID()}.${extension}`;
@@ -80,13 +88,25 @@ export async function POST(req: Request) {
       bucket = "payment-proofs";
       path = `${session.user.id}/${id}/${randomUUID()}.${extension}`;
     } else throw new Fault(400, "INVALID_UPLOAD_KIND");
-    const { error } = await db.storage
+    let { error } = await db.storage
       .from(bucket)
       .upload(path, bytes, {
         contentType: mime,
         upsert: false,
-        cacheControl: kind === "media" ? "31536000" : "0",
+        cacheControl: kind === "proof" ? "0" : "31536000",
       });
+    if (error && (bucket === "products" || bucket === "employees")) {
+      bucket = "store-media";
+      path = `${kind}/${randomUUID()}.${extension}`;
+      const fallback = await db.storage
+        .from(bucket)
+        .upload(path, bytes, {
+          contentType: mime,
+          upsert: false,
+          cacheControl: "31536000",
+        });
+      error = fallback.error;
+    }
     if (error) throw new Fault(503, "UPLOAD_FAILED");
     if (kind === "proof") {
       try {

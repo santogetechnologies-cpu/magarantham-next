@@ -1,7 +1,9 @@
 import "server-only";
 import { service, configured, Fault } from "./server";
-import { publicProduct, Settings } from "./core";
+import { CategoryItem, publicProduct, Settings } from "./core";
+import { enrichCategories } from "./erp-server";
 import { seedProducts } from "./seed";
+import { getPiecesMap } from "./piece-server";
 export const defaultSettings: Settings = {
   brand_name: "மகரந்தம் சில்க்ஸ்",
   tagline: "Sarees for every occasion.",
@@ -30,19 +32,19 @@ export async function getStore() {
     return {
       settings: defaultSettings,
       products: seedProducts.map(publicProduct),
+      categories: [] as CategoryItem[],
       banners: [],
       offers: [],
       connected: false,
     };
   const db = service();
-  const [s, p, b, o] = await Promise.all([
+  const [s, pRes, b, o, c] = await Promise.all([
     db.from("store_settings").select("*").eq("id", true).single(),
     db
       .from("store_catalogue")
       .select("*")
       .eq("published", true)
       .eq("archived", false)
-      .eq("category_visible", true)
       .order("created_at"),
     db.from("banners").select("*").eq("published", true).order("sort_order"),
     db
@@ -51,21 +53,56 @@ export async function getStore() {
         "id,title,code,kind,value,min_subtotal_paise,max_discount_paise,starts_at,ends_at",
       )
       .eq("active", true),
+    db
+      .from("product_categories")
+      .select("*")
+      .eq("active", true)
+      .order("created_at"),
   ]);
-  if (s.error || p.error || b.error || o.error)
-    throw new Fault(503, "STORE_UNAVAILABLE");
+
+  let rawCatalogue = pRes.data || [];
+  // If store_catalogue view had an error, fallback to direct products table query
+  if (pRes.error || !pRes.data) {
+    const directProds = await db
+      .from("products")
+      .select("*")
+      .eq("published", true)
+      .eq("archived", false)
+      .order("created_at");
+    if (directProds.data) {
+      rawCatalogue = directProds.data;
+    }
+  }
+
+  // Filter out any archived or unpublished products strictly
+  const piecesMap = await getPiecesMap();
+  const publishedProducts = rawCatalogue
+    .filter((prod: Record<string, unknown>) => prod.published === true && prod.archived !== true)
+    .map((prod) => {
+      const pid = String(prod.id);
+      return publicProduct({
+        ...prod,
+        pieces: piecesMap[pid] || [],
+      });
+    });
+
   const now = Date.now();
   const active = (x: { starts_at: string | null; ends_at: string | null }) =>
     (!x.starts_at || Date.parse(x.starts_at) <= now) &&
     (!x.ends_at || Date.parse(x.ends_at) > now);
-  const settings = Object.fromEntries(
-    Object.keys(defaultSettings).map((k) => [k, s.data[k]]),
-  ) as Settings;
+  const settings = s.data
+    ? (Object.fromEntries(
+        Object.keys(defaultSettings).map((k) => [k, s.data[k]]),
+      ) as Settings)
+    : defaultSettings;
+  const rawCats = (c.data || []) as CategoryItem[];
+  const categories = await enrichCategories(rawCats);
   return {
     settings,
-    products: p.data.map(publicProduct),
-    banners: b.data.filter(active),
-    offers: o.data.filter(active),
+    products: publishedProducts,
+    categories,
+    banners: (b.data || []).filter(active),
+    offers: (o.data || []).filter(active),
     connected: true,
   };
 }

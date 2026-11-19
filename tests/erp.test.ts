@@ -57,6 +57,7 @@ before(async () => {
     "202611170006_shared_checkout.sql",
     "202611170007_attendance_payroll.sql",
     "202611170008_erp_queries.sql",
+    "202611170009_admin_erp_system.sql",
   ]) {
     await db.exec(
       await readFile(

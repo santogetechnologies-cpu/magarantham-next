@@ -4,6 +4,7 @@ import {
   identity,
   staff,
   service,
+  rpc,
   origin,
   json,
   rate,
@@ -12,9 +13,10 @@ import {
   Fault,
   captcha,
 } from "@/lib/server";
+import { indiaDate } from "@/lib/barcode";
 const credentials = z.object({
   email: z.email().max(254),
-  password: z.string().min(12).max(128),
+  password: z.string().min(6).max(128),
 });
 export async function POST(
   req: Request,
@@ -35,15 +37,34 @@ export async function POST(
       const p = credentials.parse(data);
       await rate(req, "login", p.email, 10);
       const { error } = await auth.auth.signInWithPassword(p);
-      if (error)
-        throw new Fault(
-          401,
-          "LOGIN_FAILED",
-          "Check your email, password and email confirmation.",
-        );
+      if (error) {
+        const msg =
+          error.message?.toLowerCase().includes("email not confirmed")
+            ? "Your email is not confirmed yet. In Supabase Dashboard, please check 'Auto Confirm User' or confirm your email."
+            : error.message || "Check your email, password and email confirmation.";
+        throw new Fault(401, "LOGIN_FAILED", msg);
+      }
       const session = await identity();
+      if (session.profile.role !== "customer") {
+        try {
+          await service().from("audit_log").insert({
+            actor_id: session.user.id,
+            action: "staff.login",
+            entity: "profiles",
+            entity_id: session.user.id,
+            details: {
+              email: session.profile.email,
+              name: session.profile.display_name,
+              role: session.profile.role,
+            },
+          });
+        } catch {}
+      }
       return ok({
-        redirect: session.profile.role === "customer" ? "/account" : "/mfa",
+        redirect:
+          session.profile.role === "customer"
+            ? "/account"
+            : "/admin",
       });
     }
     if (action === "register") {
@@ -102,18 +123,60 @@ export async function POST(
       });
     }
     if (action === "logout") {
+      try {
+        const session = await identity();
+        if (session.profile.role !== "customer") {
+          await service().from("audit_log").insert({
+            actor_id: session.user.id,
+            action: "staff.logout",
+            entity: "profiles",
+            entity_id: session.user.id,
+            details: {
+              email: session.profile.email,
+              name: session.profile.display_name,
+              role: session.profile.role,
+            },
+          });
+        }
+      } catch {}
       await auth.auth.signOut({ scope: "local" });
       return ok({ redirect: "/" });
     }
     if (action === "password") {
       await identity();
       const p = z
-        .object({ password: z.string().min(12).max(128) })
+        .object({ password: z.string().min(6).max(128) })
         .strict()
         .parse(data);
       const { error } = await auth.auth.updateUser(p);
       if (error) throw new Fault(400, "PASSWORD_UPDATE_FAILED");
       return ok({ message: "Password updated." });
+    }
+    if (action === "staff-password") {
+      const session = await staff("superadmin");
+      const p = z
+        .object({
+          user_id: z.string().uuid(),
+          password: z.string().min(6).max(128),
+        })
+        .strict()
+        .parse(data);
+      const db = service();
+      const { error } = await db.auth.admin.updateUserById(p.user_id, {
+        password: p.password,
+        email_confirm: true,
+      });
+      if (error) throw new Fault(400, "PASSWORD_UPDATE_FAILED", error.message);
+      try {
+        await db.from("audit_log").insert({
+          actor_id: session.user.id,
+          action: "staff.password_reset",
+          entity: "profiles",
+          entity_id: p.user_id,
+          details: { updated_by: session.profile.email },
+        });
+      } catch {}
+      return ok({ message: "Staff password updated successfully." });
     }
     if (action === "mfa-list") {
       await identity();
@@ -164,6 +227,130 @@ export async function POST(
         redirect: s.profile.role === "customer" ? "/account" : "/admin",
       });
     }
+    if (action === "billing") {
+      const actor = await staff("superadmin");
+      const p = credentials
+        .extend({
+          name: z.string().trim().min(2).max(80),
+          phone: z.string().trim().max(25).optional().default(""),
+          password: z.string().min(6).max(128),
+        })
+        .strict()
+        .parse(data);
+      await rate(req, "billing-create", actor.user.id, 15, 3600);
+      const db = service();
+
+      const { data: policy } = await db
+        .from("salary_policies")
+        .select("id")
+        .eq("active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: u, error } = await db.auth.admin.createUser({
+        email: p.email,
+        password: p.password,
+        email_confirm: true,
+        app_metadata: { store_role: "billing" },
+        user_metadata: { name: p.name },
+      });
+      if (error || !u.user) {
+        throw new Fault(
+          409,
+          "ACCOUNT_CREATE_FAILED",
+          error?.message || "Could not create billing user. This email may already be registered.",
+        );
+      }
+
+      try {
+        if (policy?.id) {
+          const empCode = `BILL-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+          const empId = await rpc("save_employee", {
+            p_actor: actor.user.id,
+            p_id: null,
+            p_data: {
+              code: empCode,
+              name: p.name,
+              phone: p.phone,
+              employment: "full_time",
+              pay_basis: "monthly",
+              rate_paise: 0,
+              scheduled_units: 26,
+              overtime_rate_paise: 0,
+              daily_minutes: 480,
+              policy_id: policy.id,
+              joined_on: indiaDate(),
+              ended_on: null,
+              allowances: [],
+              deductions: [],
+              active: true,
+            },
+          });
+          await rpc("employee_link", {
+            p_actor: actor.user.id,
+            p_employee: empId,
+            p_profile: u.user.id,
+          });
+        }
+      } catch (linkErr) {
+        await db.auth.admin.deleteUser(u.user.id);
+        throw linkErr;
+      }
+
+      await db.from("audit_log").insert({
+        actor_id: actor.user.id,
+        action: "billing.created",
+        entity: "profiles",
+        entity_id: u.user.id,
+        details: { email: p.email, name: p.name },
+      });
+
+      return ok({
+        message:
+          "Billing user created and ready to log in for POS Billing.",
+      });
+    }
+    if (action === "staff-password") {
+      const actor = await staff("superadmin");
+      const p = z
+        .object({
+          user_id: z.uuid(),
+          password: z.string().min(6).max(128),
+        })
+        .strict()
+        .parse(data);
+      await rate(req, "staff-password", actor.user.id, 20, 3600);
+      const db = service();
+      const { data: target, error: tErr } = await db
+        .from("profiles")
+        .select("id,email,role,display_name")
+        .eq("id", p.user_id)
+        .single();
+      if (tErr || !target) throw new Fault(404, "NOT_FOUND");
+      if (target.role === "superadmin" && target.id !== actor.user.id) {
+        throw new Fault(403, "FORBIDDEN", "Cannot reset another Super Administrator password.");
+      }
+      const { error: uErr } = await db.auth.admin.updateUserById(p.user_id, {
+        password: p.password,
+        email_confirm: true,
+      });
+      if (uErr) {
+        throw new Fault(400, "PASSWORD_UPDATE_FAILED", uErr.message || "Could not update password.");
+      }
+      try {
+        await db.from("audit_log").insert({
+          actor_id: actor.user.id,
+          action: "staff.password_reset",
+          entity: "profiles",
+          entity_id: p.user_id,
+          details: { email: target.email },
+        });
+      } catch {}
+      return ok({
+        message: `Password updated for ${target.display_name || target.email}.`,
+      });
+    }
     if (action === "manager") {
       const actor = await staff("superadmin");
       const p = credentials
@@ -174,7 +361,7 @@ export async function POST(
       const { data: u, error } = await service().auth.admin.createUser({
         email: p.email,
         password: p.password,
-        email_confirm: false,
+        email_confirm: true,
         app_metadata: { store_role: "manager" },
         user_metadata: { name: p.name },
       });

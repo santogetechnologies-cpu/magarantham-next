@@ -1,7 +1,331 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {unitBarcode} from '@/lib/barcode';
-import {money} from '@/lib/core';
-import {api} from '../api';
-import {References,Row,useERP} from './shared';
-export function Labels({refs}:{refs:References}){const [product,setProduct]=useState(''),[purchase,setPurchase]=useState(''),[quantity,setQuantity]=useState(100),[after,setAfter]=useState(0),[next,setNext]=useState<number|null>(null),[rows,setRows]=useState<Row[]>([]),[paper,setPaper]=useState('a4'),[width,setWidth]=useState(90),[height,setHeight]=useState(35);const {busy,send,notice}=useERP();useEffect(()=>{setPurchase(new URLSearchParams(window.location.search).get('purchase_id')||'');},[]);async function load(cursor=0){try{const r=await api<Row>(`/api/erp/labels?quantity=${quantity}&after=${cursor}${product?`&product_id=${product}`:''}${purchase?`&purchase_id=${purchase}`:''}`);setRows(r.rows);setAfter(cursor);setNext(r.nextAfter);}catch(e){notice((e as Error).message);}}return <div className="erp-print-host"><form className="form-panel" onSubmit={e=>{e.preventDefault();void load();}}><h2>Print unique stock stickers.</h2><p>Each physical unit gets a unique MSU barcode when stock is received or added. Reprinting keeps the same barcode; it does not add stock.</p><div className="form-grid"><label>Product<select value={product} onChange={e=>setProduct(e.target.value)}><option value="">All products</option>{refs.products?.map(p=><option key={p.id} value={p.id}>{p.sku} · {p.name}</option>)}</select></label><label>Purchase ID (optional)<input value={purchase} onChange={e=>setPurchase(e.target.value)}/></label><label>Stickers in this batch (maximum 500)<input type="number" min={1} max={500} value={quantity} onChange={e=>setQuantity(Number(e.target.value))}/></label><label>Paper<select value={paper} onChange={e=>{setPaper(e.target.value);setWidth(e.target.value==='roll'?80:90);}}><option value="a4">A4 sticker sheet · 2 columns</option><option value="roll">Single-label roll</option></select></label><label>Sticker width (mm, 80–95)<input type="number" min={80} max={95} value={width} onChange={e=>setWidth(Number(e.target.value))}/></label><label>Sticker height (mm, 30–60)<input type="number" min={30} max={60} value={height} onChange={e=>setHeight(Number(e.target.value))}/></label></div><button className="button" disabled={busy}>Load stock labels</button><p className="subtle">Enable Code 39 on your barcode scanner. Print at 100% scale with quiet margins. Test one label on your printer before printing a batch. A print request is logged; the app cannot confirm physical printing.</p></form>{rows.length>0&&<div className="form-panel"><p>{rows.length} unique stickers loaded. {rows.filter(r=>r.printed_at).length} have a previous print request.</p><div className="button-row"><button className="button" disabled={busy} onClick={async()=>{if(await send('labels',{ids:rows.map(r=>String(r.id))}))window.print();}}>Print labels</button><button className="text-link" onClick={()=>void load(after)}>Refresh this label batch</button>{next!==null&&<button className="text-link" onClick={()=>void load(next)}>Next label batch</button>}{after>0&&<button className="text-link" onClick={()=>void load(0)}>First label batch</button>}</div></div>}{rows.length>0&&<div className={`erp-print labels-sheet ${paper==='roll'?'label-roll':''}`} style={{gridTemplateColumns:`repeat(${paper==='roll'?1:2},${width}mm)`}}><style>{`@media print{@page{size:${paper==='roll'?`${width}mm ${height}mm`:'A4'};margin:${paper==='roll'?'0':'10mm'};}}`}</style>{rows.map(r=>{const b=unitBarcode(r.barcode);return <article className="stock-sticker" key={r.id} style={{width:`${width}mm`,height:`${height}mm`}}><b>{r.products?.name}</b><small>{r.products?.sku} · List price {money(r.products?.price_paise||0)}</small><svg viewBox={`0 0 ${b.width} 46`} role="img" aria-label={`Barcode ${r.barcode}`} preserveAspectRatio="none"><rect width={b.width} height={46} fill="white"/>{b.bars.map((bar,i)=><rect key={i} x={bar.x} y={2} width={bar.width} height={42} fill="black"/>)}</svg><span>{r.barcode}</span></article>;})}</div>}</div>;}
+import React, { useEffect, useState } from 'react';
+import { code39Barcode, unitBarcode } from '@/lib/barcode';
+import { money } from '@/lib/core';
+import { api } from '../api';
+import { References, Row, useERP } from './shared';
+
+type PrintableLabel = {
+  key: string;
+  unitId?: string;
+  barcode: string;
+  name: string;
+  sku: string;
+  pricePaise: number;
+  isMsu: boolean;
+  printedAt?: string | null;
+};
+
+export function Labels({ refs }: { refs: References }) {
+  const [product, setProduct] = useState('');
+  const [purchase, setPurchase] = useState('');
+  const [quantity, setQuantity] = useState(20);
+  const [after, setAfter] = useState(0);
+  const [next, setNext] = useState<number | null>(null);
+  const [rows, setRows] = useState<PrintableLabel[]>([]);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [paper, setPaper] = useState<'a4' | 'roll'>('a4');
+  const [width, setWidth] = useState(90);
+  const [height, setHeight] = useState(35);
+  const { busy, send, notice } = useERP();
+
+  const products = refs.products || [];
+
+  useEffect(() => {
+    const pur = new URLSearchParams(window.location.search).get('purchase_id') || '';
+    setPurchase(pur);
+    void load(0, '', pur);
+  }, []);
+
+  async function load(cursor = 0, prodId = product, purId = purchase) {
+    setLoading(true);
+    try {
+      const clampedQty = Math.min(500, Math.max(1, Math.round(Number(quantity) || 1)));
+      const r = await api<Row>(
+        `/api/erp/labels?quantity=${clampedQty}&after=${cursor}${
+          prodId ? `&product_id=${prodId}` : ''
+        }${purId ? `&purchase_id=${purId}` : ''}`,
+      );
+      const unitRows = (r.rows || []) as Row[];
+      if (unitRows.length > 0) {
+        setRows(
+          unitRows.map((u) => ({
+            key: `u-${u.id}`,
+            unitId: String(u.id),
+            barcode: String(u.barcode),
+            name: String(u.products?.name || 'Saree'),
+            sku: String(u.products?.sku || ''),
+            pricePaise: Number(u.products?.price_paise || 0),
+            isMsu: true,
+            printedAt: u.printed_at || null,
+          })),
+        );
+        setAfter(cursor);
+        setNext(r.nextAfter);
+      } else if (prodId) {
+        // Fallback: generate printable Code 39 SKU barcode stickers for the selected saree
+        const chosen = products.find((p) => p.id === prodId);
+        if (chosen) {
+          const code = String(chosen.barcode || chosen.sku || 'MS-001');
+          const count = Math.min(100, Math.max(1, clampedQty));
+          const generated: PrintableLabel[] = Array.from({ length: count }, (_, idx) => ({
+            key: `sku-${chosen.id}-${idx}`,
+            barcode: code,
+            name: String(chosen.name || 'Saree'),
+            sku: String(chosen.sku || ''),
+            pricePaise: Number(chosen.price_paise || 0),
+            isMsu: false,
+          }));
+          setRows(generated);
+          setAfter(0);
+          setNext(null);
+        } else {
+          setRows([]);
+          setAfter(0);
+          setNext(null);
+        }
+      } else {
+        setRows([]);
+        setAfter(0);
+        setNext(null);
+      }
+      setLoadedOnce(true);
+    } catch (e) {
+      notice((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePrint() {
+    if (!rows.length) {
+      notice('Click "Load stock labels" first to generate stickers to print.');
+      return;
+    }
+    const msuIds = rows.filter((r) => r.isMsu && r.unitId).map((r) => r.unitId!);
+    if (msuIds.length > 0) {
+      const ok = await send('labels', { ids: msuIds });
+      if (!ok) return;
+    }
+    window.print();
+  }
+
+  const msuCount = rows.filter((r) => r.isMsu).length;
+  const previouslyPrinted = rows.filter((r) => r.printedAt).length;
+
+  return (
+    <div className="erp-print-host sp-root">
+      <form
+        className="form-panel"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void load(0);
+        }}
+      >
+        <h2 style={{ marginBottom: 6 }}>Print Stock &amp; Barcode Stickers.</h2>
+        <p style={{ color: 'var(--erp-text-muted)', marginBottom: 18 }}>
+          Each physical piece added to stock receives a unique MSU barcode. If a saree has no MSU stickers yet, selecting it prepares scannable SKU barcode stickers ready to print.
+        </p>
+
+        <div className="form-grid">
+          <label>
+            Product
+            <select
+              value={product}
+              onChange={(e) => {
+                const val = e.target.value;
+                setProduct(val);
+              }}
+            >
+              <option value="">All products (in-stock MSU stickers)</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.sku} · {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Purchase ID (optional)
+            <input
+              value={purchase}
+              onChange={(e) => setPurchase(e.target.value)}
+              placeholder="Leave blank for all"
+            />
+          </label>
+          <label>
+            Stickers in this batch (maximum 500)
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, Math.min(500, Number(e.target.value || 1))))}
+            />
+          </label>
+          <label>
+            Paper
+            <select
+              value={paper}
+              onChange={(e) => {
+                const nextPaper = e.target.value === 'roll' ? 'roll' : 'a4';
+                setPaper(nextPaper);
+                setWidth(nextPaper === 'roll' ? 80 : 90);
+              }}
+            >
+              <option value="a4">A4 sticker sheet · 2 columns</option>
+              <option value="roll">Single-label roll</option>
+            </select>
+          </label>
+          <label>
+            Sticker width (mm, 80–95)
+            <input
+              type="number"
+              min={80}
+              max={95}
+              value={width}
+              onChange={(e) => setWidth(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Sticker height (mm, 30–60)
+            <input
+              type="number"
+              min={30}
+              max={60}
+              value={height}
+              onChange={(e) => setHeight(Number(e.target.value))}
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+          <button type="submit" className="button" disabled={busy || loading}>
+            {loading ? 'Loading Stickers…' : 'Load Stock Labels'}
+          </button>
+          <button
+            type="button"
+            className="button gold-btn"
+            disabled={busy || loading || rows.length === 0}
+            onClick={() => void handlePrint()}
+          >
+            🖨 Print Labels{rows.length > 0 ? ` (${rows.length})` : ''}
+          </button>
+        </div>
+
+        <p className="subtle" style={{ marginTop: 12 }}>
+          Enable Code 39 on your barcode scanner. Print at 100% scale with quiet margins. Test one label on your printer before printing a full batch.
+        </p>
+      </form>
+
+      {/* Preview Toolbar */}
+      {rows.length > 0 ? (
+        <div className="form-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <strong style={{ color: 'var(--erp-maroon)' }}>
+              {msuCount > 0
+                ? `${rows.length} unique MSU stock stickers ready to print.`
+                : `${rows.length} SKU barcode stickers ready to print.`}
+            </strong>
+            {previouslyPrinted > 0 && (
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--erp-text-muted)' }}>
+                {previouslyPrinted} sticker{previouslyPrinted === 1 ? '' : 's'} had a previous print request.
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="button gold-btn"
+              disabled={busy}
+              onClick={() => void handlePrint()}
+            >
+              🖨 Print {rows.length} Labels
+            </button>
+            <button
+              type="button"
+              className="button outline-btn mini-btn"
+              onClick={() => void load(after)}
+            >
+              ↻ Refresh Batch
+            </button>
+            {next !== null && (
+              <button
+                type="button"
+                className="button outline-btn mini-btn"
+                onClick={() => void load(next)}
+              >
+                Next Batch →
+              </button>
+            )}
+            {after > 0 && (
+              <button
+                type="button"
+                className="button outline-btn mini-btn"
+                onClick={() => void load(0)}
+              >
+                ← First Batch
+              </button>
+            )}
+          </div>
+        </div>
+      ) : loadedOnce && !loading ? (
+        <div className="sp-empty-card">
+          <h3>No stock stickers loaded</h3>
+          <p>
+            Select a specific saree from the <strong>Product</strong> dropdown above and click <strong>Load Stock Labels</strong> to generate printable SKU barcode stickers, or receive stock in Purchases to generate unique MSU unit stickers.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Printable Barcode Sticker Sheet */}
+      {rows.length > 0 && (
+        <div
+          className={`erp-print labels-sheet ${paper === 'roll' ? 'label-roll' : ''}`}
+          style={{
+            gridTemplateColumns: `repeat(${paper === 'roll' ? 1 : 2}, ${width}mm)`,
+          }}
+        >
+          <style>{`@media print{@page{size:${
+            paper === 'roll' ? `${width}mm ${height}mm` : 'A4'
+          };margin:${paper === 'roll' ? '0' : '10mm'};}}`}</style>
+          {rows.map((r) => {
+            const b = r.isMsu ? unitBarcode(r.barcode) : code39Barcode(r.barcode);
+            return (
+              <article
+                className="stock-sticker"
+                key={r.key}
+                style={{ width: `${width}mm`, height: `${height}mm` }}
+              >
+                <b>{r.name}</b>
+                <small>
+                  {r.sku} · {money(r.pricePaise)}
+                </small>
+                <svg
+                  viewBox={`0 0 ${b.width} 46`}
+                  role="img"
+                  aria-label={`Barcode ${r.barcode}`}
+                  preserveAspectRatio="none"
+                >
+                  <rect width={b.width} height={46} fill="white" />
+                  {b.bars.map((bar, i) => (
+                    <rect
+                      key={i}
+                      x={bar.x}
+                      y={2}
+                      width={bar.width}
+                      height={42}
+                      fill="black"
+                    />
+                  ))}
+                </svg>
+                <span>{r.barcode}</span>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

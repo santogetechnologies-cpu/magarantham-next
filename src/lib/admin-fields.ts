@@ -2,14 +2,14 @@ export type Field = {
   key: string;
   label: string;
   type?:
-    | "text"
-    | "number"
-    | "checkbox"
-    | "textarea"
-    | "select"
-    | "datetime-local";
+  | "text"
+  | "number"
+  | "checkbox"
+  | "textarea"
+  | "select"
+  | "datetime-local";
   options?: string[];
-  choices?: {value:string;label:string}[];
+  choices?: { value: string; label: string }[];
   rupees?: boolean;
   nullable?: boolean;
 };
@@ -37,23 +37,50 @@ export const adminForms: Record<
       archived: false,
       featured: false,
       price_paise: 0,
-      barcode:null,
-      category:"Sarees",
+      barcode: null,
+      category: "Sarees",
+      saree_type: "Kanchipuram Silk",
+      fabric: "Pure Mulberry Silk",
+      design: "Traditional Zari Border",
+      purchase_price_paise: 0,
+      min_stock_level: 0,
+      compare_at_price_paise: 0,
     },
     fields: [
-      f("sku", "SKU"),
-      f("barcode", "Product barcode (optional; SKU also scans)", "text", {nullable:true}),
+      f("sku", "Product SKU / Code"),
+      f("barcode", "Barcode (optional)", "text", { nullable: true }),
       f("subcategory_id", "Subcategory", "select"),
       f("slug", "Page name (lowercase-with-hyphens)"),
       f("name", "Saree name"),
-
+      f("category", "Category"),
+      f("saree_type", "Saree type", "select", {
+        options: [
+          "Kanchipuram_Silk",
+          "Banarasi_Silk",
+          "Tussar_Silk",
+          "Chanderi_Silk",
+          "Soft_Silk",
+          "Mysore_Silk",
+          "Organza_Silk",
+          "Georgette_Silk",
+          "Bridal_Silk",
+          "Cotton_Silk",
+        ],
+      }),
+      f("fabric", "Fabric material"),
       f("colour", "Colour"),
+      f("design", "Design & pattern"),
       f("description", "Description", "textarea"),
-      f("image_path", "Image URL"),
-      f("price_paise", "Price (Rs)", "number", { rupees: true }),
-      f("discount_percent", "Product discount (%)", "number"),
-      f("published", "Publish product", "checkbox"),
-      f("featured", "Show in home collection", "checkbox"),
+      f("image_path", "Product image URL / Upload"),
+      f("purchase_price_paise", "Purchase price (Rs)", "number", { rupees: true }),
+      f("price_paise", "Selling price (Rs)", "number", { rupees: true }),
+      f("compare_at_price_paise", "Compare-at price (Rs)", "number", {
+        rupees: true,
+      }),
+      f("discount_percent", "Discount (%)", "number"),
+      f("min_stock_level", "Minimum stock alert level", "number"),
+      f("published", "Publish to online store", "checkbox"),
+      f("featured", "Show in featured collection", "checkbox"),
       f("archived", "Archive product", "checkbox"),
     ],
   },
@@ -178,10 +205,114 @@ export const adminForms: Record<
       }),
     ],
   },
+  coupons: {
+    title: "Coupon Management",
+    entity: "coupons",
+    defaults: {
+      code: "",
+      description: "",
+      discount_type: "percent",
+      discount_value: 10,
+      min_purchase_paise: 0,
+      max_discount_paise: null,
+      max_uses: null,
+      per_customer_limit: 1,
+      active: true,
+      starts_at: null,
+      expires_at: null,
+    },
+    fields: [
+      f("code", "Coupon code (e.g. FESTIVAL20)"),
+      f("description", "Coupon description", "textarea"),
+      f("discount_type", "Discount type", "select", {
+        options: ["percent", "fixed"],
+      }),
+      f("discount_value", "Discount value (% or Rs)", "number", { rupees: true }),
+      f("min_purchase_paise", "Minimum purchase (Rs)", "number", {
+        rupees: true,
+      }),
+      f("max_discount_paise", "Maximum discount (Rs, optional)", "number", {
+        rupees: true,
+        nullable: true,
+      }),
+      f("max_uses", "Total use limit (optional)", "number", { nullable: true }),
+      f("per_customer_limit", "Uses per customer", "number"),
+      f("active", "Enable coupon", "checkbox"),
+      f("starts_at", "Start time (optional)", "datetime-local", {
+        nullable: true,
+      }),
+      f("expires_at", "Expiry time (optional)", "datetime-local", {
+        nullable: true,
+      }),
+    ],
+  },
+  leaves: {
+    title: "Leave Management",
+    entity: "employee_leaves",
+    defaults: {
+      leave_type: "casual",
+      days: 1,
+      reason: "",
+      status: "pending",
+    },
+    fields: [
+      f("employee_id", "Employee ID"),
+      f("leave_type", "Leave type", "select", {
+        options: ["casual", "sick", "earned", "paid", "unpaid", "emergency"],
+      }),
+      f("start_date", "Start date (YYYY-MM-DD)"),
+      f("end_date", "End date (YYYY-MM-DD)"),
+      f("days", "Days count", "number"),
+      f("reason", "Reason for leave", "textarea"),
+      f("status", "Status", "select", {
+        options: ["pending", "approved", "rejected", "cancelled"],
+      }),
+    ],
+  },
 };
 export const adminNav = [
- ["", "Overview", ""], ["pos","POS billing","pos"], ["products","Products","catalogue"], ["categories","Categories","superadmin"], ["discounts","Shared discounts","superadmin"],
- ["inventory","Stock","inventory"],["labels","Barcode labels","inventory"],["purchases","Purchases","purchases"],["suppliers","Suppliers","purchases"],["orders","Online orders","orders"],
- ["expenses","Expenses","expenses"],["expense-categories","Expense categories","superadmin"],["employees","Staff management","superadmin"],["attendance","Attendance","attendance"],["payroll","Payroll","superadmin"],["salary-policies","Salary rules","superadmin"],
- ["reports","Reports","reports"],["pos-settings","POS settings","superadmin"],["banners","Banners","content"],["offers","Online coupons & offers","offers"],["shipping","Tracking","shipping"],["bulk","Bulk inquiries","bulk"],["settings","Store settings","superadmin"],["staff","Login permissions","superadmin"],["audit","Activity log","superadmin"]
+  ["", "Overview", ""],
+  ["dashboard", "Dashboard", ""],
+  ["pos", "POS billing", "pos"],
+  ["products", "All Products", "catalogue"],
+  ["product-new", "Add Product", "catalogue"],
+  ["categories", "Categories", "superadmin"],
+  ["inventory", "Stock Management", "inventory"],
+  ["stock-movements", "Stock Movements", "inventory"],
+  ["low-stock", "Low Stock Alerts", "inventory"],
+  ["labels", "Barcode labels", "inventory"],
+  ["purchases", "Purchases", "purchases"],
+  ["suppliers", "Suppliers", "purchases"],
+  ["orders", "Online orders", "orders"],
+  ["employees", "All Employees", "superadmin"],
+  ["staff-logins", "Staff Logins", "superadmin"],
+  ["employee-new", "Add Employee", "superadmin"],
+  ["attendance", "Attendance", "attendance"],
+  ["leaves", "Leave Management", "attendance"],
+  ["attendance-reports", "Attendance Reports", "reports"],
+  ["payroll", "Payroll", "superadmin"],
+  ["salary-policies", "Salary rules", "superadmin"],
+  ["store-profile", "Store Profile", "superadmin"],
+  ["admin-accounts", "Admin Accounts", "superadmin"],
+  ["staff-permissions", "Staff Permissions", "superadmin"],
+  ["settings", "Store Settings", "superadmin"],
+  ["audit", "Activity Logs", "superadmin"],
+  ["offers", "All Offers", "offers"],
+  ["offer-new", "Create Offer", "offers"],
+  ["coupons", "Coupon Management", "offers"],
+  ["pricing", "Product Pricing", "catalogue"],
+  ["price-history", "Price History", "catalogue"],
+  ["discounts", "Shared discounts", "superadmin"],
+  ["sales-reports", "Sales Reports", "reports"],
+  ["stock-reports", "Stock Reports", "reports"],
+  ["employee-reports", "Employee Reports", "reports"],
+  ["reports", "Reports", "reports"],
+  ["notifications", "Notifications", ""],
+  ["expenses", "Expenses", "expenses"],
+  ["expense-categories", "Expense categories", "superadmin"],
+  ["pos-settings", "POS settings", "superadmin"],
+  ["banners", "Banners", "content"],
+  ["shipping", "Tracking", "shipping"],
+  ["bulk", "Bulk inquiries", "bulk"],
+  ["staff", "Login permissions", "superadmin"],
 ] as const;

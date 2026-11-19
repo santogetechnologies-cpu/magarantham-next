@@ -49,7 +49,7 @@ export const checkoutSchema = z
   .strict();
 export const productSchema = z
   .object({
-    subcategory_id: uuid,
+    subcategory_id: uuid.nullable().optional().default(null),
     barcode: z.string().trim().min(1).max(48).regex(/^[ -~]+$/).nullable(),
     sku: text(50),
     slug: z
@@ -59,13 +59,19 @@ export const productSchema = z
     name: text(120),
     category: text(80),
     colour: text(50),
-    description: text(2000),
+    description: z.string().trim().max(2000).default(""),
     image_path: image,
     price_paise: integer(),
     discount_percent: integer(90),
     published: z.boolean(),
     archived: z.boolean(),
     featured: z.boolean(),
+    saree_type: z.string().trim().max(80).optional().default("Kanchipuram Silk"),
+    fabric: z.string().trim().max(80).optional().default("Pure Mulberry Silk"),
+    design: z.string().trim().max(120).optional().default("Traditional Zari Border"),
+    purchase_price_paise: integer().optional().default(0),
+    min_stock_level: integer(10000).optional().default(0),
+    compare_at_price_paise: integer().optional().default(0),
   })
   .strict();
 export const bannerSchema = z
@@ -184,10 +190,48 @@ export const settingsSchema = z
         });
     }
   });
+export const couponSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .regex(/^[A-Z0-9_-]{2,40}$/)
+      .transform((s) => s.toUpperCase()),
+    description: z.string().trim().max(300).default(""),
+    discount_type: z.enum(["percent", "fixed"]),
+    discount_value: z.number().int().min(1).max(100000000),
+    min_purchase_paise: z.number().int().min(0).max(100000000).default(0),
+    max_discount_paise: z.number().int().min(0).max(100000000).nullable().default(null),
+    max_uses: z.number().int().min(1).max(1000000).nullable().default(null),
+    per_customer_limit: z.number().int().min(1).max(100).default(1),
+    starts_at: optionalDate,
+    expires_at: optionalDate,
+    active: z.boolean().default(true),
+  })
+  .strict()
+  .refine(
+    (v) => !v.starts_at || !v.expires_at || v.expires_at > v.starts_at,
+    "Expiry must be after start",
+  );
+
+export const leaveSchema = z
+  .object({
+    employee_id: uuid,
+    leave_type: z.enum(["casual", "sick", "earned", "paid", "unpaid", "emergency"]),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    days: z.number().min(0.5).max(365),
+    reason: z.string().trim().max(500).default(""),
+    status: z.enum(["pending", "approved", "rejected", "cancelled"]).default("pending"),
+  })
+  .strict();
+
 export const schemaFor = {
   products: productSchema,
   banners: bannerSchema,
   offers: offerSchema,
+  coupons: couponSchema,
+  employee_leaves: leaveSchema,
   tracking_providers: providerSchema,
   store_settings: settingsSchema,
   bulk_inquiries: z

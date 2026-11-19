@@ -1,7 +1,8 @@
+import {createHash,randomUUID} from 'crypto';
 import {z} from 'zod';
 import {staff,service,origin,json,rate,rpc,ok,failure,Fault} from '@/lib/server';
 import {Capability} from '@/lib/core';
-import {can,erpReferences,posProducts} from '@/lib/erp-server';
+import {can,enrichCategories,erpReferences,posProducts,removeCategoryImage,saveCategoryImage} from '@/lib/erp-server';
 import {erpSchemas,employeeSchema,attendanceSchema,posInput,posCart,purchaseSchema,expenseSchema,payrollInput,id} from '@/lib/erp-schemas';
 const access:Record<string,Capability|'superadmin'|undefined>={reference:undefined,scan:'pos',pos:'pos',pos_quote:'pos',pos_sale:'pos',pos_return:'pos',labels:'inventory',suppliers:'purchases',purchases:'purchases',purchase_status:'purchases',purchase_receive:'purchases',purchase_pay:'purchases',expenses:'expenses',expense_void:'expenses',attendance:'attendance',employees:'superadmin',employee_login:'superadmin',product_categories:'superadmin',catalog_discounts:'superadmin',expense_categories:'superadmin',salary_policies:'superadmin',pos_settings:'superadmin',payroll:'superadmin',payroll_preview:'superadmin',payroll_finalize:'superadmin',reports:'reports'};
 export async function GET(req:Request,{params}:{params:Promise<{module:string}>}){try{
@@ -20,23 +21,24 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
  let q=db.from(table).select(table==='purchases'?'*,purchase_items(*),suppliers(name)': '*');
  if(module==='expenses'&&session.profile.role!=='superadmin')q=q.eq('source','manual');
  if(module==='attendance'){const month=z.string().regex(/^\d{4}-\d{2}$/).parse(url.searchParams.get('month'));const start=`${month}-01`;const next=new Date(`${start}T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);q=q.gte('work_on',start).lt('work_on',next.toISOString().slice(0,10));const emp=url.searchParams.get('employee_id');if(emp)q=q.eq('employee_id',id.parse(emp));q=q.order('work_on',{ascending:false});}
- q=q.order(table==='attendance'?'employee_id':'id');const {data,error}=await q.range(page*100,page*100+100);if(error)throw new Fault(503,'ERP_LOAD_FAILED');const list=data.slice(0,100) as unknown as Record<string,any>[];
+ q=q.order(table==='attendance'?'employee_id':table==='product_categories'?'created_at':'id');const {data,error}=await q.range(page*100,page*100+100);if(error)throw new Fault(503,'ERP_LOAD_FAILED',error.code==='42501'||!process.env.SUPABASE_SERVICE_ROLE_KEY?'Missing SUPABASE_SERVICE_ROLE_KEY in .env.local. Add your Supabase Secret / service_role key and restart the server.':undefined);let list=data.slice(0,100) as unknown as Record<string,any>[];
+ if(table==='product_categories')list=await enrichCategories(list);
  if(module==='purchases'&&list.length){const balances=await rpc('purchase_balances',{p_actor:session.user.id,p_ids:list.map(p=>p.id)});return ok({rows:list.map(p=>({...p,due_paise:balances.find((b:{id:string})=>b.id===p.id)?.due_paise||0})),nextPage:data.length>100?page+1:null});}
  return ok({rows:list,nextPage:data.length>100?page+1:null});
 }catch(e){return failure(e);}}
 export async function POST(req:Request,{params}:{params:Promise<{module:string}>}){try{
  origin(req);const {module}=await params;if(!(module in access))throw new Fault(404,'NOT_FOUND');const session=await staff(access[module]);await rate(req,'erp-write',session.user.id,100);const input=await json(req,100000);const actor=session.user.id;let result:unknown;
- if(module in erpSchemas){const p=z.object({id:id.nullable(),data:z.record(z.string(),z.unknown())}).strict().parse(input);result=await rpc('erp_save',{p_actor:actor,p_entity:module,p_id:p.id,p_data:erpSchemas[module as keyof typeof erpSchemas].parse(p.data)});}
+ if(module in erpSchemas){const p=z.object({id:id.nullable(),data:z.record(z.string(),z.unknown())}).strict().parse(input);const parsed=erpSchemas[module as keyof typeof erpSchemas].parse(p.data) as Record<string,unknown>;if(module==='product_categories'){const imgPath=typeof parsed.image_path==='string'?parsed.image_path:'';const desc=typeof parsed.description==='string'?parsed.description:'';const {image_path:_omit,description:_omitDesc,...coreCat}=parsed;result=await rpc('erp_save',{p_actor:actor,p_entity:module,p_id:p.id,p_data:coreCat});if(result)await saveCategoryImage(String(result),imgPath,desc);}else{result=await rpc('erp_save',{p_actor:actor,p_entity:module,p_id:p.id,p_data:parsed});}}
  else if(module==='employees'){const p=z.object({id:id.nullable(),data:employeeSchema}).strict().parse(input);result=await rpc('save_employee',{p_actor:actor,p_id:p.id,p_data:p.data});}
  else if(module==='attendance'){const p=attendanceSchema.parse(input);await rpc('attendance_save',{p_actor:actor,p_employee:p.employee_id,p_on:p.work_on,p_data:p.data});}
- else if(module==='employee_login'){const p=z.object({employee_id:id,existing_profile_id:id.nullable().default(null),role:z.enum(['billing','manager']),email:z.email().optional(),password:z.string().min(12).max(128).optional()}).strict().parse(input);const db=service();const e=await db.from('employees').select('id,name,active,profile_id').eq('id',p.employee_id).single();if(e.error||!e.data.active||e.data.profile_id)throw new Fault(409,'LOGIN_ALREADY_LINKED');if(p.existing_profile_id){await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:p.existing_profile_id});}
-  else{if(!p.email||!p.password)throw new Fault(400,'EMAIL_PASSWORD_REQUIRED');const created=await db.auth.admin.createUser({email:p.email,password:p.password,email_confirm:false,app_metadata:{store_role:p.role},user_metadata:{name:e.data.name}});if(created.error||!created.data.user)throw new Fault(409,'ACCOUNT_CREATE_FAILED');try{await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:created.data.user.id});}catch(error){await db.auth.admin.deleteUser(created.data.user.id);throw error;}await session.auth.auth.resend({type:'signup',email:p.email,options:{emailRedirectTo:`${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`}});}}
+ else if(module==='employee_login'){const p=z.object({employee_id:id,existing_profile_id:id.nullable().default(null),role:z.enum(['billing','manager']),email:z.email().optional(),password:z.string().min(6).max(128).optional()}).strict().parse(input);const db=service();const e=await db.from('employees').select('id,name,active,profile_id').eq('id',p.employee_id).single();if(e.error||!e.data.active||e.data.profile_id)throw new Fault(409,'LOGIN_ALREADY_LINKED');if(p.existing_profile_id){await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:p.existing_profile_id});}
+  else{if(!p.email||!p.password)throw new Fault(400,'EMAIL_PASSWORD_REQUIRED');let userId:string;const created=await db.auth.admin.createUser({email:p.email,password:p.password,email_confirm:true,app_metadata:{store_role:p.role},user_metadata:{name:e.data.name}});if(created.data?.user){userId=created.data.user.id;}else{const{data:users}=await db.auth.admin.listUsers();const existing=users?.users?.find(u=>u.email?.toLowerCase()===p.email!.toLowerCase());if(existing){userId=existing.id;await db.auth.admin.updateUserById(userId,{password:p.password,email_confirm:true,app_metadata:{store_role:p.role},user_metadata:{name:e.data.name}});}else{throw new Fault(409,'ACCOUNT_CREATE_FAILED',created.error?.message||'Unable to create staff login');}}try{await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:userId});}catch(error){if(created.data?.user)await db.auth.admin.deleteUser(userId);throw error;}}}
  else if(module==='purchases'){const p=purchaseSchema.parse(input);result=await rpc('purchase_save',{p_actor:actor,p_id:p.id,p_data:p.data,p_lines:p.lines});}
  else if(module==='purchase_status'){const p=z.object({id,status:z.enum(['ordered','cancelled'])}).strict().parse(input);await rpc('purchase_status',{p_actor:actor,p_id:p.id,p_status:p.status});}
  else if(module==='purchase_receive'){const p=z.object({id,key:id,kind:z.enum(['receive','return']),lines:z.array(z.object({product_id:id,quantity:z.number().int().min(1).max(10000)}).strict()).min(1).max(100),note:z.string().trim().max(1000)}).strict().parse(input);result=await rpc('purchase_receive',{p_actor:actor,p_id:p.id,p_key:p.key,p_kind:p.kind,p_lines:p.lines,p_note:p.note});}
  else if(module==='purchase_pay'){const p=z.object({id,key:id,direction:z.enum(['paid','refund']),amount_paise:z.number().int().min(1).max(2000000000),method:z.enum(['cash','upi','card','bank']),reference:z.string().trim().min(6).max(100),checked:z.literal(true)}).strict().parse(input);result=await rpc('purchase_pay',{p_actor:actor,p_id:p.id,p_key:p.key,p_direction:p.direction,p_amount:p.amount_paise,p_method:p.method,p_reference:p.reference,p_checked:p.checked});}
- else if(module==='expenses'){const p=expenseSchema.parse(input);result=await rpc('expense_post',{p_actor:actor,p_key:p.key,p_data:p.data});}
- else if(module==='expense_void'){const p=z.object({id,reason:z.string().trim().min(3).max(500)}).strict().parse(input);await rpc('expense_void',{p_actor:actor,p_id:p.id,p_reason:p.reason});}
+ else if(module==='expenses'){const p=expenseSchema.parse(input);if(session.profile.role==='billing'){const db=service();const fp=createHash('sha256').update(JSON.stringify(p.data)).digest('hex');const existing=await db.from('expenses').select('id,fingerprint').eq('request_key',p.key).maybeSingle();if(existing.data){if(existing.data.fingerprint!==fp)throw new Fault(409,'IDEMPOTENCY_CONFLICT');result=existing.data.id;}else{const cat=await db.from('expense_categories').select('id').eq('id',p.data.category_id).eq('active',true).maybeSingle();if(!cat.data)throw new Fault(409,'CATEGORY_UNAVAILABLE');if(p.data.method!=='cash'&&p.data.reference.trim().length<6)throw new Fault(400,'PAYMENT_REFERENCE_REQUIRED');const expId=randomUUID();const ins=await db.from('expenses').insert({id:expId,request_key:p.key,fingerprint:fp,category_id:p.data.category_id,expense_on:p.data.expense_on,description:p.data.description,amount_paise:p.data.amount_paise,method:p.data.method,reference:p.data.reference||'',payee:p.data.payee||'',actor_id:actor,source:'manual',status:'posted'});if(ins.error)throw new Fault(503,'SAVE_FAILED');try{await db.from('audit_log').insert({actor_id:actor,action:'expense.posted',entity:'expenses',entity_id:expId,details:{amount_paise:p.data.amount_paise,method:p.data.method}});}catch{}result=expId;}}else{result=await rpc('expense_post',{p_actor:actor,p_key:p.key,p_data:p.data});}}
+ else if(module==='expense_void'){const p=z.object({id,reason:z.string().trim().min(3).max(500)}).strict().parse(input);if(session.profile.role==='billing'){const db=service();const existing=await db.from('expenses').select('id,source,status').eq('id',p.id).single();if(existing.error||!existing.data||existing.data.source!=='manual')throw new Fault(409,'EXPENSE_LOCKED');if(existing.data.status!=='void'){const upd=await db.from('expenses').update({status:'void',void_by:actor,void_reason:p.reason}).eq('id',p.id);if(upd.error)throw new Fault(503,'SAVE_FAILED');try{await db.from('audit_log').insert({actor_id:actor,action:'expense.void',entity:'expenses',entity_id:p.id,details:{reason:p.reason}});}catch{}}}else{await rpc('expense_void',{p_actor:actor,p_id:p.id,p_reason:p.reason});}}
  else if(module==='pos_quote'){const p=z.object({cart:posCart,discount_paise:z.number().int().min(0).max(100000000)}).strict().parse(input);result=await rpc('pos_quote',{p_actor:actor,p_cart:p.cart,p_discount:p.discount_paise});return ok(result);}
  else if(module==='pos_sale'){const p=posInput.parse(input);result=await rpc('pos_checkout',{p_actor:actor,p_key:p.key,p_cart:p.cart,p_customer:p.customer,p_discount:p.discount_paise,p_tenders:p.tenders,p_cash_received:p.cash_received_paise,p_bank_checked:p.bank_checked});}
  else if(module==='pos_return'){if(!can(session.profile,'inventory'))throw new Fault(403,'FORBIDDEN');const p=z.object({id,reason:z.string().trim().min(3).max(500),reference:z.string().trim().min(6).max(100),checked:z.literal(true)}).strict().parse(input);await rpc('pos_return',{p_actor:actor,p_sale:p.id,p_reason:p.reason,p_reference:p.reference});}
@@ -44,4 +46,44 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
  else if(module==='payroll'){const p=payrollInput.parse(input);result=await rpc('payroll_from_attendance',{p_actor:actor,p_employee:p.employee_id,p_period:p.period,p_bonus:p.bonus_paise,p_allowances:p.allowances,p_deductions:p.deductions});}
  else if(module==='payroll_finalize'){const p=z.object({id,action:z.enum(['approve','paid']),reference:z.string().trim().max(100).default(''),method:z.enum(['cash','upi','card','bank']).default('bank'),checked:z.boolean().default(false)}).strict().parse(input);await rpc('payroll_finalize',{p_actor:actor,p_run:p.id,p_action:p.action,p_reference:p.reference,p_method:p.method,p_checked:p.checked});}
  else throw new Fault(404,'NOT_FOUND');return ok({id:result,message:module==='employee_login'?'Login linked. Confirmation email requested for a newly created account.':'Saved.'});
+}catch(e){return failure(e);}}
+export async function DELETE(req:Request,{params}:{params:Promise<{module:string}>}){try{
+ origin(req);const {module}=await params;if(module!=='product_categories'&&module!=='employees')throw new Fault(403,'CANNOT_DELETE');const session=await staff('superadmin');await rate(req,'erp-write',session.user.id,60);const targetId=id.parse(new URL(req.url).searchParams.get('id'));const db=service();
+ if(module==='employees'){
+  const {data:emp,error:empErr}=await db.from('employees').select('id,name,profile_id,joined_on').eq('id',targetId).single();
+  if(empErr||!emp)throw new Fault(404,'NOT_FOUND');
+  const {count:payCount}=await db.from('payroll_runs').select('id',{count:'exact',head:true}).eq('employee_id',targetId);
+  if(emp.profile_id){
+   const {data:prof}=await db.from('profiles').select('role').eq('id',emp.profile_id).maybeSingle();
+   if(prof&&prof.role!=='superadmin'){await db.from('profiles').update({suspended:true}).eq('id',emp.profile_id);}
+  }
+  if((payCount||0)===0){
+   await db.from('attendance').delete().eq('employee_id',targetId);
+   const del=await db.from('employees').delete().eq('id',targetId);
+   if(!del.error){
+    try{await db.from('audit_log').insert({actor_id:session.user.id,action:'employees.deleted',entity:'employees',entity_id:targetId,details:{name:emp.name}});}catch{}
+    return ok({message:`Staff member "${emp.name}" deleted.`});
+   }
+  }
+  const today=new Date().toISOString().slice(0,10);
+  const endDate=emp.joined_on&&today<emp.joined_on?emp.joined_on:today;
+  const arch=await db.from('employees').update({active:false,profile_id:null,ended_on:endDate}).eq('id',targetId);
+  if(arch.error)throw new Fault(409,'DELETE_FAILED','Could not remove this staff member.');
+  try{await db.from('audit_log').insert({actor_id:session.user.id,action:'employees.deactivated',entity:'employees',entity_id:targetId,details:{name:emp.name}});}catch{}
+  return ok({message:`Staff member "${emp.name}" deactivated (salary history preserved).`});
+ }
+ const catId=targetId;
+ const {data:cat,error:catErr}=await db.from('product_categories').select('id,parent_id,name').eq('id',catId).single();
+ if(catErr||!cat)throw new Fault(404,'NOT_FOUND');
+ const {count:childCount}=await db.from('product_categories').select('id',{count:'exact',head:true}).eq('parent_id',catId);
+ if((childCount||0)>0)throw new Fault(409,'HAS_SUBCATEGORIES','Remove its subcategories before deleting this main category.');
+ // Safely preserve existing products in this subcategory by falling back to sibling 'All styles' or null (keeping their Main Category intact)
+ let fallbackSub:string|null=null;
+ if(cat.parent_id){const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();fallbackSub=allStyle?.id||null;}
+ await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ const del=await db.from('product_categories').delete().eq('id',catId);
+ if(del.error)throw new Fault(409,'DELETE_FAILED','This category could not be deleted.');
+ await removeCategoryImage(catId);
+ try{await db.from('audit_log').insert({actor_id:session.user.id,action:'product_categories.deleted',entity:'product_categories',entity_id:catId,details:{name:cat.name,parent_id:cat.parent_id}});}catch{}
+ return ok({message:`"${cat.name}" deleted.`});
 }catch(e){return failure(e);}}

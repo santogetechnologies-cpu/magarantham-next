@@ -1,6 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { getStore } from "@/lib/store";
 import { identity, Fault } from "@/lib/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import {
   Home,
   ProductDetail,
@@ -13,6 +16,7 @@ import { Catalogue } from "@/components/catalogue";
 import { AuthForm, Mfa } from "@/components/auth-form";
 import { Account } from "@/components/account";
 import { OrderView } from "@/components/order-view";
+import { CategoryCollectionPage } from "@/components/category-collection";
 export default async function Page({
   params,
   searchParams,
@@ -41,19 +45,80 @@ export default async function Page({
         <section className="section shop-section">
           <Catalogue
             products={store.products}
+            categories={store.categories}
             ordering={store.settings.ordering_enabled}
             initialCategory={
               typeof q.category === "string" ? q.category : "All"
+            }
+            initialSubcategory={
+              typeof q.subcategory === "string" ? q.subcategory : "All"
             }
           />
         </section>
       </>
     );
   }
+  if (path[0] === "shop" && path.length >= 2 && path.length <= 3) {
+    const mainSlug = decodeURIComponent(path[1]).toLowerCase().trim();
+    const cat = store.categories.find(
+      (c) =>
+        !c.parent_id &&
+        c.active !== false &&
+        (c.slug.toLowerCase() === mainSlug ||
+          c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === mainSlug ||
+          c.name.toLowerCase() === mainSlug),
+    );
+    if (!cat) notFound();
+
+    let subCat: (typeof store.categories)[0] | null = null;
+    if (path.length === 3) {
+      const subSlug = decodeURIComponent(path[2]).toLowerCase().trim();
+      subCat =
+        store.categories.find(
+          (c) =>
+            c.parent_id === cat.id &&
+            c.active !== false &&
+            (c.slug.toLowerCase() === subSlug ||
+              c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === subSlug ||
+              c.name.toLowerCase() === subSlug),
+        ) || null;
+      if (!subCat) notFound();
+    }
+
+    return (
+      <CategoryCollectionPage
+        category={cat}
+        subCategory={subCat}
+        categories={store.categories}
+        products={store.products}
+        settings={store.settings}
+      />
+    );
+  }
   if (path[0] === "products" && path.length === 2) {
     const p = store.products.find((p) => p.slug === path[1]);
     if (!p) notFound();
     return <ProductDetail p={p} settings={store.settings} />;
+  }
+  if (path[0] === "category" && path.length === 2) {
+    const rawSlug = decodeURIComponent(path[1]).toLowerCase().trim();
+    const cat = store.categories.find(
+      (c) =>
+        !c.parent_id &&
+        c.active !== false &&
+        (c.slug.toLowerCase() === rawSlug ||
+          c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === rawSlug ||
+          c.name.toLowerCase() === rawSlug),
+    );
+    if (!cat) notFound();
+    return (
+      <CategoryCollectionPage
+        category={cat}
+        categories={store.categories}
+        products={store.products}
+        settings={store.settings}
+      />
+    );
   }
   if (route === "cart") return <Cart {...store} />;
   if (route === "bulk") return <Bulk settings={store.settings} />;
