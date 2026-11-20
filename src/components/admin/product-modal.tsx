@@ -279,8 +279,8 @@ export function ProductModal({
           piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
           barcode: `MSU${Date.now().toString().slice(-7)}001`,
           colour: "Purple",
-          priceRupees: basePriceRupees || "5000",
-          purchaseCostRupees: purchasePriceRupees || "3500",
+          priceRupees: basePriceRupees || "",
+          purchaseCostRupees: purchasePriceRupees || "",
           status: "available",
           location: "Rack A-1",
         },
@@ -333,8 +333,8 @@ export function ProductModal({
         piece_code: pieceCode,
         barcode,
         colour: nextCol,
-        priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || "5000"),
-        purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || "3500"),
+        priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || ""),
+        purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || ""),
         status: "available",
         location: `Rack A-${nextIdx}`,
       },
@@ -398,8 +398,8 @@ export function ProductModal({
           piece_code: `${catCode}-${colCode}-${String(idx).padStart(3, "0")}`,
           barcode: `MSU${Date.now().toString().slice(-7)}${String(idx).padStart(3, "0")}`,
           colour: nextCol,
-          priceRupees: basePriceRupees || (pieces[0]?.priceRupees || "5000"),
-          purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || "3500"),
+          priceRupees: basePriceRupees || (pieces[0]?.priceRupees || ""),
+          purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || ""),
           status: "available",
           location: `Rack A-${idx}`,
         });
@@ -508,19 +508,33 @@ export function ProductModal({
       else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
     }
 
-    // Price calculation (optional, defaults to 0 if left blank)
-    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, "")) || 0;
+    // Form validation check: Selling Price (₹)
+    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, ""));
+    if (!basePriceRupees || isNaN(basePriceNum) || basePriceNum <= 0) {
+      setError("Selling Price (₹) is required and must be greater than ₹0.");
+      return;
+    }
     const pricePaise = Math.round(basePriceNum * 100);
 
-    const purchasePriceNum = Number(String(purchasePriceRupees || "").replace(/,/g, "")) || 0;
+    // Form validation check: Purchase Cost (₹, optional but cannot be negative)
+    const purchasePriceNum = purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0;
+    if (isNaN(purchasePriceNum) || purchasePriceNum < 0) {
+      setError("Purchase Cost (₹) cannot be negative.");
+      return;
+    }
     const purchasePricePaise = Math.round(purchasePriceNum * 100);
+
+    // Form validation check: Stock / Quantity (Units)
+    const stockNum = typeof stockInput === "number" ? stockInput : parseInt(String(stockInput ?? ""), 10);
+    if (stockInput === "" || stockInput === null || stockInput === undefined || isNaN(stockNum) || stockNum < 0) {
+      setError("Stock (Units) is required and must be 0 or greater.");
+      return;
+    }
 
     // Stock on hand is calculated directly from AVAILABLE pieces
     const stockOnHand = pieces.length > 0
       ? pieces.filter((p) => p.status === "available").length
-      : typeof stockInput === "number"
-        ? stockInput
-        : parseInt(String(stockInput || 0), 10) || 0;
+      : stockNum;
 
     const finalMinStock = typeof minStockLevel === "number"
       ? minStockLevel
@@ -573,18 +587,22 @@ export function ProductModal({
       if (pieces.length > 0) {
         await api("/api/admin/pieces", {
           product_id: targetProductId,
-          pieces: pieces.map((p) => ({
-            id: p.id,
-            product_id: targetProductId,
-            piece_code: p.piece_code.trim(),
-            barcode: p.barcode.trim(),
-            colour: p.colour.trim(),
-            price_paise: pricePaise,
-            purchase_cost_paise: purchasePricePaise || undefined,
-            status: p.status,
-            location: p.location.trim(),
-            image_path: p.image_path || mainImage,
-          })),
+          pieces: pieces.map((p) => {
+            const piecePriceNum = p.priceRupees ? Number(String(p.priceRupees).replace(/,/g, "")) : 0;
+            const pieceCostNum = p.purchaseCostRupees ? Number(String(p.purchaseCostRupees).replace(/,/g, "")) : 0;
+            return {
+              id: p.id,
+              product_id: targetProductId,
+              piece_code: p.piece_code.trim(),
+              barcode: p.barcode.trim(),
+              colour: p.colour.trim(),
+              price_paise: piecePriceNum > 0 ? Math.round(piecePriceNum * 100) : pricePaise,
+              purchase_cost_paise: pieceCostNum > 0 ? Math.round(pieceCostNum * 100) : (purchasePricePaise || undefined),
+              status: p.status,
+              location: p.location.trim(),
+              image_path: p.image_path || mainImage,
+            };
+          }),
         });
       }
 
@@ -884,17 +902,24 @@ export function ProductModal({
               {/* Base Selling Price (₹) */}
               <label className="ap-field" style={{ flex: "1 1 140px" }}>
                 <span className="ap-label">
-                  Selling Price (₹)
+                  Selling Price (₹) <em className="ap-req">*</em>
                 </span>
                 <div className="ap-inline-price-wrap" style={{ border: "1px solid #D4B99F", borderRadius: 6, padding: "0 8px", background: "#FFFFFF", height: 38 }}>
                   <span className="ap-rupee-symbol">₹</span>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
+                    required
                     placeholder="0"
                     value={basePriceRupees}
                     onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => setBasePriceRupees(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBasePriceRupees(val);
+                      if (pieces.length === 1 && (!pieces[0].priceRupees || pieces[0].priceRupees === "5000" || pieces[0].priceRupees === "0")) {
+                        updatePiece(pieces[0].key, { priceRupees: val });
+                      }
+                    }}
                     className="ap-inline-input"
                     style={{ fontWeight: 600, fontSize: 14, color: "#800020" }}
                   />
@@ -936,6 +961,7 @@ export function ProductModal({
                   <input
                     type="number"
                     min="0"
+                    required
                     value={stockInput}
                     onWheel={(e) => e.currentTarget.blur()}
                     onChange={(e) => handleStockChange(e.target.value)}
@@ -1049,10 +1075,12 @@ export function ProductModal({
               <table className="ap-variants-table">
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 160 }}>Piece Code</th>
-                    <th style={{ width: 140 }}>Colour</th>
-                    <th style={{ width: 140 }}>Location</th>
-                    <th style={{ width: 130 }}>Stock Status</th>
+                    <th style={{ width: 140 }}>Piece Code</th>
+                    <th style={{ width: 110 }}>Colour</th>
+                    <th style={{ width: 110 }}>Price (₹)</th>
+                    <th style={{ width: 110 }}>Cost (₹, admin)</th>
+                    <th style={{ width: 110 }}>Location</th>
+                    <th style={{ width: 120 }}>Stock Status</th>
                     <th style={{ width: 40 }}></th>
                   </tr>
                 </thead>
@@ -1109,6 +1137,52 @@ export function ProductModal({
                               </option>
                             ))}
                           </select>
+                        </div>
+                      </td>
+
+                      {/* Individual Price (₹) */}
+                      <td>
+                        <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
+                          <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#800020", fontWeight: 600 }}>₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={basePriceRupees || "0"}
+                            value={pc.priceRupees || ""}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { priceRupees: val });
+                              }
+                            }}
+                            className="ap-inline-input"
+                            style={{ fontSize: 12, fontWeight: 600, color: "#800020", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
+                            aria-label="Individual piece price"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Purchase Cost (₹, admin only) */}
+                      <td>
+                        <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
+                          <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#888" }}>₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={purchasePriceRupees || "0"}
+                            value={pc.purchaseCostRupees || ""}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { purchaseCostRupees: val });
+                              }
+                            }}
+                            className="ap-inline-input"
+                            style={{ fontSize: 12, color: "#555", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
+                            aria-label="Purchase cost"
+                          />
                         </div>
                       </td>
 
