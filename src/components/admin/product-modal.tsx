@@ -1014,7 +1014,7 @@ export function ProductModal({
                 </p>
                 <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
-                    Available Quantity: {pieceStats.available}
+                    Available Stock: {pieceStats.available}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
                     Sold: {pieceStats.sold}
@@ -1023,10 +1023,10 @@ export function ProductModal({
                     Reserved: {pieceStats.reserved}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
-                    Total Quantity: {pieceStats.total}
+                    Total Stock: {pieceStats.total}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#EFF6FF", color: "#1E40AF" }}>
-                    Min Quantity: {minStockLevel || 0}
+                    Low Stock: {minStockLevel || 0}
                   </span>
                   {pieceStats.available <= Number(minStockLevel || 0) && Number(minStockLevel || 0) > 0 && (
                     <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
@@ -1069,8 +1069,8 @@ export function ProductModal({
                     <th style={{ width: 95 }}>Colour</th>
                     <th style={{ width: 110 }}>Selling Price (₹)</th>
                     <th style={{ width: 110 }}>Purchase Cost (₹)</th>
-                    <th style={{ width: 75 }}>Quantity</th>
-                    <th style={{ width: 80 }}>Min Quantity</th>
+                    <th style={{ width: 75 }}>Stock</th>
+                    <th style={{ width: 80 }}>Low Stock</th>
                     <th style={{ width: 95 }}>Location</th>
                     <th style={{ width: 110 }}>Stock Status</th>
                     <th style={{ width: 60, textAlign: "center" }}>Delete</th>
@@ -1178,7 +1178,7 @@ export function ProductModal({
                         </div>
                       </td>
 
-                      {/* Quantity */}
+                      {/* Stock */}
                       <td>
                         <div style={{ border: "1px solid #D4B99F", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
                           <input
@@ -1195,12 +1195,12 @@ export function ProductModal({
                             }}
                             className="ap-inline-input"
                             style={{ fontSize: 12, fontWeight: 700, color: "#166534", width: "100%", border: "none", outline: "none", textAlign: "center" }}
-                            aria-label="Quantity"
+                            aria-label="Stock"
                           />
                         </div>
                       </td>
 
-                      {/* Min Quantity */}
+                      {/* Low Stock */}
                       <td>
                         <div style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
                           <input
@@ -1217,7 +1217,7 @@ export function ProductModal({
                             }}
                             className="ap-inline-input"
                             style={{ fontSize: 12, fontWeight: 600, color: "#475569", width: "100%", border: "none", outline: "none", textAlign: "center" }}
-                            aria-label="Min quantity"
+                            aria-label="Low stock"
                           />
                         </div>
                       </td>
