@@ -80,7 +80,7 @@ export async function GET(
       const lowStockProducts = productsList.filter(
         (p) =>
           (p.stock_on_hand || 0) > 0 &&
-          (p.stock_on_hand || 0) <= (p.min_stock_level || 3),
+          (p.stock_on_hand || 0) <= (p.min_stock_level ?? 0),
       ).length;
       const outOfStockProducts = productsList.filter(
         (p) => (p.stock_on_hand || 0) === 0,
@@ -88,7 +88,7 @@ export async function GET(
 
       // Low stock alerts list
       const lowStockAlerts = productsList
-        .filter((p) => (p.stock_on_hand || 0) <= (p.min_stock_level || 3))
+        .filter((p) => (p.stock_on_hand || 0) <= (p.min_stock_level ?? 0))
         .slice(0, 8);
 
       // Category Stock Distribution

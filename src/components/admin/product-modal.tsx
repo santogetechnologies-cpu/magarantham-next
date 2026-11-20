@@ -162,10 +162,33 @@ export function ProductModal({
   const [purchasePriceRupees, setPurchasePriceRupees] = useState(
     product?.purchase_price_paise ? String(product.purchase_price_paise / 100) : "",
   );
+  const [minStockLevel, setMinStockLevel] = useState<number | string>(
+    product?.min_stock_level !== undefined ? product.min_stock_level : 0,
+  );
+  const [stockInput, setStockInput] = useState<number | string>(
+    product?.stock_on_hand !== undefined ? product.stock_on_hand : 1,
+  );
   const [published, setPublished] = useState(product?.published ?? true);
   const [featured, setFeatured] = useState(product?.featured ?? false);
   const [mainImage, setMainImage] = useState(product?.image_path || "");
   const [mainUploading, setMainUploading] = useState(false);
+
+  // Sync state if product changes
+  useEffect(() => {
+    if (product) {
+      if (product.name) setProductName(product.name);
+      if (product.description !== undefined) setDescription(product.description);
+      if (product.fabric) setFabric(product.fabric);
+      if (product.design) setDesign(product.design);
+      if (product.price_paise) setBasePriceRupees(String(product.price_paise / 100));
+      if (product.purchase_price_paise) setPurchasePriceRupees(String(product.purchase_price_paise / 100));
+      if (product.min_stock_level !== undefined) setMinStockLevel(product.min_stock_level);
+      if (product.stock_on_hand !== undefined) setStockInput(product.stock_on_hand);
+      if (product.published !== undefined) setPublished(product.published);
+      if (product.featured !== undefined) setFeatured(product.featured);
+      if (product.image_path) setMainImage(product.image_path);
+    }
+  }, [product]);
 
   // Sync category if product arrives late
   useEffect(() => {
@@ -345,6 +368,60 @@ export function ProductModal({
     );
   }
 
+  // Automatically sync stockInput when physical pieces change
+  useEffect(() => {
+    if (pieces.length > 0) {
+      const avail = pieces.filter((p) => p.status === "available").length;
+      setStockInput(avail);
+    }
+  }, [pieces]);
+
+  function handleStockChange(valStr: string) {
+    if (valStr === "") {
+      setStockInput("");
+      return;
+    }
+    const target = Math.max(0, parseInt(valStr, 10) || 0);
+    setStockInput(target);
+
+    const currentAvailable = pieces.filter((p) => p.status === "available").length;
+    if (target > currentAvailable) {
+      const diff = target - currentAvailable;
+      const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+      const newItems: PieceRow[] = [];
+      for (let i = 0; i < diff; i++) {
+        const idx = pieces.length + i + 1;
+        const nextCol = COLOUR_PRESETS[(idx - 1) % COLOUR_PRESETS.length].name;
+        const colCode = nextCol.slice(0, 3).toUpperCase();
+        newItems.push({
+          key: `pc-${Date.now()}-${idx}`,
+          piece_code: `${catCode}-${colCode}-${String(idx).padStart(3, "0")}`,
+          barcode: `MSU${Date.now().toString().slice(-7)}${String(idx).padStart(3, "0")}`,
+          colour: nextCol,
+          priceRupees: basePriceRupees || (pieces[0]?.priceRupees || "5000"),
+          purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || "3500"),
+          status: "available",
+          location: `Rack A-${idx}`,
+        });
+      }
+      setPieces((prev) => [...prev, ...newItems]);
+    } else if (target < currentAvailable) {
+      let toRemove = currentAvailable - target;
+      setPieces((prev) => {
+        const nextList: PieceRow[] = [];
+        for (let i = prev.length - 1; i >= 0; i--) {
+          const item = prev[i];
+          if (toRemove > 0 && item.status === "available" && (prev.length - (currentAvailable - target + toRemove - 1)) >= 1) {
+            toRemove--;
+            continue;
+          }
+          nextList.unshift(item);
+        }
+        return nextList.length > 0 ? nextList : prev;
+      });
+    }
+  }
+
   async function compressAndUpload(file: File): Promise<string> {
     const validation = validateImageFile(file);
     if (!validation.valid) {
@@ -441,7 +518,15 @@ export function ProductModal({
     const purchasePricePaise = Math.round(purchasePriceNum * 100);
 
     // Stock on hand is calculated directly from AVAILABLE pieces
-    const stockOnHand = pieces.filter((p) => p.status === "available").length;
+    const stockOnHand = pieces.length > 0
+      ? pieces.filter((p) => p.status === "available").length
+      : typeof stockInput === "number"
+        ? stockInput
+        : parseInt(String(stockInput || 0), 10) || 0;
+
+    const finalMinStock = typeof minStockLevel === "number"
+      ? minStockLevel
+      : parseInt(String(minStockLevel || 0), 10) || 0;
 
     setSaving(true);
     try {
@@ -473,7 +558,8 @@ export function ProductModal({
           price_paise: pricePaise,
           compare_at_price_paise: product?.compare_at_price_paise || 0,
           discount_percent: product?.discount_percent || 0,
-          min_stock_level: 0,
+          stock_on_hand: stockOnHand,
+          min_stock_level: finalMinStock,
           published,
           featured,
           archived: false,
@@ -797,6 +883,115 @@ export function ProductModal({
               </label>
             </div>
 
+            {/* PRICING, STOCK & MIN STOCK ROW */}
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+              {/* Base Selling Price (₹) */}
+              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+                <span className="ap-label">
+                  Selling Price (₹) <em className="ap-req">*</em>
+                </span>
+                <div className="ap-inline-price-wrap" style={{ border: "1px solid #D4B99F", borderRadius: 6, padding: "0 8px", background: "#FFFFFF", height: 38 }}>
+                  <span className="ap-rupee-symbol">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    placeholder="0"
+                    value={basePriceRupees}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBasePriceRupees(val);
+                      if (pieces.length === 1 && (!pieces[0].priceRupees || pieces[0].priceRupees === "5000" || pieces[0].priceRupees === "0")) {
+                        updatePiece(pieces[0].key, { priceRupees: val });
+                      }
+                    }}
+                    className="ap-inline-input"
+                    style={{ fontWeight: 600, fontSize: 14, color: "#800020" }}
+                  />
+                </div>
+              </label>
+
+              {/* Purchase Cost (₹, Admin Only) */}
+              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+                <span className="ap-label">
+                  Purchase Cost (₹)
+                </span>
+                <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 6, padding: "0 8px", background: "#FFFDF9", height: 38 }}>
+                  <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={purchasePriceRupees}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPurchasePriceRupees(val);
+                      if (pieces.length === 1 && (!pieces[0].purchaseCostRupees || pieces[0].purchaseCostRupees === "3500")) {
+                        updatePiece(pieces[0].key, { purchaseCostRupees: val });
+                      }
+                    }}
+                    className="ap-inline-input"
+                    style={{ fontSize: 14, color: "#555" }}
+                  />
+                </div>
+              </label>
+
+              {/* Available Stock Units */}
+              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+                <span className="ap-label">
+                  Stock (Units) <em className="ap-req">*</em>
+                </span>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    value={stockInput}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => handleStockChange(e.target.value)}
+                    className="ap-input"
+                    placeholder="0"
+                    style={{ fontWeight: 700, color: "#166534", paddingRight: 65, height: 38 }}
+                  />
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#166534",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    in stock
+                  </span>
+                </div>
+              </label>
+
+              {/* Min Stock Alert Level */}
+              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+                <span className="ap-label">
+                  Min Stock Alert
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={minStockLevel}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMinStockLevel(val === "" ? "" : Math.max(0, parseInt(val, 10) || 0));
+                  }}
+                  className="ap-input"
+                  placeholder="0"
+                  style={{ fontWeight: 600, height: 38 }}
+                />
+              </label>
+            </div>
+
             <label className="ap-field" style={{ marginTop: 10 }}>
               <span className="ap-label">Description</span>
               <textarea
@@ -817,9 +1012,9 @@ export function ProductModal({
                 <p className="ap-variants-subtitle">
                   Each physical saree has its own unique piece code, individual price, and stock status.
                 </p>
-                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
-                    Available: {pieceStats.available}
+                    Available Stock: {pieceStats.available}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
                     Sold: {pieceStats.sold}
@@ -828,8 +1023,16 @@ export function ProductModal({
                     Reserved: {pieceStats.reserved}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
-                    Total: {pieceStats.total} Pieces
+                    Total Pieces: {pieceStats.total}
                   </span>
+                  <span className="cat-count-pill" style={{ background: "#EFF6FF", color: "#1E40AF" }}>
+                    Min Stock Alert: {minStockLevel || 0}
+                  </span>
+                  {pieceStats.available <= Number(minStockLevel || 0) && Number(minStockLevel || 0) > 0 && (
+                    <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
+                      ⚠️ Low Stock
+                    </span>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>

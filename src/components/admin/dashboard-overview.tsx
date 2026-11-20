@@ -578,7 +578,7 @@ export function DashboardOverview({
                           {item.stock_on_hand} pcs
                         </span>
                       </td>
-                      <td>{item.min_stock_level || 3} pcs</td>
+                      <td>{item.min_stock_level ?? 0} pcs</td>
                       <td>
                         {onAdjustStock ? (
                           <button

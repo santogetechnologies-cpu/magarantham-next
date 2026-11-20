@@ -926,11 +926,14 @@ export function CatalogueHierarchyManager({
                           <span
                             className="cat-status-pill"
                             style={{
-                              background: prod.stock_on_hand > 0 ? "#DCFCE7" : "#FEE2E2",
-                              color: prod.stock_on_hand > 0 ? "#166534" : "#991B1B",
+                              background: prod.stock_on_hand > (prod.min_stock_level ?? 0) ? "#DCFCE7" : "#FEE2E2",
+                              color: prod.stock_on_hand > (prod.min_stock_level ?? 0) ? "#166534" : "#991B1B",
                             }}
                           >
                             {prod.stock_on_hand > 0 ? `${prod.stock_on_hand} in stock` : "Out of stock"}
+                          </span>
+                          <span style={{ display: "block", fontSize: 11, color: "#666", marginTop: 2 }}>
+                            Min stock: {prod.min_stock_level ?? 0}
                           </span>
                         </td>
                         <td>

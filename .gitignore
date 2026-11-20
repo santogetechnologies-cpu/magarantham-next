@@ -7,3 +7,4 @@ coverage/
 *.log
 powershell.cmd
 supabase/.temp/
+.cache/
