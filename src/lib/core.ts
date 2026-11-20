@@ -37,6 +37,8 @@ export type IndividualPiece = {
   colour: string;
   price_paise: number;
   purchase_cost_paise?: number; // admin-only
+  quantity?: number;
+  min_quantity?: number;
   status: PieceStatus;
   image_path?: string;
   location?: string; // admin-only
@@ -150,15 +152,17 @@ export const publicProduct = (p: Record<string, unknown>): Product => {
         colour: String(piece.colour || p.colour || ""),
         price_paise: Number(piece.price_paise || p.price_paise || 0),
         status: (piece.status || "available") as PieceStatus,
+        quantity: piece.quantity != null && Number(piece.quantity) >= 0 ? Number(piece.quantity) : 1,
+        min_quantity: piece.min_quantity != null && Number(piece.min_quantity) >= 0 ? Number(piece.min_quantity) : 0,
         image_path: piece.image_path ? String(piece.image_path) : undefined,
         created_at: String(piece.created_at || new Date().toISOString()),
         unit_id: piece.unit_id != null ? piece.unit_id : undefined,
       }))
     : undefined;
 
-  const totalPieces = publicPieces ? publicPieces.length : undefined;
-  const availPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "available").length : undefined;
-  const soldPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "sold").length : undefined;
+  const totalPieces = publicPieces ? publicPieces.reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
+  const availPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "available").reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
+  const soldPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "sold").reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
 
   return {
     id: String(p.id),
