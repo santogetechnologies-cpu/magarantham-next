@@ -166,7 +166,7 @@ export function ProductModal({
     product?.min_stock_level !== undefined ? product.min_stock_level : 0,
   );
   const [stockInput, setStockInput] = useState<number | string>(
-    product?.stock_on_hand !== undefined ? product.stock_on_hand : 1,
+    product?.stock_on_hand !== undefined ? product.stock_on_hand : 0,
   );
   const [published, setPublished] = useState(product?.published ?? true);
   const [featured, setFeatured] = useState(product?.featured ?? false);
@@ -253,38 +253,31 @@ export function ProductModal({
               })),
             );
           } else {
-            // Initialize 1 default piece from product info
-            setPieces([
-              {
-                key: `pc-init-1`,
-                piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
-                barcode: `MSU${Date.now().toString().slice(-7)}001`,
-                colour: product.colour || "Purple",
-                priceRupees: product.price_paise ? String(product.price_paise / 100) : "",
-                purchaseCostRupees: product.purchase_price_paise
-                  ? String(product.purchase_price_paise / 100)
-                  : "",
-                status: "available",
-                location: "Rack A-1",
-              },
-            ]);
+            // Existing product without individual pieces in DB
+            if (product.stock_on_hand && product.stock_on_hand > 0) {
+              setPieces([
+                {
+                  key: `pc-init-1`,
+                  piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
+                  barcode: `MSU${Date.now().toString().slice(-7)}001`,
+                  colour: product.colour || "Purple",
+                  priceRupees: product.price_paise ? String(product.price_paise / 100) : "",
+                  purchaseCostRupees: product.purchase_price_paise
+                    ? String(product.purchase_price_paise / 100)
+                    : "",
+                  status: "available",
+                  location: "Rack A-1",
+                },
+              ]);
+            } else {
+              setPieces([]);
+            }
           }
         })
         .catch(() => {});
     } else {
-      // New Product: Initialize default 1st piece
-      setPieces([
-        {
-          key: `pc-new-1`,
-          piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
-          barcode: `MSU${Date.now().toString().slice(-7)}001`,
-          colour: "Purple",
-          priceRupees: basePriceRupees || "5000",
-          purchaseCostRupees: purchasePriceRupees || "3500",
-          status: "available",
-          location: "Rack A-1",
-        },
-      ]);
+      // New Product: Start with 0 pieces so all counters start at 0
+      setPieces([]);
     }
   }, [product?.id]);
 
@@ -296,7 +289,7 @@ export function ProductModal({
       colour: "Purple",
       priceRupees: "",
       stock: "",
-      minStock: "0",
+      minStock: "",
       image_path: "",
     },
   ]);
@@ -333,8 +326,8 @@ export function ProductModal({
         piece_code: pieceCode,
         barcode,
         colour: nextCol,
-        priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || "5000"),
-        purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || "3500"),
+        priceRupees: prev[prev.length - 1]?.priceRupees || "",
+        purchaseCostRupees: prev[prev.length - 1]?.purchaseCostRupees || "",
         status: "available",
         location: `Rack A-${nextIdx}`,
       },
@@ -348,10 +341,7 @@ export function ProductModal({
   }
 
   function removePiece(key: string) {
-    setPieces((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((p) => p.key !== key);
-    });
+    setPieces((prev) => prev.filter((p) => p.key !== key));
   }
 
   function autoGeneratePieceCodes() {
@@ -370,10 +360,8 @@ export function ProductModal({
 
   // Automatically sync stockInput when physical pieces change
   useEffect(() => {
-    if (pieces.length > 0) {
-      const avail = pieces.filter((p) => p.status === "available").length;
-      setStockInput(avail);
-    }
+    const avail = pieces.filter((p) => p.status === "available").length;
+    setStockInput(avail);
   }, [pieces]);
 
   function handleStockChange(valStr: string) {
@@ -398,8 +386,8 @@ export function ProductModal({
           piece_code: `${catCode}-${colCode}-${String(idx).padStart(3, "0")}`,
           barcode: `MSU${Date.now().toString().slice(-7)}${String(idx).padStart(3, "0")}`,
           colour: nextCol,
-          priceRupees: basePriceRupees || (pieces[0]?.priceRupees || "5000"),
-          purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || "3500"),
+          priceRupees: pieces[0]?.priceRupees || "",
+          purchaseCostRupees: pieces[0]?.purchaseCostRupees || "",
           status: "available",
           location: `Rack A-${idx}`,
         });
@@ -411,13 +399,13 @@ export function ProductModal({
         const nextList: PieceRow[] = [];
         for (let i = prev.length - 1; i >= 0; i--) {
           const item = prev[i];
-          if (toRemove > 0 && item.status === "available" && (prev.length - (currentAvailable - target + toRemove - 1)) >= 1) {
+          if (toRemove > 0 && item.status === "available") {
             toRemove--;
             continue;
           }
           nextList.unshift(item);
         }
-        return nextList.length > 0 ? nextList : prev;
+        return nextList;
       });
     }
   }
@@ -508,14 +496,16 @@ export function ProductModal({
       else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
     }
 
-    // Price calculation
-    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, ""));
+    // Price calculation: derive from individual physical pieces or existing product
+    const firstPiecePrice = pieces[0]?.priceRupees ? Number(pieces[0].priceRupees) : 0;
     const pricePaise = pieces.length > 0
-      ? Math.round(Number(pieces[0].priceRupees || 0) * 100)
-      : Math.round(basePriceNum * 100);
+      ? Math.round(firstPiecePrice * 100)
+      : (product?.price_paise || 0);
 
-    const purchasePriceNum = Number(String(purchasePriceRupees || "").replace(/,/g, ""));
-    const purchasePricePaise = Math.round(purchasePriceNum * 100);
+    const firstPieceCost = pieces[0]?.purchaseCostRupees ? Number(pieces[0].purchaseCostRupees) : 0;
+    const purchasePricePaise = pieces.length > 0
+      ? Math.round(firstPieceCost * 100)
+      : (product?.purchase_price_paise || 0);
 
     // Stock on hand is calculated directly from AVAILABLE pieces
     const stockOnHand = pieces.length > 0
@@ -883,103 +873,34 @@ export function ProductModal({
               </label>
             </div>
 
-            {/* PRICING, STOCK & MIN STOCK ROW */}
+            {/* STOCK & MIN STOCK ROW */}
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-              {/* Base Selling Price (₹) */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Selling Price (₹) <em className="ap-req">*</em>
-                </span>
-                <div className="ap-inline-price-wrap" style={{ border: "1px solid #D4B99F", borderRadius: 6, padding: "0 8px", background: "#FFFFFF", height: 38 }}>
-                  <span className="ap-rupee-symbol">₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    placeholder="0"
-                    value={basePriceRupees}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setBasePriceRupees(val);
-                      if (pieces.length === 1 && (!pieces[0].priceRupees || pieces[0].priceRupees === "5000" || pieces[0].priceRupees === "0")) {
-                        updatePiece(pieces[0].key, { priceRupees: val });
-                      }
-                    }}
-                    className="ap-inline-input"
-                    style={{ fontWeight: 600, fontSize: 14, color: "#800020" }}
-                  />
-                </div>
-              </label>
-
-              {/* Purchase Cost (₹, Admin Only) */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Purchase Cost (₹)
-                </span>
-                <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 6, padding: "0 8px", background: "#FFFDF9", height: 38 }}>
-                  <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={purchasePriceRupees}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setPurchasePriceRupees(val);
-                      if (pieces.length === 1 && (!pieces[0].purchaseCostRupees || pieces[0].purchaseCostRupees === "3500")) {
-                        updatePiece(pieces[0].key, { purchaseCostRupees: val });
-                      }
-                    }}
-                    className="ap-inline-input"
-                    style={{ fontSize: 14, color: "#555" }}
-                  />
-                </div>
-              </label>
-
               {/* Available Stock Units */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+              <label className="ap-field" style={{ flex: "1 1 180px" }}>
                 <span className="ap-label">
                   Stock (Units) <em className="ap-req">*</em>
                 </span>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type="number"
-                    min="0"
-                    value={stockInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => handleStockChange(e.target.value)}
-                    className="ap-input"
-                    placeholder="0"
-                    style={{ fontWeight: 700, color: "#166534", paddingRight: 65, height: 38 }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "#166534",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    in stock
-                  </span>
-                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={stockInput === 0 || stockInput === "0" || stockInput === "" ? "" : stockInput}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onChange={(e) => handleStockChange(e.target.value)}
+                  className="ap-input"
+                  placeholder="0"
+                  style={{ fontWeight: 700, color: "#166534", height: 38 }}
+                />
               </label>
 
               {/* Min Stock Alert Level */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+              <label className="ap-field" style={{ flex: "1 1 180px" }}>
                 <span className="ap-label">
                   Min Stock Alert
                 </span>
                 <input
                   type="number"
                   min="0"
-                  value={minStockLevel}
+                  value={minStockLevel === 0 || minStockLevel === "0" || minStockLevel === "" ? "" : minStockLevel}
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -1070,184 +991,199 @@ export function ProductModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {pieces.map((pc, idx) => (
-                    <tr className="ap-variant-table-row" key={pc.key}>
-                      {/* Piece Code */}
-                      <td>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. KAN-PUR-001"
-                          value={pc.piece_code}
-                          onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
-                          className="ap-inline-input"
-                          style={{ fontWeight: 600, color: "#800020" }}
-                        />
-                      </td>
-
-                      {/* Colour */}
-                      <td>
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <span
-                            style={{
-                              backgroundColor: colourHex(pc.colour),
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              flexShrink: 0,
-                              border: "1px solid rgba(0,0,0,0.15)",
-                            }}
-                          />
-                          <select
-                            value={pc.colour}
-                            onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
-                            className="ap-inline-select"
-                            style={{
-                              border: "none",
-                              background: "transparent",
-                              fontWeight: 600,
-                              fontSize: 12,
-                              color: "#800020",
-                            }}
-                          >
-                            {COLOUR_PRESETS.map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-
-                      {/* Individual Price (₹) */}
-                      <td>
-                        <div className="ap-inline-price-wrap">
-                          <span className="ap-rupee-symbol">₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={pc.priceRupees}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || Number(val) >= 0) {
-                                updatePiece(pc.key, { priceRupees: val });
-                              }
-                            }}
-                            className="ap-inline-input"
-                            aria-label="Individual piece price"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Purchase Cost (₹, admin only) */}
-                      <td>
-                        <div className="ap-inline-price-wrap">
-                          <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={pc.purchaseCostRupees}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || Number(val) >= 0) {
-                                updatePiece(pc.key, { purchaseCostRupees: val });
-                              }
-                            }}
-                            className="ap-inline-input"
-                            aria-label="Admin purchase cost"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Stock Location */}
-                      <td>
-                        <input
-                          type="text"
-                          placeholder="e.g. Rack A-1"
-                          value={pc.location}
-                          onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
-                          className="ap-inline-input"
-                          style={{ fontSize: 12 }}
-                        />
-                      </td>
-
-                      {/* Stock Status */}
-                      <td>
-                        <select
-                          value={pc.status}
-                          onChange={(e) =>
-                            updatePiece(pc.key, {
-                              status: e.target.value as PieceRow["status"],
-                            })
-                          }
-                          className="ap-inline-select"
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            padding: "4px 8px",
-                            borderRadius: 4,
-                            background:
-                              pc.status === "available"
-                                ? "#DCFCE7"
-                                : pc.status === "sold"
-                                  ? "#F1F5F9"
-                                  : pc.status === "reserved"
-                                    ? "#FEF3C7"
-                                    : "#FEE2E2",
-                            color:
-                              pc.status === "available"
-                                ? "#166534"
-                                : pc.status === "sold"
-                                  ? "#475569"
-                                  : pc.status === "reserved"
-                                    ? "#92400E"
-                                    : "#991B1B",
-                          }}
-                        >
-                          <option value="available">Available</option>
-                          <option value="reserved">Reserved</option>
-                          <option value="sold">Sold</option>
-                          <option value="damaged">Damaged</option>
-                          <option value="returned">Returned</option>
-                        </select>
-                      </td>
-
-                      {/* Delete */}
-                      <td>
-                        <button
-                          type="button"
-                          className="ap-variant-del-btn"
-                          disabled={pieces.length <= 1}
-                          onClick={() => removePiece(pc.key)}
-                          title="Remove physical piece"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
+                  {pieces.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        style={{
+                          textAlign: "center",
+                          padding: "24px 12px",
+                          color: "#8E7363",
+                          fontSize: 13,
+                        }}
+                      >
+                        No individual physical pieces added yet. Click <strong>+ Add Saree Piece</strong> or enter stock units above to add pieces.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    pieces.map((pc, idx) => (
+                      <tr className="ap-variant-table-row" key={pc.key}>
+                        {/* Piece Code */}
+                        <td>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. KAN-PUR-001"
+                            value={pc.piece_code}
+                            onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
+                            className="ap-inline-input"
+                            style={{ fontWeight: 600, color: "#800020" }}
+                          />
+                        </td>
+
+                        {/* Colour */}
+                        <td>
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span
+                              style={{
+                                backgroundColor: colourHex(pc.colour),
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                flexShrink: 0,
+                                border: "1px solid rgba(0,0,0,0.15)",
+                              }}
+                            />
+                            <select
+                              value={pc.colour}
+                              onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
+                              className="ap-inline-select"
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                fontWeight: 600,
+                                fontSize: 12,
+                                color: "#800020",
+                              }}
+                            >
+                              {COLOUR_PRESETS.map((c) => (
+                                <option key={c.name} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+
+                        {/* Individual Price (₹) */}
+                        <td>
+                          <div className="ap-inline-price-wrap">
+                            <span className="ap-rupee-symbol">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={pc.priceRupees === "0" || pc.priceRupees === "" ? "" : pc.priceRupees}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "" || Number(val) >= 0) {
+                                  updatePiece(pc.key, { priceRupees: val });
+                                }
+                              }}
+                              className="ap-inline-input"
+                              aria-label="Individual piece price"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Purchase Cost (₹, admin only) */}
+                        <td>
+                          <div className="ap-inline-price-wrap">
+                            <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={pc.purchaseCostRupees === "0" || pc.purchaseCostRupees === "" ? "" : pc.purchaseCostRupees}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "" || Number(val) >= 0) {
+                                  updatePiece(pc.key, { purchaseCostRupees: val });
+                                }
+                              }}
+                              className="ap-inline-input"
+                              aria-label="Admin purchase cost"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Stock Location */}
+                        <td>
+                          <input
+                            type="text"
+                            placeholder="e.g. Rack A-1"
+                            value={pc.location}
+                            onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
+                            className="ap-inline-input"
+                            style={{ fontSize: 12 }}
+                          />
+                        </td>
+
+                        {/* Stock Status */}
+                        <td>
+                          <select
+                            value={pc.status}
+                            onChange={(e) =>
+                              updatePiece(pc.key, {
+                                status: e.target.value as PieceRow["status"],
+                              })
+                            }
+                            className="ap-inline-select"
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              background:
+                                pc.status === "available"
+                                  ? "#DCFCE7"
+                                  : pc.status === "sold"
+                                    ? "#F1F5F9"
+                                    : pc.status === "reserved"
+                                      ? "#FEF3C7"
+                                      : "#FEE2E2",
+                              color:
+                                pc.status === "available"
+                                  ? "#166534"
+                                  : pc.status === "sold"
+                                    ? "#475569"
+                                    : pc.status === "reserved"
+                                      ? "#92400E"
+                                      : "#991B1B",
+                            }}
+                          >
+                            <option value="available">Available</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="sold">Sold</option>
+                            <option value="damaged">Damaged</option>
+                            <option value="returned">Returned</option>
+                          </select>
+                        </td>
+
+                        {/* Delete */}
+                        <td>
+                          <button
+                            type="button"
+                            className="ap-variant-del-btn"
+                            onClick={() => removePiece(pc.key)}
+                            title="Remove physical piece"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
