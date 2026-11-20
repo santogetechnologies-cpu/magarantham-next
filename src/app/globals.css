@@ -7625,6 +7625,104 @@ body:has(.luxury-admin-shell) #main {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
+  position: sticky;
+  top: 60px;
+  z-index: 25;
+  background: rgba(254, 250, 246, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(220, 180, 143, 0.35);
+}
+
+.ap-sticky-footer-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 18px rgba(60, 32, 27, 0.08);
+  border-radius: 8px 8px 0 0;
+  margin-top: 16px;
+}
+
+.ap-footer-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #991B1B;
+  font-size: 13px;
+  font-weight: 600;
+  background: #FEE2E2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #FCA5A5;
+}
+
+.ap-footer-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Excel-style table cell input boxes - eliminates nested double borders */
+.ap-cell-box {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border: 1px solid #D4B99F;
+  border-radius: 4px;
+  background: #FFFFFF;
+  padding: 2px 6px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.ap-cell-box:focus-within {
+  border-color: var(--erp-gold) !important;
+  box-shadow: 0 0 0 2px rgba(196, 154, 82, 0.25) !important;
+  background: #FFFFFF !important;
+}
+
+.ap-cell-box .ap-cell-currency {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--erp-maroon);
+  margin-right: 3px;
+  user-select: none;
+}
+
+.ap-cell-box .ap-cell-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 100% !important;
+  width: 100% !important;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.ap-cell-box .ap-cell-input::-webkit-outer-spin-button,
+.ap-cell-box .ap-cell-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .ap-title {

@@ -908,7 +908,11 @@ export function Admin({
                         setProductModalOpen(false);
                         setEditingProduct(null);
                         if (actionParam === "new" || section === "product-new") {
-                          router.push("/admin/products");
+                          if (categoryParam) {
+                            router.push(`/admin/products?category=${encodeURIComponent(categoryParam)}`);
+                          } else {
+                            router.push("/admin/products");
+                          }
                         }
                       }}
                       onSaved={() => {
@@ -917,7 +921,11 @@ export function Admin({
                         notice("Product saved.");
                         reloadCategories();
                         if (actionParam === "new" || section === "product-new") {
-                          router.push("/admin/products");
+                          if (categoryParam) {
+                            router.push(`/admin/products?category=${encodeURIComponent(categoryParam)}`);
+                          } else {
+                            router.push("/admin/products");
+                          }
                         } else {
                           void load();
                         }

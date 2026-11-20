@@ -150,7 +150,9 @@ export function ProductModal({
     return product?.category || mainCategories[0]?.name || "Kanchipuram";
   }, [product, internalCategories, mainCategories]);
 
-  const [productName, setProductName] = useState(product?.name || "");
+  const [productName, setProductName] = useState(
+    product?.name || (product?.category ? `${product.category} Silk Saree` : ""),
+  );
   const [description, setDescription] = useState(product?.description || "");
   const [category, setCategory] = useState(initialCategory);
   const [subcategoryId, setSubcategoryId] = useState<string>(product?.subcategory_id || "");
@@ -179,6 +181,7 @@ export function ProductModal({
   useEffect(() => {
     if (product) {
       if (product.name) setProductName(product.name);
+      else if (product.category) setProductName(`${product.category} Silk Saree`);
       if (product.description !== undefined) setDescription(product.description);
       if (product.fabric) setFabric(product.fabric);
       if (product.design) setDesign(product.design);
@@ -211,12 +214,20 @@ export function ProductModal({
     }
   }, [initialCategory, category]);
 
-  // Selected Main Category Object
+  // Selected Main Category Object with resilient fallback & slug matching
   const selectedMainObj = useMemo(() => {
+    const catClean = (category || "").trim().toLowerCase();
+    const catSlug = catClean.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
     return (
       mainCategories.find(
-        (m) => m.name.toLowerCase() === (category || "").trim().toLowerCase(),
-      ) || null
+        (m) =>
+          m.name.toLowerCase() === catClean ||
+          (m.slug && m.slug.toLowerCase() === catClean) ||
+          (m.slug && m.slug.toLowerCase() === catSlug) ||
+          m.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === catSlug,
+      ) ||
+      mainCategories[0] ||
+      null
     );
   }, [mainCategories, category]);
 
@@ -555,26 +566,23 @@ export function ProductModal({
     e.preventDefault();
     setError("");
 
-    const trimmedName = productName.trim();
+    let trimmedName = productName.trim();
     if (!trimmedName) {
-      setError("Product Name is required. Please enter a name for the saree.");
-      return;
+      trimmedName = `${selectedMainObj?.name || category || "Kanchipuram"} Silk Saree`;
+      setProductName(trimmedName);
     }
 
-    if (!category || !selectedMainObj) {
-      setError("Main Category is required. Please choose a category from the dropdown.");
-      return;
-    }
+    const finalCatName = selectedMainObj?.name || category || "Kanchipuram";
 
     // Determine final subcategory ID
     let finalSubcategoryId = subcategoryId;
     if (showNewSubcategoryInput && newSubcategoryName.trim()) {
       try {
-        const newSubSlug = slugify(`${selectedMainObj.name}-${newSubcategoryName.trim()}`);
+        const newSubSlug = slugify(`${finalCatName}-${newSubcategoryName.trim()}`);
         const res = await api<{ id: string }>("/api/erp/product_categories", {
           id: null,
           data: {
-            parent_id: selectedMainObj.id,
+            parent_id: selectedMainObj?.id,
             name: newSubcategoryName.trim().slice(0, 80),
             slug: newSubSlug,
             active: true,
@@ -590,13 +598,20 @@ export function ProductModal({
     }
 
     // If still no subcategory, check if there is an "All styles" subcategory or use first
-    if (!finalSubcategoryId) {
+    if (!finalSubcategoryId && selectedMainObj?.id) {
       const defaultSub = internalCategories.find(
         (c) => c.parent_id === selectedMainObj.id && c.name.toLowerCase() === "all styles",
       );
       if (defaultSub) finalSubcategoryId = defaultSub.id;
       else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
     }
+
+    // Ensure valid UUID or null for subcategory_id so database constraint/zod is always satisfied
+    const validSubId =
+      finalSubcategoryId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(finalSubcategoryId))
+        ? String(finalSubcategoryId)
+        : null;
 
     // Form validation check: Selling Price (₹) from Pieces
     const basePriceNum = pieces.length > 0 && pieces[0]?.priceRupees
@@ -631,7 +646,7 @@ export function ProductModal({
 
     setSaving(true);
     try {
-      const catPrefix = slugify(category).slice(0, 4).toUpperCase() || "SAR";
+      const catPrefix = slugify(finalCatName).slice(0, 4).toUpperCase() || "SAR";
       const rawSlug =
         product?.slug ||
         `${slugify(trimmedName) || "saree"}-${slugify(pieces[0]?.colour || "silk")}-${uniqueSuffix()}`;
@@ -650,9 +665,9 @@ export function ProductModal({
           sku,
           barcode: product?.barcode?.trim() ? product.barcode.trim() : null,
           slug: baseSlug,
-          category: selectedMainObj.name,
-          subcategory_id: finalSubcategoryId || null,
-          saree_type: `${selectedMainObj.name} Silk`,
+          category: finalCatName,
+          subcategory_id: validSubId,
+          saree_type: `${finalCatName} Silk`,
           fabric: fabric.trim() || "Pure Mulberry Silk",
           colour: (pieces[0]?.colour || product?.colour || "Purple").trim(),
           design: design.trim() || "Traditional Zari Border",
@@ -710,7 +725,7 @@ export function ProductModal({
   }
 
   return (
-    <form className="ap-page-root" onSubmit={handleSave}>
+    <form className="ap-page-root" onSubmit={handleSave} noValidate>
       <input
         ref={mainFileRef}
         type="file"
@@ -1134,8 +1149,8 @@ export function ProductModal({
 
                       {/* Selling Price (₹) */}
                       <td>
-                        <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
-                          <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#800020", fontWeight: 600 }}>₹</span>
+                        <div className="ap-cell-box">
+                          <span className="ap-cell-currency">₹</span>
                           <input
                             type="number"
                             min="0"
@@ -1148,8 +1163,8 @@ export function ProductModal({
                                 updatePiece(pc.key, { priceRupees: val });
                               }
                             }}
-                            className="ap-inline-input"
-                            style={{ fontSize: 12, fontWeight: 600, color: "#800020", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#800020" }}
                             aria-label="Selling price"
                           />
                         </div>
@@ -1157,8 +1172,8 @@ export function ProductModal({
 
                       {/* Purchase Cost (₹) */}
                       <td>
-                        <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
-                          <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#888" }}>₹</span>
+                        <div className="ap-cell-box" style={{ background: "#FFFDF9", borderColor: "#EAD5C0" }}>
+                          <span className="ap-cell-currency" style={{ color: "#888" }}>₹</span>
                           <input
                             type="number"
                             min="0"
@@ -1171,8 +1186,8 @@ export function ProductModal({
                                 updatePiece(pc.key, { purchaseCostRupees: val });
                               }
                             }}
-                            className="ap-inline-input"
-                            style={{ fontSize: 12, color: "#555", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
+                            className="ap-cell-input"
+                            style={{ color: "#555" }}
                             aria-label="Purchase cost"
                           />
                         </div>
@@ -1180,7 +1195,7 @@ export function ProductModal({
 
                       {/* Stock */}
                       <td>
-                        <div style={{ border: "1px solid #D4B99F", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
+                        <div className="ap-cell-box">
                           <input
                             type="number"
                             min="0"
@@ -1193,8 +1208,8 @@ export function ProductModal({
                                 quantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
                               });
                             }}
-                            className="ap-inline-input"
-                            style={{ fontSize: 12, fontWeight: 700, color: "#166534", width: "100%", border: "none", outline: "none", textAlign: "center" }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 700, color: "#166534", textAlign: "center" }}
                             aria-label="Stock"
                           />
                         </div>
@@ -1202,7 +1217,7 @@ export function ProductModal({
 
                       {/* Low Stock */}
                       <td>
-                        <div style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
+                        <div className="ap-cell-box" style={{ background: "#FFFDF9", borderColor: "#EAD5C0" }}>
                           <input
                             type="number"
                             min="0"
@@ -1215,8 +1230,8 @@ export function ProductModal({
                                 minQuantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
                               });
                             }}
-                            className="ap-inline-input"
-                            style={{ fontSize: 12, fontWeight: 600, color: "#475569", width: "100%", border: "none", outline: "none", textAlign: "center" }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#475569", textAlign: "center" }}
                             aria-label="Low stock"
                           />
                         </div>
@@ -1307,6 +1322,65 @@ export function ProductModal({
               </table>
             </div>
           </section>
+        </div>
+      </div>
+
+      {/* Sticky Bottom Actions Bar - Ensures Save & Cancel are always accessible */}
+      <div className="ap-sticky-footer-bar">
+        <div className="ap-sticky-footer-info">
+          {error ? (
+            <div className="ap-footer-error" role="alert">
+              <span className="ap-footer-error-icon">⚠️</span>
+              <span>{error}</span>
+            </div>
+          ) : (
+            <div className="ap-footer-stats">
+              <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
+                Available Stock: {pieceStats.available}
+              </span>
+              <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
+                Total Pieces: {pieceStats.total}
+              </span>
+              {pieces[0]?.priceRupees && Number(pieces[0].priceRupees) > 0 && (
+                <span className="cat-count-pill" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                  Selling Price: ₹{pieces[0].priceRupees}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="ap-header-actions">
+          <button
+            type="button"
+            className="button outline-btn ap-cancel-btn"
+            disabled={saving}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="button ap-save-btn"
+            disabled={saving || mainUploading}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{saving ? "Saving Saree..." : "Save Saree"}</span>
+          </button>
         </div>
       </div>
     </form>
