@@ -620,37 +620,39 @@ export function ProductModal({
     setSaving(true);
     try {
       const catPrefix = slugify(category).slice(0, 4).toUpperCase() || "SAR";
-      const baseSlug =
+      const rawSlug =
         product?.slug ||
-        `${slugify(trimmedName) || "saree"}-${slugify(pieces[0]?.colour || "silk")}-${uniqueSuffix()}`.slice(0, 118);
+        `${slugify(trimmedName) || "saree"}-${slugify(pieces[0]?.colour || "silk")}-${uniqueSuffix()}`;
+      const baseSlug = slugify(rawSlug).slice(0, 118).replace(/-+$/, "");
       const sku =
         product?.sku ||
         `MS-${catPrefix}-${slugify(trimmedName).slice(0, 5).toUpperCase()}-${uniqueSuffix().toUpperCase()}`;
 
+      const finalImagePath = (mainImage || pieces.find((p) => p.image_path)?.image_path || "/assets/product-01.jpg").trim();
+
       // 1. Save Product Record
       const savedProduct = await api<{ id: string }>("/api/admin/products", {
-        id: product?.id || null,
+        id: product?.id && product.id.trim() ? product.id.trim() : null,
         data: {
           name: trimmedName,
           sku,
-          barcode: product?.barcode || null,
+          barcode: product?.barcode?.trim() ? product.barcode.trim() : null,
           slug: baseSlug,
           category: selectedMainObj.name,
           subcategory_id: finalSubcategoryId || null,
           saree_type: `${selectedMainObj.name} Silk`,
           fabric: fabric.trim() || "Pure Mulberry Silk",
-          colour: pieces[0]?.colour || product?.colour || "Purple",
+          colour: (pieces[0]?.colour || product?.colour || "Purple").trim(),
           design: design.trim() || "Traditional Zari Border",
           description: description.trim(),
-          image_path: mainImage || "",
+          image_path: finalImagePath,
           purchase_price_paise: purchasePricePaise,
           price_paise: pricePaise,
           compare_at_price_paise: product?.compare_at_price_paise || 0,
           discount_percent: product?.discount_percent || 0,
-          stock_on_hand: stockOnHand,
           min_stock_level: finalMinStock,
-          published,
-          featured,
+          published: Boolean(published),
+          featured: Boolean(featured),
           archived: false,
         },
       });
@@ -664,20 +666,24 @@ export function ProductModal({
       if (pieces.length > 0) {
         await api("/api/admin/pieces", {
           product_id: targetProductId,
-          pieces: pieces.map((p) => {
+          pieces: pieces.map((p, idx) => {
             const piecePriceNum = p.priceRupees ? Number(String(p.priceRupees).replace(/,/g, "")) : 0;
             const pieceCostNum = p.purchaseCostRupees ? Number(String(p.purchaseCostRupees).replace(/,/g, "")) : 0;
+            const pieceCode = (p.piece_code || "").trim() || `${catPrefix}-${slugify(p.colour || "PUR").slice(0, 3).toUpperCase()}-${String(idx + 1).padStart(3, "0")}`;
+            const barcode = (p.barcode || "").trim() || `MSU${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`;
+            const colour = (p.colour || "").trim() || "Purple";
+            const location = (p.location || "").trim() || "Rack A-1";
             return {
-              id: p.id,
+              id: p.id && !p.id.startsWith("pc-") ? p.id : undefined,
               product_id: targetProductId,
-              piece_code: p.piece_code.trim(),
-              barcode: p.barcode.trim(),
-              colour: p.colour.trim(),
+              piece_code: pieceCode,
+              barcode,
+              colour,
               price_paise: piecePriceNum > 0 ? Math.round(piecePriceNum * 100) : pricePaise,
               purchase_cost_paise: pieceCostNum > 0 ? Math.round(pieceCostNum * 100) : (purchasePricePaise || undefined),
               status: p.status,
-              location: p.location.trim(),
-              image_path: p.image_path || mainImage,
+              location,
+              image_path: p.image_path || finalImagePath,
             };
           }),
         });
