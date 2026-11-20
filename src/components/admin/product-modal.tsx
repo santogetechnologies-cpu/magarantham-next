@@ -508,22 +508,12 @@ export function ProductModal({
       else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
     }
 
-    // Price & Cost calculation (optional: seamlessly syncs without form validation errors)
-    const basePriceNum = basePriceRupees ? Number(String(basePriceRupees).replace(/,/g, "")) : 0;
-    const piecePriceNum = pieces.length > 0 && pieces[0].priceRupees
-      ? Number(String(pieces[0].priceRupees).replace(/,/g, ""))
-      : 0;
-    const pricePaise = piecePriceNum > 0
-      ? Math.round(piecePriceNum * 100)
-      : Math.round(basePriceNum * 100);
+    // Price calculation (optional, defaults to 0 if left blank)
+    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, "")) || 0;
+    const pricePaise = Math.round(basePriceNum * 100);
 
-    const purchasePriceNum = purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0;
-    const pieceCostNum = pieces.length > 0 && pieces[0].purchaseCostRupees
-      ? Number(String(pieces[0].purchaseCostRupees).replace(/,/g, ""))
-      : 0;
-    const purchasePricePaise = pieceCostNum > 0
-      ? Math.round(pieceCostNum * 100)
-      : Math.round(purchasePriceNum * 100);
+    const purchasePriceNum = Number(String(purchasePriceRupees || "").replace(/,/g, "")) || 0;
+    const purchasePricePaise = Math.round(purchasePriceNum * 100);
 
     // Stock on hand is calculated directly from AVAILABLE pieces
     const stockOnHand = pieces.length > 0
@@ -589,10 +579,8 @@ export function ProductModal({
             piece_code: p.piece_code.trim(),
             barcode: p.barcode.trim(),
             colour: p.colour.trim(),
-            price_paise: Math.round(Number(p.priceRupees || 0) * 100),
-            purchase_cost_paise: p.purchaseCostRupees
-              ? Math.round(Number(p.purchaseCostRupees) * 100)
-              : undefined,
+            price_paise: pricePaise,
+            purchase_cost_paise: purchasePricePaise || undefined,
             status: p.status,
             location: p.location.trim(),
             image_path: p.image_path || mainImage,
@@ -609,7 +597,7 @@ export function ProductModal({
   }
 
   return (
-    <form className="ap-page-root" noValidate onSubmit={handleSave}>
+    <form className="ap-page-root" onSubmit={handleSave}>
       <input
         ref={mainFileRef}
         type="file"
@@ -893,7 +881,7 @@ export function ProductModal({
 
             {/* PRICING, STOCK & MIN STOCK ROW */}
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-              {/* Base Selling Price (₹) - Optional, no validation requirement */}
+              {/* Base Selling Price (₹) */}
               <label className="ap-field" style={{ flex: "1 1 140px" }}>
                 <span className="ap-label">
                   Selling Price (₹)
@@ -906,13 +894,7 @@ export function ProductModal({
                     placeholder="0"
                     value={basePriceRupees}
                     onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setBasePriceRupees(val);
-                      if (pieces.length === 1 && (!pieces[0].priceRupees || pieces[0].priceRupees === "5000" || pieces[0].priceRupees === "0")) {
-                        updatePiece(pieces[0].key, { priceRupees: val });
-                      }
-                    }}
+                    onChange={(e) => setBasePriceRupees(e.target.value)}
                     className="ap-inline-input"
                     style={{ fontWeight: 600, fontSize: 14, color: "#800020" }}
                   />
@@ -1067,12 +1049,10 @@ export function ProductModal({
               <table className="ap-variants-table">
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 130 }}>Piece Code</th>
-                    <th style={{ width: 100 }}>Colour</th>
-                    <th style={{ width: 110 }}>Price (₹)</th>
-                    <th style={{ width: 110 }}>Cost (₹, admin)</th>
-                    <th style={{ width: 110 }}>Location</th>
-                    <th style={{ width: 120 }}>Stock Status</th>
+                    <th style={{ width: 160 }}>Piece Code</th>
+                    <th style={{ width: 140 }}>Colour</th>
+                    <th style={{ width: 140 }}>Location</th>
+                    <th style={{ width: 130 }}>Stock Status</th>
                     <th style={{ width: 40 }}></th>
                   </tr>
                 </thead>
@@ -1129,50 +1109,6 @@ export function ProductModal({
                               </option>
                             ))}
                           </select>
-                        </div>
-                      </td>
-
-                      {/* Individual Price (₹) */}
-                      <td>
-                        <div className="ap-inline-price-wrap">
-                          <span className="ap-rupee-symbol">₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={pc.priceRupees}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || Number(val) >= 0) {
-                                updatePiece(pc.key, { priceRupees: val });
-                              }
-                            }}
-                            className="ap-inline-input"
-                            aria-label="Individual piece price"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Purchase Cost (₹, admin only) */}
-                      <td>
-                        <div className="ap-inline-price-wrap">
-                          <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            value={pc.purchaseCostRupees}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || Number(val) >= 0) {
-                                updatePiece(pc.key, { purchaseCostRupees: val });
-                              }
-                            }}
-                            className="ap-inline-input"
-                            aria-label="Admin purchase cost"
-                          />
                         </div>
                       </td>
 

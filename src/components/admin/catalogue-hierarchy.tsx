@@ -1423,10 +1423,9 @@ export function CatalogueHierarchyManager({
                   </label>
 
                   <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Individual Price (₹) <em className="ap-req">*</em></span>
+                    <span className="ap-label">Individual Price (₹)</span>
                     <input
                       type="number"
-                      required
                       min="0"
                       value={pieceModal.priceRupees}
                       onChange={(e) => setPieceModal({ ...pieceModal, priceRupees: e.target.value })}
