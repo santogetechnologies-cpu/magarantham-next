@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
 
@@ -314,6 +314,7 @@ export function ProductModal({
   const mainFileRef = useRef<HTMLInputElement>(null);
   const variantFileRef = useRef<HTMLInputElement>(null);
   const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   // Piece inventory counts
   const pieceStats = useMemo(() => {
@@ -393,6 +394,53 @@ export function ProductModal({
       }),
     );
   }
+
+  // Smart horizontal auto-scrolling on input focus & keyboard navigation
+  const handleTableFocus = useCallback((e: React.FocusEvent) => {
+    const container = tableScrollRef.current;
+    if (!container) return;
+
+    const target = e.target as HTMLElement;
+    if (!target) return;
+
+    // Find the cell or the element
+    const cell = target.closest("td") || target;
+    const containerRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+
+    const padding = 28; // Comfortable spacing from table edges
+    const cellLeftRelative = cellRect.left - containerRect.left;
+    const cellRightRelative = cellRect.right - containerRect.left;
+
+    // Smoothly scroll only if element is partially or fully out of view
+    if (cellLeftRelative < padding) {
+      const scrollDiff = cellLeftRelative - padding;
+      container.scrollBy({ left: scrollDiff, behavior: "smooth" });
+    } else if (cellRightRelative > containerRect.width - padding) {
+      const scrollDiff = cellRightRelative - (containerRect.width - padding);
+      container.scrollBy({ left: scrollDiff, behavior: "smooth" });
+    }
+  }, []);
+
+  const handleTableKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "SELECT")) {
+        e.preventDefault();
+        const container = tableScrollRef.current;
+        if (!container) return;
+        const focusables = Array.from(
+          container.querySelectorAll<HTMLElement>("input:not([disabled]), select:not([disabled]), button.ap-variant-del-btn")
+        );
+        const idx = focusables.indexOf(target);
+        if (idx >= 0 && idx + 1 < focusables.length) {
+          focusables[idx + 1].focus();
+        } else if (idx === focusables.length - 1) {
+          addPieceRow();
+        }
+      }
+    }
+  }, []);
 
   // Automatically sync stockInput when physical pieces change
   useEffect(() => {
@@ -990,18 +1038,23 @@ export function ProductModal({
               </div>
             </div>
 
-            <div className="ap-variants-table-wrapper">
-              <table className="ap-variants-table">
+            <div
+              className="ap-variants-table-wrapper"
+              ref={tableScrollRef}
+              onFocusCapture={handleTableFocus}
+              onKeyDown={handleTableKeyDown}
+            >
+              <table className="ap-variants-table" style={{ minWidth: 880 }}>
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 110 }}>Piece Code</th>
-                    <th style={{ width: 90 }}>Colour</th>
-                    <th style={{ width: 100 }}>Selling Price (₹)</th>
-                    <th style={{ width: 100 }}>Purchase Cost (₹)</th>
-                    <th style={{ width: 70 }}>Quantity</th>
-                    <th style={{ width: 75 }}>Min Quantity</th>
-                    <th style={{ width: 85 }}>Location</th>
-                    <th style={{ width: 95 }}>Stock Status</th>
+                    <th style={{ width: 125 }}>Piece Code</th>
+                    <th style={{ width: 95 }}>Colour</th>
+                    <th style={{ width: 110 }}>Selling Price (₹)</th>
+                    <th style={{ width: 110 }}>Purchase Cost (₹)</th>
+                    <th style={{ width: 75 }}>Quantity</th>
+                    <th style={{ width: 80 }}>Min Quantity</th>
+                    <th style={{ width: 95 }}>Location</th>
+                    <th style={{ width: 110 }}>Stock Status</th>
                     <th style={{ width: 60, textAlign: "center" }}>Delete</th>
                   </tr>
                 </thead>

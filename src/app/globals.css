@@ -7870,11 +7870,33 @@ body:has(.luxury-admin-shell) #main {
 .ap-variants-table-wrapper {
   width: 100%;
   overflow-x: auto !important;
-  overflow-y: visible !important;
+  overflow-y: hidden !important;
   border: 1px solid var(--erp-border-light);
   border-radius: 10px;
   background: #FFFFFF;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  scrollbar-width: thin;
+  scrollbar-color: #C49A52 #FFF8EF;
+  scroll-behavior: smooth;
+}
+
+.ap-variants-table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ap-variants-table-wrapper::-webkit-scrollbar-track {
+  background: #FFF8EF;
+  border-bottom-left-radius: 9px;
+  border-bottom-right-radius: 9px;
+}
+
+.ap-variants-table-wrapper::-webkit-scrollbar-thumb {
+  background: #C49A52;
+  border-radius: 4px;
+}
+
+.ap-variants-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #800020;
 }
 
 .ap-variants-table {
