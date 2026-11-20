@@ -522,37 +522,36 @@ export function ProductModal({
       else if (existingSubcategories.length > 0) finalSubcategoryId = existingSubcategories[0].id;
     }
 
-    // Form validation check: Selling Price (₹)
-    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, ""));
-    if (!basePriceRupees || isNaN(basePriceNum) || basePriceNum <= 0) {
+    // Form validation check: Selling Price (₹) from Pieces
+    const basePriceNum = pieces.length > 0 && pieces[0]?.priceRupees
+      ? Number(String(pieces[0].priceRupees).replace(/,/g, ""))
+      : Number(String(basePriceRupees || "").replace(/,/g, ""));
+
+    if (!basePriceNum || isNaN(basePriceNum) || basePriceNum <= 0) {
       setError("Selling Price (₹) is required and must be greater than ₹0.");
       return;
     }
     const pricePaise = Math.round(basePriceNum * 100);
 
     // Form validation check: Purchase Cost (₹, optional but cannot be negative)
-    const purchasePriceNum = purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0;
+    const purchasePriceNum = pieces.length > 0 && pieces[0]?.purchaseCostRupees
+      ? Number(String(pieces[0].purchaseCostRupees).replace(/,/g, ""))
+      : (purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0);
+
     if (isNaN(purchasePriceNum) || purchasePriceNum < 0) {
       setError("Purchase Cost (₹) cannot be negative.");
       return;
     }
     const purchasePricePaise = Math.round(purchasePriceNum * 100);
 
-    // Form validation check: Stock / Quantity (Units)
-    const stockNum = typeof stockInput === "number" ? stockInput : parseInt(String(stockInput ?? ""), 10);
-    if (stockInput === "" || stockInput === null || stockInput === undefined || isNaN(stockNum) || stockNum < 0) {
-      setError("Stock (Units) is required and must be 0 or greater.");
-      return;
-    }
-
     // Stock on hand is calculated directly from AVAILABLE pieces
     const stockOnHand = pieces.length > 0
       ? pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0)
-      : stockNum;
+      : (typeof stockInput === "number" ? stockInput : parseInt(String(stockInput || 0), 10) || 0);
 
-    const finalMinStock = typeof minStockLevel === "number"
-      ? minStockLevel
-      : parseInt(String(minStockLevel || 0), 10) || 0;
+    const finalMinStock = pieces.length > 0 && pieces[0]?.minQuantity !== undefined
+      ? Math.max(0, parseInt(String(pieces[0].minQuantity || 0), 10) || 0)
+      : (typeof minStockLevel === "number" ? minStockLevel : parseInt(String(minStockLevel || 0), 10) || 0);
 
     setSaving(true);
     try {
@@ -907,120 +906,6 @@ export function ProductModal({
                   value={design}
                   onChange={(e) => setDesign(e.target.value)}
                   className="ap-input"
-                />
-              </label>
-            </div>
-
-            {/* PRICING, STOCK & MIN STOCK ROW */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-              {/* Base Selling Price (₹) */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Selling Price (₹) <em className="ap-req">*</em>
-                </span>
-                <div className="ap-inline-price-wrap" style={{ border: "1px solid #D4B99F", borderRadius: 6, padding: "0 8px", background: "#FFFFFF", height: 38 }}>
-                  <span className="ap-rupee-symbol">₹</span>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    placeholder="0"
-                    value={basePriceRupees}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setBasePriceRupees(val);
-                      if (pieces.length === 1 && (!pieces[0].priceRupees || pieces[0].priceRupees === "5000" || pieces[0].priceRupees === "0")) {
-                        updatePiece(pieces[0].key, { priceRupees: val });
-                      }
-                    }}
-                    className="ap-inline-input"
-                    style={{ fontWeight: 600, fontSize: 14, color: "#800020" }}
-                  />
-                </div>
-              </label>
-
-              {/* Purchase Cost (₹, Admin Only) */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Purchase Cost (₹)
-                </span>
-                <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 6, padding: "0 8px", background: "#FFFDF9", height: 38 }}>
-                  <span className="ap-rupee-symbol" style={{ color: "#888" }}>₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={purchasePriceRupees}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setPurchasePriceRupees(val);
-                      if (pieces.length === 1 && (!pieces[0].purchaseCostRupees || pieces[0].purchaseCostRupees === "3500")) {
-                        updatePiece(pieces[0].key, { purchaseCostRupees: val });
-                      }
-                    }}
-                    className="ap-inline-input"
-                    style={{ fontSize: 14, color: "#555" }}
-                  />
-                </div>
-              </label>
-
-              {/* Available Stock Units */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Quantity <em className="ap-req">*</em>
-                </span>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={stockInput}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => handleStockChange(e.target.value)}
-                    className="ap-input"
-                    placeholder="0"
-                    style={{ fontWeight: 700, color: "#166534", paddingRight: 65, height: 38 }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "#166534",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    in stock
-                  </span>
-                </div>
-              </label>
-
-              {/* Min Stock Alert Level */}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">
-                  Min Quantity
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  value={minStockLevel}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const num = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
-                    setMinStockLevel(num);
-                    if (num !== "") {
-                      setPieces((prev) => prev.map((p) => ({ ...p, minQuantity: num })));
-                    }
-                  }}
-                  className="ap-input"
-                  placeholder="0"
-                  style={{ fontWeight: 600, height: 38 }}
                 />
               </label>
             </div>
