@@ -37,8 +37,8 @@ export type IndividualPiece = {
   colour: string;
   price_paise: number;
   purchase_cost_paise?: number; // admin-only
-  quantity?: number;
-  min_quantity?: number;
+  quantity?: number; // physical stock count for this piece
+  min_quantity?: number; // low stock alert threshold for this piece
   status: PieceStatus;
   image_path?: string;
   location?: string; // admin-only

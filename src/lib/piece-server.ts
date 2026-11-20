@@ -107,8 +107,8 @@ export async function savePiecesForProduct(
     colour: (p.colour || "Standard").trim(),
     price_paise: Math.max(0, Math.round(Number(p.price_paise || 0))),
     purchase_cost_paise: p.purchase_cost_paise != null ? Math.max(0, Math.round(Number(p.purchase_cost_paise))) : undefined,
-    quantity: p.quantity != null && Number(p.quantity) >= 0 ? Math.round(Number(p.quantity)) : 1,
-    min_quantity: p.min_quantity != null && Number(p.min_quantity) >= 0 ? Math.round(Number(p.min_quantity)) : 0,
+    quantity: p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1,
+    min_quantity: p.min_quantity != null && !isNaN(Number(p.min_quantity)) ? Math.max(0, Number(p.min_quantity)) : 0,
     status: (p.status || "available") as PieceStatus,
     image_path: p.image_path ? p.image_path.trim() : undefined,
     location: p.location ? p.location.trim() : undefined,
@@ -177,19 +177,23 @@ export async function syncProductStockFromPieces(
   const pieces = explicitPieces || (await getPiecesForProduct(productId));
   const availableCount = pieces
     .filter((p) => p.status === "available")
-    .reduce((sum, p) => sum + (p.quantity != null && Number(p.quantity) >= 0 ? Number(p.quantity) : 1), 0);
+    .reduce((sum, p) => sum + (p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1), 0);
   const reservedCount = pieces
     .filter((p) => p.status === "reserved")
-    .reduce((sum, p) => sum + (p.quantity != null && Number(p.quantity) >= 0 ? Number(p.quantity) : 1), 0);
+    .reduce((sum, p) => sum + (p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1), 0);
 
   const db = service();
   try {
+    const updatePayload: Record<string, any> = {
+      stock_on_hand: availableCount,
+      reserved: reservedCount,
+    };
+    if (pieces.length > 0 && pieces[0]?.min_quantity != null && !isNaN(Number(pieces[0].min_quantity))) {
+      updatePayload.min_stock_level = Math.max(0, Number(pieces[0].min_quantity));
+    }
     await db
       .from("products")
-      .update({
-        stock_on_hand: availableCount,
-        reserved: reservedCount,
-      })
+      .update(updatePayload)
       .eq("id", productId);
   } catch (err) {
     console.warn("syncProductStockFromPieces database update error:", err);

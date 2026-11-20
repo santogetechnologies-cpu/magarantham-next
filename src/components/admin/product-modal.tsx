@@ -272,8 +272,8 @@ export function ProductModal({
                 purchaseCostRupees: p.purchase_cost_paise
                   ? String(p.purchase_cost_paise / 100)
                   : "",
-                quantity: p.quantity != null && Number(p.quantity) >= 0 ? Number(p.quantity) : 1,
-                minQuantity: p.min_quantity != null && Number(p.min_quantity) >= 0 ? Number(p.min_quantity) : (product?.min_stock_level !== undefined ? product.min_stock_level : 0),
+                quantity: p.quantity !== undefined ? p.quantity : (product.stock_on_hand !== undefined && product.stock_on_hand > 0 ? product.stock_on_hand : 1),
+                minQuantity: p.min_quantity !== undefined ? p.min_quantity : (product?.min_stock_level !== undefined ? product.min_stock_level : 0),
                 status: p.status || "available",
                 location: p.location || "Rack A-1",
                 image_path: p.image_path || "",
@@ -291,7 +291,7 @@ export function ProductModal({
                 purchaseCostRupees: product.purchase_price_paise
                   ? String(product.purchase_price_paise / 100)
                   : "",
-                quantity: 1,
+                quantity: product.stock_on_hand !== undefined && product.stock_on_hand > 0 ? product.stock_on_hand : 1,
                 minQuantity: product?.min_stock_level !== undefined ? product.min_stock_level : 0,
                 status: "available",
                 location: "Rack A-1",
@@ -352,7 +352,7 @@ export function ProductModal({
 
   function addPieceRow() {
     const nextIdx = pieces.length + 1;
-    const catCode = (category || "SAR").slice(0, 3).toUpperCase() || "SAR";
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
     const nextCol = COLOUR_PRESETS[(nextIdx - 1) % COLOUR_PRESETS.length].name;
     const colCode = nextCol.slice(0, 3).toUpperCase();
     const pieceCode = `${catCode}-${colCode}-${String(nextIdx).padStart(3, "0")}`;
@@ -373,14 +373,6 @@ export function ProductModal({
         location: `Rack A-${nextIdx}`,
       },
     ]);
-
-    setTimeout(() => {
-      const container = tableScrollRef.current;
-      if (container) {
-        const lastRow = container.querySelector("tbody tr:last-child");
-        lastRow?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }, 50);
   }
 
   function updatePiece(key: string, patch: Partial<PieceRow>) {
@@ -704,12 +696,12 @@ export function ProductModal({
           pieces: pieces.map((p, idx) => {
             const piecePriceNum = p.priceRupees ? Number(String(p.priceRupees).replace(/,/g, "")) : 0;
             const pieceCostNum = p.purchaseCostRupees ? Number(String(p.purchaseCostRupees).replace(/,/g, "")) : 0;
+            const pieceQuantity = p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1;
+            const pieceMinQuantity = p.minQuantity !== undefined && p.minQuantity !== "" ? Math.max(0, Number(p.minQuantity)) : 0;
             const pieceCode = (p.piece_code || "").trim() || `${catPrefix}-${slugify(p.colour || "PUR").slice(0, 3).toUpperCase()}-${String(idx + 1).padStart(3, "0")}`;
             const barcode = (p.barcode || "").trim() || `MSU${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`;
             const colour = (p.colour || "").trim() || "Purple";
             const location = (p.location || "").trim() || "Rack A-1";
-            const qty = p.quantity !== undefined && p.quantity !== "" ? Math.max(0, parseInt(String(p.quantity), 10) || 0) : 1;
-            const minQty = p.minQuantity !== undefined && p.minQuantity !== "" ? Math.max(0, parseInt(String(p.minQuantity), 10) || 0) : 0;
             return {
               id: p.id && !p.id.startsWith("pc-") ? p.id : undefined,
               product_id: targetProductId,
@@ -718,8 +710,8 @@ export function ProductModal({
               colour,
               price_paise: piecePriceNum > 0 ? Math.round(piecePriceNum * 100) : pricePaise,
               purchase_cost_paise: pieceCostNum > 0 ? Math.round(pieceCostNum * 100) : (purchasePricePaise || undefined),
-              quantity: qty,
-              min_quantity: minQty,
+              quantity: pieceQuantity,
+              min_quantity: pieceMinQuantity,
               status: p.status,
               location,
               image_path: p.image_path || finalImagePath,
@@ -1053,13 +1045,16 @@ export function ProductModal({
                     Total Stock: {pieceStats.total}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#EFF6FF", color: "#1E40AF" }}>
-                    Low Stock: {minStockLevel || 0}
+                    Low Stock: {pieces.length > 0 && pieces[0]?.minQuantity !== undefined && pieces[0]?.minQuantity !== "" ? Number(pieces[0].minQuantity) : (minStockLevel || 0)}
                   </span>
-                  {pieceStats.available <= Number(minStockLevel || 0) && Number(minStockLevel || 0) > 0 && (
-                    <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
-                      ⚠️ Low Stock
-                    </span>
-                  )}
+                  {(() => {
+                    const lowThreshold = pieces.length > 0 && pieces[0]?.minQuantity !== undefined && pieces[0]?.minQuantity !== "" ? Number(pieces[0].minQuantity) : Number(minStockLevel || 0);
+                    return pieceStats.available <= lowThreshold && lowThreshold > 0 ? (
+                      <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
+                        ⚠️ Low Stock
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -1207,34 +1202,7 @@ export function ProductModal({
 
                       {/* Stock */}
                       <td>
-                        <div className="ap-cell-box" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1px 3px" }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = pc.quantity !== undefined && pc.quantity !== "" ? Number(pc.quantity) : 1;
-                              updatePiece(pc.key, { quantity: Math.max(0, curr - 1) });
-                            }}
-                            title="Decrease stock"
-                            aria-label="Decrease stock"
-                            style={{
-                              border: "none",
-                              background: "#F8EBDD",
-                              color: "#800020",
-                              borderRadius: 3,
-                              width: 18,
-                              height: 22,
-                              fontSize: 13,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
-                          >
-                            −
-                          </button>
+                        <div className="ap-cell-box">
                           <input
                             type="number"
                             min="0"
@@ -1248,36 +1216,9 @@ export function ProductModal({
                               });
                             }}
                             className="ap-cell-input"
-                            style={{ fontWeight: 700, color: "#166534", textAlign: "center", width: "100%" }}
+                            style={{ fontWeight: 700, color: "#166534", textAlign: "center" }}
                             aria-label="Stock"
                           />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = pc.quantity !== undefined && pc.quantity !== "" ? Number(pc.quantity) : 1;
-                              updatePiece(pc.key, { quantity: curr + 1 });
-                            }}
-                            title="Increase stock"
-                            aria-label="Increase stock"
-                            style={{
-                              border: "none",
-                              background: "#DCFCE7",
-                              color: "#166534",
-                              borderRadius: 3,
-                              width: 18,
-                              height: 22,
-                              fontSize: 13,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
-                          >
-                            +
-                          </button>
                         </div>
                       </td>
 
