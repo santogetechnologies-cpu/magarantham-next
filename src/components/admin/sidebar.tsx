@@ -540,14 +540,15 @@ export function AdminSidebar({
 
         {/* Footer Actions */}
         <div className="sidebar-footer">
-          <Link href="/" target="_blank" className="footer-action-link">
-            <span>Online Store</span>
+          <Link href="/" target="_blank" className="footer-action-link" title="Open Online Storefront in new tab">
+            <span>Store</span>
             <span aria-hidden="true">↗</span>
           </Link>
           <button
             type="button"
             onClick={handleSignOut}
             className="footer-signout-btn"
+            title="Sign out of ERP Admin"
           >
             <span>Sign Out</span>
             <span aria-hidden="true">⎋</span>
