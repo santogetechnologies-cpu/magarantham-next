@@ -1423,7 +1423,7 @@ export function CatalogueHierarchyManager({
                   </label>
 
                   <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Individual Price (₹)</span>
+                    <span className="ap-label">Selling Price (₹)</span>
                     <input
                       type="number"
                       min="0"
@@ -1437,7 +1437,7 @@ export function CatalogueHierarchyManager({
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Purchase Cost (₹, admin only)</span>
+                    <span className="ap-label">Purchase Cost (₹)</span>
                     <input
                       type="number"
                       min="0"

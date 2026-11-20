@@ -45,6 +45,8 @@ type PieceRow = {
   colour: string;
   priceRupees: string;
   purchaseCostRupees: string;
+  quantity?: number | string;
+  minQuantity?: number | string;
   status: "available" | "reserved" | "sold" | "damaged" | "returned";
   location: string;
   image_path?: string;
@@ -247,6 +249,8 @@ export function ProductModal({
                 purchaseCostRupees: p.purchase_cost_paise
                   ? String(p.purchase_cost_paise / 100)
                   : "",
+                quantity: 1,
+                minQuantity: product?.min_stock_level !== undefined ? product.min_stock_level : 0,
                 status: p.status || "available",
                 location: p.location || "Rack A-1",
                 image_path: p.image_path || "",
@@ -264,6 +268,8 @@ export function ProductModal({
                 purchaseCostRupees: product.purchase_price_paise
                   ? String(product.purchase_price_paise / 100)
                   : "",
+                quantity: 1,
+                minQuantity: product?.min_stock_level !== undefined ? product.min_stock_level : 0,
                 status: "available",
                 location: "Rack A-1",
               },
@@ -281,6 +287,8 @@ export function ProductModal({
           colour: "Purple",
           priceRupees: basePriceRupees || "",
           purchaseCostRupees: purchasePriceRupees || "",
+          quantity: 1,
+          minQuantity: minStockLevel || 0,
           status: "available",
           location: "Rack A-1",
         },
@@ -309,12 +317,12 @@ export function ProductModal({
 
   // Piece inventory counts
   const pieceStats = useMemo(() => {
-    const total = pieces.length;
-    const available = pieces.filter((p) => p.status === "available").length;
-    const reserved = pieces.filter((p) => p.status === "reserved").length;
-    const sold = pieces.filter((p) => p.status === "sold").length;
-    const damaged = pieces.filter((p) => p.status === "damaged").length;
-    const returned = pieces.filter((p) => p.status === "returned").length;
+    const total = pieces.reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const available = pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const reserved = pieces.filter((p) => p.status === "reserved").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const sold = pieces.filter((p) => p.status === "sold").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const damaged = pieces.filter((p) => p.status === "damaged").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const returned = pieces.filter((p) => p.status === "returned").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
     return { total, available, reserved, sold, damaged, returned };
   }, [pieces]);
 
@@ -335,6 +343,8 @@ export function ProductModal({
         colour: nextCol,
         priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || ""),
         purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || ""),
+        quantity: 1,
+        minQuantity: minStockLevel || 0,
         status: "available",
         location: `Rack A-${nextIdx}`,
       },
@@ -371,7 +381,9 @@ export function ProductModal({
   // Automatically sync stockInput when physical pieces change
   useEffect(() => {
     if (pieces.length > 0) {
-      const avail = pieces.filter((p) => p.status === "available").length;
+      const avail = pieces
+        .filter((p) => p.status === "available")
+        .reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
       setStockInput(avail);
     }
   }, [pieces]);
@@ -400,6 +412,8 @@ export function ProductModal({
           colour: nextCol,
           priceRupees: basePriceRupees || (pieces[0]?.priceRupees || ""),
           purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || ""),
+          quantity: 1,
+          minQuantity: minStockLevel || 0,
           status: "available",
           location: `Rack A-${idx}`,
         });
@@ -533,7 +547,7 @@ export function ProductModal({
 
     // Stock on hand is calculated directly from AVAILABLE pieces
     const stockOnHand = pieces.length > 0
-      ? pieces.filter((p) => p.status === "available").length
+      ? pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0)
       : stockNum;
 
     const finalMinStock = typeof minStockLevel === "number"
@@ -955,7 +969,7 @@ export function ProductModal({
               {/* Available Stock Units */}
               <label className="ap-field" style={{ flex: "1 1 140px" }}>
                 <span className="ap-label">
-                  Stock (Units) <em className="ap-req">*</em>
+                  Quantity <em className="ap-req">*</em>
                 </span>
                 <div style={{ position: "relative" }}>
                   <input
@@ -989,7 +1003,7 @@ export function ProductModal({
               {/* Min Stock Alert Level */}
               <label className="ap-field" style={{ flex: "1 1 140px" }}>
                 <span className="ap-label">
-                  Min Stock Alert
+                  Min Quantity
                 </span>
                 <input
                   type="number"
@@ -998,7 +1012,11 @@ export function ProductModal({
                   onWheel={(e) => e.currentTarget.blur()}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setMinStockLevel(val === "" ? "" : Math.max(0, parseInt(val, 10) || 0));
+                    const num = val === "" ? "" : Math.max(0, parseInt(val, 10) || 0);
+                    setMinStockLevel(num);
+                    if (num !== "") {
+                      setPieces((prev) => prev.map((p) => ({ ...p, minQuantity: num })));
+                    }
                   }}
                   className="ap-input"
                   placeholder="0"
@@ -1029,7 +1047,7 @@ export function ProductModal({
                 </p>
                 <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
-                    Available Stock: {pieceStats.available}
+                    Available Quantity: {pieceStats.available}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
                     Sold: {pieceStats.sold}
@@ -1038,10 +1056,10 @@ export function ProductModal({
                     Reserved: {pieceStats.reserved}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
-                    Total Pieces: {pieceStats.total}
+                    Total Quantity: {pieceStats.total}
                   </span>
                   <span className="cat-count-pill" style={{ background: "#EFF6FF", color: "#1E40AF" }}>
-                    Min Stock Alert: {minStockLevel || 0}
+                    Min Quantity: {minStockLevel || 0}
                   </span>
                   {pieceStats.available <= Number(minStockLevel || 0) && Number(minStockLevel || 0) > 0 && (
                     <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
@@ -1075,13 +1093,15 @@ export function ProductModal({
               <table className="ap-variants-table">
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 140 }}>Piece Code</th>
-                    <th style={{ width: 110 }}>Colour</th>
-                    <th style={{ width: 110 }}>Price (₹)</th>
-                    <th style={{ width: 110 }}>Cost (₹, admin)</th>
-                    <th style={{ width: 110 }}>Location</th>
-                    <th style={{ width: 120 }}>Stock Status</th>
-                    <th style={{ width: 40 }}></th>
+                    <th style={{ width: 130 }}>Piece Code</th>
+                    <th style={{ width: 95 }}>Colour</th>
+                    <th style={{ width: 110 }}>Selling Price (₹)</th>
+                    <th style={{ width: 110 }}>Purchase Cost (₹)</th>
+                    <th style={{ width: 80 }}>Quantity</th>
+                    <th style={{ width: 85 }}>Min Quantity</th>
+                    <th style={{ width: 95 }}>Location</th>
+                    <th style={{ width: 105 }}>Stock Status</th>
+                    <th style={{ width: 35 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1140,7 +1160,7 @@ export function ProductModal({
                         </div>
                       </td>
 
-                      {/* Individual Price (₹) */}
+                      {/* Selling Price (₹) */}
                       <td>
                         <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
                           <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#800020", fontWeight: 600 }}>₹</span>
@@ -1158,12 +1178,12 @@ export function ProductModal({
                             }}
                             className="ap-inline-input"
                             style={{ fontSize: 12, fontWeight: 600, color: "#800020", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
-                            aria-label="Individual piece price"
+                            aria-label="Selling price"
                           />
                         </div>
                       </td>
 
-                      {/* Purchase Cost (₹, admin only) */}
+                      {/* Purchase Cost (₹) */}
                       <td>
                         <div className="ap-inline-price-wrap" style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
                           <span className="ap-rupee-symbol" style={{ fontSize: 12, color: "#888" }}>₹</span>
@@ -1182,6 +1202,50 @@ export function ProductModal({
                             className="ap-inline-input"
                             style={{ fontSize: 12, color: "#555", width: "100%", border: "none", outline: "none", padding: "0 2px" }}
                             aria-label="Purchase cost"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Quantity */}
+                      <td>
+                        <div style={{ border: "1px solid #D4B99F", borderRadius: 4, padding: "2px 6px", background: "#FFFFFF", height: 30, display: "flex", alignItems: "center" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="1"
+                            value={pc.quantity !== undefined ? pc.quantity : 1}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updatePiece(pc.key, {
+                                quantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
+                              });
+                            }}
+                            className="ap-inline-input"
+                            style={{ fontSize: 12, fontWeight: 700, color: "#166534", width: "100%", border: "none", outline: "none", textAlign: "center" }}
+                            aria-label="Quantity"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Min Quantity */}
+                      <td>
+                        <div style={{ border: "1px solid #EAD5C0", borderRadius: 4, padding: "2px 6px", background: "#FFFDF9", height: 30, display: "flex", alignItems: "center" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={String(minStockLevel || 0)}
+                            value={pc.minQuantity !== undefined ? pc.minQuantity : (minStockLevel || 0)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updatePiece(pc.key, {
+                                minQuantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
+                              });
+                            }}
+                            className="ap-inline-input"
+                            style={{ fontSize: 12, fontWeight: 600, color: "#475569", width: "100%", border: "none", outline: "none", textAlign: "center" }}
+                            aria-label="Min quantity"
                           />
                         </div>
                       </td>
