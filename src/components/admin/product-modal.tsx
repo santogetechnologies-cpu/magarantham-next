@@ -189,8 +189,20 @@ export function ProductModal({
       if (product.published !== undefined) setPublished(product.published);
       if (product.featured !== undefined) setFeatured(product.featured);
       if (product.image_path) setMainImage(product.image_path);
+      if (product.category) setCategory(product.category);
+      if (product.subcategory_id) setSubcategoryId(product.subcategory_id);
+    } else {
+      setProductName("");
+      setDescription("");
+      setBasePriceRupees("");
+      setPurchasePriceRupees("");
+      setMinStockLevel(0);
+      setStockInput(1);
+      setMainImage("");
+      if (mainCategories[0]?.name) setCategory(mainCategories[0].name);
+      setSubcategoryId("");
     }
-  }, [product]);
+  }, [product, mainCategories]);
 
   // Sync category if product arrives late
   useEffect(() => {

@@ -155,10 +155,15 @@ export function Admin({
       const sub = allCats.find((c) => String(c.id) === String(product.subcategory_id));
       if (sub && String(sub.parent_id) === String(cat.id)) return true;
     }
-    if (
-      product.category &&
-      String(product.category).trim().toLowerCase() === String(cat.name || "").trim().toLowerCase()
-    ) {
+    const prodCatLower = String(product.category || "").trim().toLowerCase();
+    const catNameLower = String(cat.name || "").trim().toLowerCase();
+    if (prodCatLower && catNameLower && prodCatLower === catNameLower) {
+      return true;
+    }
+    const prodCatSlug = prodCatLower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const catNameSlug = catNameLower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const catSlug = String(cat.slug || "").trim().toLowerCase();
+    if (prodCatSlug && (prodCatSlug === catNameSlug || prodCatSlug === catSlug)) {
       return true;
     }
     return false;
@@ -921,16 +926,20 @@ export function Admin({
                   ) : categoryParam ? (
                     // CATEGORY-FILTERED SAREE LISTING (e.g. /admin/products?category=kanchipuram)
                     (() => {
+                      const paramSlug = categoryParam.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
                       const activeCat = categories.find(
                         (c) =>
                           !c.parent_id &&
                           (String(c.slug || "").toLowerCase() === categoryParam.toLowerCase() ||
                             String(c.name || "").toLowerCase() === categoryParam.toLowerCase() ||
+                            String(c.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === paramSlug ||
                             String(c.id) === categoryParam),
                       );
-                      const catName = String(activeCat?.name || categoryParam);
+                      const catName = activeCat?.name || categoryParam.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
                       const filteredCategoryRows = rows.filter((p) =>
-                        activeCat ? isSareeInCat(p, activeCat, categories) : false,
+                        activeCat
+                          ? isSareeInCat(p, activeCat, categories)
+                          : String(p.category || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === paramSlug,
                       );
                       const catCover =
                         activeCat?.image_path ||

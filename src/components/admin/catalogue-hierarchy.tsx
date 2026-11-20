@@ -287,20 +287,23 @@ export function CatalogueHierarchyManager({
     try {
       const trimmedName = categoryModal.name.trim();
       const finalSlug = makeSlug(categoryModal.slug) || makeSlug(trimmedName);
+      const safeId = categoryModal.id && categoryModal.id.trim() ? categoryModal.id.trim() : null;
+      const safeParentId = categoryModal.parentId && categoryModal.parentId.trim() ? categoryModal.parentId.trim() : null;
+
       await api("/api/erp/product_categories", {
-        id: categoryModal.id,
+        id: safeId,
         data: {
-          parent_id: categoryModal.parentId,
+          parent_id: safeParentId,
           name: trimmedName,
           slug: finalSlug,
-          active: categoryModal.active,
-          image_path: categoryModal.image_path || "",
-          description: categoryModal.description || "",
+          active: Boolean(categoryModal.active),
+          image_path: (categoryModal.image_path || "").trim(),
+          description: (categoryModal.description || "").trim(),
         },
       });
       if (onNotice) {
         onNotice(
-          categoryModal.id
+          safeId
             ? `"${trimmedName}" updated.`
             : `${categoryModal.isSub ? "Sub Category" : "Main Category"} "${trimmedName}" created.`,
         );
