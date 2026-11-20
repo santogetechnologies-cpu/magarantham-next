@@ -359,7 +359,23 @@ export function ProductModal({
 
   function removePiece(key: string) {
     setPieces((prev) => {
-      if (prev.length <= 1) return prev;
+      if (prev.length <= 1) {
+        const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+        return [
+          {
+            key: `pc-${Date.now()}-1`,
+            piece_code: `${catCode}-PUR-001`,
+            barcode: `MSU${Date.now().toString().slice(-7)}001`,
+            colour: "Purple",
+            priceRupees: "",
+            purchaseCostRupees: "",
+            quantity: 1,
+            minQuantity: 0,
+            status: "available",
+            location: "Rack A-1",
+          },
+        ];
+      }
       return prev.filter((p) => p.key !== key);
     });
   }
@@ -978,15 +994,15 @@ export function ProductModal({
               <table className="ap-variants-table">
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 130 }}>Piece Code</th>
-                    <th style={{ width: 95 }}>Colour</th>
-                    <th style={{ width: 110 }}>Selling Price (₹)</th>
-                    <th style={{ width: 110 }}>Purchase Cost (₹)</th>
-                    <th style={{ width: 80 }}>Quantity</th>
-                    <th style={{ width: 85 }}>Min Quantity</th>
-                    <th style={{ width: 95 }}>Location</th>
-                    <th style={{ width: 105 }}>Stock Status</th>
-                    <th style={{ width: 35 }}></th>
+                    <th style={{ width: 110 }}>Piece Code</th>
+                    <th style={{ width: 90 }}>Colour</th>
+                    <th style={{ width: 100 }}>Selling Price (₹)</th>
+                    <th style={{ width: 100 }}>Purchase Cost (₹)</th>
+                    <th style={{ width: 70 }}>Quantity</th>
+                    <th style={{ width: 75 }}>Min Quantity</th>
+                    <th style={{ width: 85 }}>Location</th>
+                    <th style={{ width: 95 }}>Stock Status</th>
+                    <th style={{ width: 60, textAlign: "center" }}>Delete</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1189,26 +1205,28 @@ export function ProductModal({
                       </td>
 
                       {/* Delete */}
-                      <td>
+                      <td style={{ textAlign: "center", width: 60 }}>
                         <button
                           type="button"
                           className="ap-variant-del-btn"
-                          disabled={pieces.length <= 1}
                           onClick={() => removePiece(pc.key)}
-                          title="Remove physical piece"
+                          title="Delete saree piece"
+                          aria-label="Delete saree piece"
                         >
                           <svg
-                            width="14"
-                            height="14"
+                            width="15"
+                            height="15"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.8"
+                            strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           >
                             <polyline points="3 6 5 6 21 6" />
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
                           </svg>
                         </button>
                       </td>

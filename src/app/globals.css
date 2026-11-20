@@ -7869,9 +7869,8 @@ body:has(.luxury-admin-shell) #main {
 /* Saree Variants ERP Table */
 .ap-variants-table-wrapper {
   width: 100%;
-  overflow: hidden !important;
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
   border: 1px solid var(--erp-border-light);
   border-radius: 10px;
   background: #FFFFFF;
@@ -8164,25 +8163,27 @@ select.ap-variant-colour-select:focus-visible {
 }
 
 .ap-variant-del-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #DC2626;
-  background: transparent;
+  background: #FEF2F2;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .ap-variant-del-btn:hover:not(:disabled) {
   background: #FEE2E2;
+  border-color: #EF4444;
+  color: #B91C1C;
 }
 
 .ap-variant-del-btn:disabled {
-  opacity: 0.25;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
