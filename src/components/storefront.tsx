@@ -72,14 +72,73 @@ export function Home({
   products,
   banners,
   categories = [],
+  offers = [],
 }: {
   settings: Settings;
   products: Product[];
   banners: Banner[];
   categories?: CategoryItem[];
+  offers?: any[];
 }) {
+  const discountedProducts = products.filter(
+    (p) => Boolean(p.offer_badge || p.discount_percent > 0 || (p.effective_price_paise && p.effective_price_paise < p.price_paise)),
+  );
+
   return (
     <>
+      {/* Top Promotional Offer Banner */}
+      {offers && offers.length > 0 && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #800020 0%, #4A0012 100%)",
+            color: "#FFFDF9",
+            padding: "10px 18px",
+            textAlign: "center",
+            borderBottom: "2px solid #C49A52",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: 16 }}>✨</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            <strong style={{ color: "#FFE8C5" }}>{offers[0].title}:</strong>{" "}
+            {offers[0].kind === "percent"
+              ? `${offers[0].value}% OFF`
+              : `₹${Math.round(offers[0].value / 100)} OFF`}{" "}
+            on eligible collections!
+            {offers[0].code && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  background: "#C49A52",
+                  color: "#800020",
+                  padding: "2px 8px",
+                  borderRadius: 4,
+                  fontWeight: 700,
+                  fontSize: 11,
+                }}
+              >
+                Code: {offers[0].code}
+              </span>
+            )}
+          </span>
+          <Link
+            href="/shop?offers=true"
+            style={{
+              color: "#FFE8C5",
+              fontWeight: 700,
+              textDecoration: "underline",
+              fontSize: 12,
+            }}
+          >
+            Shop Offers ↗
+          </Link>
+        </div>
+      )}
+
       <section className="hero">
         <img
           className="hero-image"
@@ -206,6 +265,30 @@ export function Home({
             ))}
         </div>
       </section>
+
+      {/* SHOP BY OFFERS CURATED SECTION */}
+      {discountedProducts.length > 0 && (
+        <section className="section" style={{ background: "#FBF7F0", padding: "40px 24px", borderRadius: 12, margin: "24px 0" }}>
+          <div className="section-heading" data-reveal>
+            <div>
+              <p className="eyebrow" style={{ color: "#C49A52" }}>Festive Specials &amp; Limited-Time Discounts</p>
+              <h2 style={{ color: "#800020" }}>Shop by Offers</h2>
+            </div>
+            <Link href="/shop?offers=true" className="text-link" style={{ color: "#800020", fontWeight: 700 }}>
+              View all offers ({discountedProducts.length} styles) ↗
+            </Link>
+          </div>
+          <div className="product-grid">
+            {discountedProducts.slice(0, 8).map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                ordering={s.ordering_enabled}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       <section className="bridal-story" data-reveal>
         <div className="story-photo">
           <img
@@ -297,9 +380,14 @@ export function ProductDetail({
 
   // Active pricing calculation
   const rawPrice = selectedPiece?.price_paise ?? p.price_paise;
-  const effectivePrice = p.discount_percent > 0
-    ? Math.round(rawPrice * (1 - p.discount_percent / 100))
-    : rawPrice;
+  const discountRatio =
+    p.price_paise > 0 && p.effective_price_paise !== undefined
+      ? p.effective_price_paise / p.price_paise
+      : p.discount_percent > 0
+        ? 1 - p.discount_percent / 100
+        : 1;
+  const effectivePrice = Math.round(rawPrice * discountRatio);
+  const savings = Math.max(0, rawPrice - effectivePrice);
 
   const isSoldOut = selectedPiece ? selectedPiece.status !== "available" : p.available < 1;
 
@@ -337,10 +425,50 @@ export function ProductDetail({
           {p.fabric ? ` · ${p.fabric}` : ""}
           {p.colour ? ` · ${p.colour}` : ""}
         </p>
+
+        {/* Dynamic Promotional Offer Pill */}
+        {(p.offer_badge || p.applied_offer_title) && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: "#FFFDF9",
+              border: "1px solid #C49A52",
+              borderRadius: 20,
+              padding: "4px 14px",
+              marginBottom: 10,
+            }}
+          >
+            <span style={{ color: "#C49A52", fontSize: 16 }}>✨</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#800020" }}>
+              {p.applied_offer_title ? `${p.applied_offer_title}: ` : "Festive Offer: "}
+              <span style={{ color: "#166534" }}>{p.offer_badge}</span>
+            </span>
+          </div>
+        )}
+
         <h1>{p.name}</h1>
         <p className="price">
-          {money(effectivePrice)}{" "}
-          {p.discount_percent > 0 && <del>{money(rawPrice)}</del>}
+          <span style={{ color: "#800020", fontWeight: 800 }}>{money(effectivePrice)}</span>{" "}
+          {savings > 0 && (
+            <>
+              <del style={{ color: "#888", marginLeft: 8 }}>{money(rawPrice)}</del>
+              <span
+                style={{
+                  marginLeft: 10,
+                  background: "#DCFCE7",
+                  color: "#166534",
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                You Save {money(savings)}
+              </span>
+            </>
+          )}
         </p>
         <p>{p.description}</p>
 

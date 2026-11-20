@@ -82,8 +82,20 @@ create table public.offers (
  min_subtotal_paise int not null default 0 check(min_subtotal_paise>=0), max_discount_paise int check(max_discount_paise>=0),
  max_uses int check(max_uses>0), used_count int not null default 0 check(used_count>=0), per_customer_limit int not null default 1 check(per_customer_limit>0),
  active boolean not null default false, starts_at timestamptz, ends_at timestamptz,
+ target_type text not null default 'all' check (target_type in ('all', 'category', 'subcategory', 'product')),
+ priority int not null default 0 check (priority >= 0),
+ description text,
  check(kind<>'percent' or value<=90), check(ends_at is null or starts_at is null or ends_at>starts_at),
  check(code is null or code=upper(code))
+);
+create table public.offer_targets (
+ id uuid primary key default gen_random_uuid(),
+ offer_id uuid not null references public.offers(id) on delete cascade,
+ target_type text not null check (target_type in ('category', 'subcategory', 'product')),
+ category_id uuid references public.product_categories(id) on delete cascade,
+ subcategory_id uuid references public.product_categories(id) on delete cascade,
+ product_id uuid references public.products(id) on delete cascade,
+ created_at timestamptz not null default now()
 );
 create table public.tracking_providers (
  id uuid primary key default gen_random_uuid(), name text not null, url_template text not null default '', enabled boolean not null default true

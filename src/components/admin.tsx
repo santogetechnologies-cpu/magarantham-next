@@ -14,6 +14,7 @@ import { ProductModal, ProductFormData } from "./admin/product-modal";
 import { StockModal } from "./admin/stock-modal";
 import { DataTable, Column } from "./admin/data-table";
 import { CatalogueHierarchyManager } from "./admin/catalogue-hierarchy";
+import { FestivalOffersManager } from "./admin/festival-offers";
 
 type Row = Record<string, any>;
 
@@ -1568,8 +1569,13 @@ export function Admin({
                 </div>
               )}
 
-              {/* GENERAL ADMIN FORMS (Offers, Banners, Shipping, Bulk, Coupons, Leaves, Settings) */}
-              {form && section !== "products" && (
+              {/* FESTIVAL OFFERS DYNAMIC TARGETING & PROMOTIONS */}
+              {section === "offers" && (
+                <FestivalOffersManager onRefresh={load} />
+              )}
+
+              {/* GENERAL ADMIN FORMS (Banners, Shipping, Bulk, Coupons, Leaves, Settings) */}
+              {form && section !== "products" && section !== "offers" && (
                 <div>
                   {section !== "settings" && section !== "bulk" && (
                     <div style={{ marginBottom: 16 }}>

@@ -192,6 +192,11 @@ export function CategoryCollectionPage({
     baseCategoryProducts.find((p) => p.image_path)?.image_path ||
     "/assets/brand-logo.png";
 
+  const activeOfferItem = useMemo(
+    () => baseCategoryProducts.find((p) => Boolean(p.offer_badge || p.applied_offer_title)),
+    [baseCategoryProducts],
+  );
+
   return (
     <div className="cat-collection-root">
       {/* Breadcrumb Navigation */}
@@ -243,6 +248,32 @@ export function CategoryCollectionPage({
               category.description ||
               `Discover our exclusive collection of authentic ${category.name} silk sarees, handwoven with exquisite zari borders and timeless traditional motifs.`}
           </p>
+
+          {/* Active Collection Offer Banner */}
+          {activeOfferItem && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(255, 253, 249, 0.95)",
+                border: "1px solid #C49A52",
+                borderRadius: 24,
+                padding: "6px 16px",
+                margin: "10px 0 14px",
+                backdropFilter: "blur(4px)",
+              }}
+            >
+              <span style={{ fontSize: 16 }}>✨</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#800020" }}>
+                {activeOfferItem.applied_offer_title
+                  ? `${activeOfferItem.applied_offer_title}: `
+                  : "Festive Collection Discount: "}
+                <span style={{ color: "#166534" }}>{activeOfferItem.offer_badge}</span>
+              </span>
+            </div>
+          )}
+
           <div className="cat-hero-meta-row">
             <span className="cat-count-badge">
               ✦ {baseCategoryProducts.length}{" "}
@@ -520,10 +551,18 @@ export function CategoryCollectionPage({
                       <span className="cat-price-val">
                         {money(p.effective_price_paise ?? p.price_paise)}
                       </span>
-                      {p.discount_percent > 0 && (
-                        <span className="cat-discount-tag">
-                          {p.discount_percent}% OFF
-                        </span>
+                      {(p.offer_badge || p.discount_percent > 0 || (p.effective_price_paise && p.effective_price_paise < p.price_paise)) && (
+                        <>
+                          <del style={{ marginLeft: 6, color: "#888", fontSize: "0.85em" }}>
+                            {money(p.price_paise)}
+                          </del>
+                          <span
+                            className="cat-discount-tag"
+                            style={{ background: "#800020", color: "#FFFFFF", fontWeight: 700 }}
+                          >
+                            {p.offer_badge || `${p.discount_percent}% OFF`}
+                          </span>
+                        </>
                       )}
                     </div>
 

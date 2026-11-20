@@ -70,6 +70,10 @@ export type Product = {
   available: number;
   featured: boolean;
   effective_price_paise?: number;
+  offer_badge?: string | null;
+  offer_savings_paise?: number;
+  applied_offer_title?: string | null;
+  offer_level?: string | null;
   subcategory_id?: string;
   subcategory_name?: string;
   category_id?: string;

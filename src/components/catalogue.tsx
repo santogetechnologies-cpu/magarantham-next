@@ -20,12 +20,21 @@ export function ProductCard({
     <article className="product-card" data-reveal>
       <Link href={`/products/${p.slug}`} className="product-photo">
         <img src={p.image_path} alt={`${p.name}, ${p.colour}`} loading="lazy" />
-        <span className="product-tag">
-          {p.discount_percent
-            ? `${p.discount_percent}% off`
-            : hasCustomSub
-              ? p.subcategory_name
-              : p.category}
+        <span
+          className="product-tag"
+          style={
+            p.offer_badge
+              ? { background: "#800020", color: "#FFFFFF", fontWeight: 700 }
+              : undefined
+          }
+        >
+          {p.offer_badge
+            ? `✨ ${p.offer_badge}`
+            : p.discount_percent
+              ? `${p.discount_percent}% off`
+              : hasCustomSub
+                ? p.subcategory_name
+                : p.category}
         </span>
       </Link>
       <button
@@ -54,10 +63,29 @@ export function ProductCard({
           <h3>{p.name}</h3>
         </Link>
         <div className="product-bottom">
-          <span>
-            {money(unitPrice(p))}
-            {p.discount_percent > 0 && <del>{money(p.price_paise)}</del>}
-          </span>
+          <div>
+            <span>
+              <strong style={{ color: "#800020", fontSize: 16 }}>{money(unitPrice(p))}</strong>
+              {(p.offer_badge || p.discount_percent > 0 || p.price_paise > unitPrice(p)) && (
+                <del style={{ marginLeft: 6, color: "#888", fontSize: "0.85em" }}>
+                  {money(p.price_paise)}
+                </del>
+              )}
+            </span>
+            {p.price_paise > unitPrice(p) && (
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "#166534",
+                  fontWeight: 600,
+                  marginTop: 2,
+                }}
+              >
+                Save {money(p.price_paise - unitPrice(p))}
+              </span>
+            )}
+          </div>
           <button
             onClick={() => add(p.id)}
             disabled={!ordering || p.price_paise === 0 || p.available < 1}
@@ -112,6 +140,14 @@ export function Catalogue({
   const [subcategory, setSubcategory] = useState(initialSubcategory);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("featured");
+  const [offersOnly, setOffersOnly] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("offers") === "true") setOffersOnly(true);
+    }
+  }, []);
 
   useEffect(() => {
     setCategory(resolvedInitialCategory);
@@ -234,8 +270,18 @@ export function Catalogue({
     }
   }
 
+  const offerProductsCount = useMemo(
+    () => products.filter((p) => Boolean(p.offer_badge || p.discount_percent > 0 || p.price_paise > unitPrice(p))).length,
+    [products],
+  );
+
   const filtered = products
     .filter((p) => {
+      // 0. Offers only filter
+      if (offersOnly && !(p.offer_badge || p.discount_percent > 0 || p.price_paise > unitPrice(p))) {
+        return false;
+      }
+
       // 1. Main category filter (All shows every published saree)
       if (!isSareeInCat(p, category)) return false;
 
@@ -335,6 +381,24 @@ export function Catalogue({
 
       {/* Main Category Filter Chips */}
       <div className="filter-chips">
+        {offerProductsCount > 0 && (
+          <button
+            type="button"
+            className={offersOnly ? "active" : ""}
+            style={{
+              border: offersOnly ? "2px solid #800020" : "1px solid #D4B99F",
+              background: offersOnly ? "#800020" : "#FFFDF9",
+              color: offersOnly ? "#FFFFFF" : "#800020",
+              fontWeight: 700,
+            }}
+            onClick={() => setOffersOnly(!offersOnly)}
+          >
+            <span>🎁 Festive Offers</span>{" "}
+            <span style={{ opacity: 0.9, fontSize: "0.9em" }}>
+              ({offerProductsCount})
+            </span>
+          </button>
+        )}
         {mainCategoryNames.map((c) => {
           const count = categoryCounts[c] ?? 0;
           const isActive = category.toLowerCase() === c.toLowerCase();

@@ -4,6 +4,8 @@ import { CategoryItem, publicProduct, Settings } from "./core";
 import { enrichCategories } from "./erp-server";
 import { seedProducts } from "./seed";
 import { getPiecesMap } from "./piece-server";
+import { getOffersWithTargets } from "./offers-server";
+import { applyOffersToProducts, buildCategoryMap, isOfferValid } from "./offers";
 export const defaultSettings: Settings = {
   brand_name: "மகரந்தம் சில்க்ஸ்",
   tagline: "Sarees for every occasion.",
@@ -38,7 +40,7 @@ export async function getStore() {
       connected: false,
     };
   const db = service();
-  const [s, pRes, b, o, c] = await Promise.all([
+  const [s, pRes, b, allOffers, c] = await Promise.all([
     db.from("store_settings").select("*").eq("id", true).single(),
     db
       .from("store_catalogue")
@@ -47,12 +49,7 @@ export async function getStore() {
       .eq("archived", false)
       .order("created_at"),
     db.from("banners").select("*").eq("published", true).order("sort_order"),
-    db
-      .from("offers")
-      .select(
-        "id,title,code,kind,value,min_subtotal_paise,max_discount_paise,starts_at,ends_at",
-      )
-      .eq("active", true),
+    getOffersWithTargets().catch(() => []),
     db
       .from("product_categories")
       .select("*")
@@ -76,7 +73,7 @@ export async function getStore() {
 
   // Filter out any archived or unpublished products strictly
   const piecesMap = await getPiecesMap();
-  const publishedProducts = rawCatalogue
+  const rawPublishedProducts = rawCatalogue
     .filter((prod: Record<string, unknown>) => prod.published === true && prod.archived !== true)
     .map((prod) => {
       const pid = String(prod.id);
@@ -87,6 +84,20 @@ export async function getStore() {
     });
 
   const now = Date.now();
+  const activeOffers = (allOffers || []).filter((o) => isOfferValid(o, now));
+
+  const rawCats = (c.data || []) as CategoryItem[];
+  const categories = await enrichCategories(rawCats);
+  const categoryMap = buildCategoryMap(categories);
+
+  // Apply offers across all published products with priority rules
+  const publishedProducts = applyOffersToProducts(
+    rawPublishedProducts,
+    activeOffers,
+    categoryMap,
+    now,
+  );
+
   const active = (x: { starts_at: string | null; ends_at: string | null }) =>
     (!x.starts_at || Date.parse(x.starts_at) <= now) &&
     (!x.ends_at || Date.parse(x.ends_at) > now);
@@ -95,14 +106,12 @@ export async function getStore() {
         Object.keys(defaultSettings).map((k) => [k, s.data[k]]),
       ) as Settings)
     : defaultSettings;
-  const rawCats = (c.data || []) as CategoryItem[];
-  const categories = await enrichCategories(rawCats);
   return {
     settings,
     products: publishedProducts,
     categories,
     banners: (b.data || []).filter(active),
-    offers: (o.data || []).filter(active),
+    offers: activeOffers,
     connected: true,
   };
 }

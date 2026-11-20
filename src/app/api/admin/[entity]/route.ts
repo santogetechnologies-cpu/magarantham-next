@@ -15,6 +15,12 @@ import { schemaFor, uuid } from "@/lib/schemas";
 import type { Capability } from "@/lib/core";
 import { getPiecesMap } from "@/lib/piece-server";
 import { enrichCategories } from "@/lib/erp-server";
+import {
+  getOffersWithTargets,
+  saveOfferWithTargets,
+  deleteOfferWithTargets,
+} from "@/lib/offers-server";
+import type { OfferTargetRecord } from "@/lib/offers";
 
 const access: Record<string, Capability | "superadmin" | undefined> = {
   products: "catalogue",
@@ -359,6 +365,20 @@ export async function GET(
       });
     }
 
+    if (entity === "offers") {
+      const allOffers = await getOffersWithTargets();
+      const page = z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(100000)
+        .parse(new URL(req.url).searchParams.get("page") || 0);
+      return ok({
+        rows: allOffers.slice(page * 100, page * 100 + 100),
+        nextPage: allOffers.length > (page + 1) * 100 ? page + 1 : null,
+      });
+    }
+
     const table = entity === "inventory" ? "products" : entity;
     let q = db.from(table).select("*");
     if (entity === "products" || entity === "inventory") {
@@ -593,6 +613,52 @@ export async function POST(
         p_permissions: p.permissions,
         p_suspended: p.suspended,
       });
+    } else if (entity === "offers") {
+      const p = z
+        .object({
+          id: uuid.nullable().default(null),
+          data: z.record(z.string(), z.unknown()),
+          targets: z.array(z.record(z.string(), z.unknown())).optional(),
+        })
+        .parse(input);
+
+      const offerData = p.data as any;
+      const targets = (p.targets || offerData.targets || []) as OfferTargetRecord[];
+      const id = await saveOfferWithTargets(
+        {
+          id: p.id,
+          title: String(offerData.title || "Festival Offer"),
+          code: offerData.code ? String(offerData.code) : null,
+          kind: offerData.kind === "fixed" ? "fixed" : "percent",
+          value: Number(offerData.value || 0),
+          min_subtotal_paise: Number(offerData.min_subtotal_paise || 0),
+          max_discount_paise:
+            offerData.max_discount_paise !== null && offerData.max_discount_paise !== undefined
+              ? Number(offerData.max_discount_paise)
+              : null,
+          max_uses:
+            offerData.max_uses !== null && offerData.max_uses !== undefined
+              ? Number(offerData.max_uses)
+              : null,
+          per_customer_limit: Number(offerData.per_customer_limit || 1),
+          active: offerData.active !== undefined ? Boolean(offerData.active) : true,
+          starts_at: offerData.starts_at || null,
+          ends_at: offerData.ends_at || null,
+          target_type: offerData.target_type || "all",
+          priority: Number(offerData.priority || 0),
+          description: offerData.description || null,
+        },
+        targets,
+      );
+
+      try {
+        revalidatePath("/", "layout");
+        revalidatePath("/shop");
+        revalidatePath("/category/[slug]", "page");
+        revalidatePath("/products/[slug]", "page");
+      } catch {}
+
+      return ok({ id, message: "Festival offer saved successfully." });
     } else if (entity in schemaFor) {
       const p = z
         .object({
@@ -809,13 +875,21 @@ export async function DELETE(
         revalidatePath("/category/[slug]", "page");
         revalidatePath("/products/[slug]", "page");
       } catch {}
+    } else if (entity === "offers") {
+      await deleteOfferWithTargets(id);
+      try {
+        revalidatePath("/", "layout");
+        revalidatePath("/shop");
+        revalidatePath("/category/[slug]", "page");
+        revalidatePath("/products/[slug]", "page");
+      } catch {}
+      message = "Festival offer deleted successfully.";
     } else {
       const del = await db.from(entity).delete().eq("id", id);
       if (del.error) throw new Fault(503, "DELETE_FAILED");
       if (
         entity === "product_categories" ||
-        entity === "banners" ||
-        entity === "offers"
+        entity === "banners"
       ) {
         try {
           revalidatePath("/", "layout");
