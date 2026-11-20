@@ -130,7 +130,7 @@ export function ProductModal({
         .then((res) => {
           if (res?.rows?.length) setInternalCategories(res.rows);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [categories]);
 
@@ -299,7 +299,7 @@ export function ProductModal({
             ]);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     } else {
       // New Product: Initialize default 1st piece
       setPieces([
@@ -609,7 +609,7 @@ export function ProductModal({
     // Ensure valid UUID or null for subcategory_id so database constraint/zod is always satisfied
     const validSubId =
       finalSubcategoryId &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(finalSubcategoryId))
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(finalSubcategoryId))
         ? String(finalSubcategoryId)
         : null;
 

@@ -20,7 +20,7 @@ function readLocalCache(): Record<string, IndividualPiece[]> {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") return parsed;
     }
-  } catch {}
+  } catch { }
   return {};
 }
 
@@ -30,7 +30,7 @@ function writeLocalCache(map: Record<string, IndividualPiece[]>) {
       fs.mkdirSync(LOCAL_CACHE_DIR, { recursive: true });
     }
     fs.writeFileSync(LOCAL_CACHE_PATH, JSON.stringify(map, null, 2), "utf8");
-  } catch {}
+  } catch { }
 }
 
 export async function getPiecesMap(): Promise<Record<string, IndividualPiece[]>> {
@@ -54,7 +54,7 @@ export async function getPiecesMap(): Promise<Record<string, IndividualPiece[]>>
         return parsed;
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback to local cache if storage had a momentary delay
   const local = readLocalCache();

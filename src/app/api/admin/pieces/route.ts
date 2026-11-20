@@ -72,7 +72,7 @@ export async function POST(req: Request) {
       revalidatePath("/", "layout");
       revalidatePath("/shop");
       revalidatePath("/products/[slug]", "page");
-    } catch {}
+    } catch { }
 
     return ok({
       message: "Pieces saved successfully.",
@@ -111,7 +111,7 @@ export async function PATCH(req: Request) {
       revalidatePath("/", "layout");
       revalidatePath("/shop");
       revalidatePath("/products/[slug]", "page");
-    } catch {}
+    } catch { }
 
     return ok({
       message: `Piece ${updated.piece_code} marked as ${parsed.status}.`,
@@ -147,7 +147,7 @@ export async function DELETE(req: Request) {
       revalidatePath("/", "layout");
       revalidatePath("/shop");
       revalidatePath("/products/[slug]", "page");
-    } catch {}
+    } catch { }
 
     return ok({ message: "Piece removed from catalogue." });
   } catch (e) {

@@ -551,13 +551,17 @@ export function POS({ profile }: { profile: Profile }) {
     }
   }
 
-  const filtered = catalog.filter(
-    (p) =>
-      (!category || p.category_id === category || p.subcategory_id === category) &&
-      `${p.name} ${p.sku} ${p.barcode || ''} ${p.category} ${p.subcategory_name || ''}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+  const filtered = catalog.filter((p) => {
+    const catMatch = !category || p.category_id === category || p.subcategory_id === category;
+    if (!catMatch) return false;
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    const piecesText = Array.isArray(p.pieces)
+      ? p.pieces.map((pc: any) => `${pc.piece_code || ''} ${pc.barcode || ''} ${pc.colour || ''}`).join(' ')
+      : '';
+    const searchable = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.category || ''} ${p.subcategory_name || ''} ${p.colour || ''} ${p.fabric || ''} ${piecesText}`.toLowerCase();
+    return searchable.includes(q);
+  });
 
   const categories = [
     ...new Map(
@@ -801,6 +805,17 @@ export function POS({ profile }: { profile: Profile }) {
                 placeholder="Search by saree name, SKU, or barcode..."
                 className="pos-search-input"
               />
+              {search && (
+                <button
+                  type="button"
+                  className="pos-search-clear-btn"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <select
               value={category}

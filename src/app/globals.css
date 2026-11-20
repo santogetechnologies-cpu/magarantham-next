@@ -5840,15 +5840,19 @@ body:has(.luxury-admin-shell) #main {
 /* Catalogue Filters */
 .pos-filter-bar {
   display: flex;
-  gap: 10px;
-  padding: 14px 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--erp-border-light);
   background: #FFFFFF;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pos-search-box {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 180px;
   display: flex;
   align-items: center;
 }
@@ -5859,23 +5863,50 @@ body:has(.luxury-admin-shell) #main {
   font-size: 13px;
   opacity: 0.55;
   pointer-events: none;
+  z-index: 2;
 }
 
 .pos-search-input {
-  width: 100%;
+  width: 100% !important;
+  min-width: 0 !important;
   height: 38px;
-  padding: 0 12px 0 34px;
+  padding: 0 32px 0 34px !important;
   border-radius: 8px;
-  border: 1px solid var(--erp-border);
-  background: var(--erp-cream);
+  border: 1px solid var(--erp-border) !important;
+  background: var(--erp-cream) !important;
   font-size: 13px;
   color: var(--erp-text);
+  box-sizing: border-box;
+  transition: all 0.15s ease;
 }
 
 .pos-search-input:focus {
-  outline: none;
-  border-color: var(--erp-gold);
-  background: #FFFFFF;
+  outline: none !important;
+  border-color: var(--erp-gold) !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 0 0 2px rgba(196, 154, 82, 0.2);
+}
+
+.pos-search-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 50%;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-search-clear-btn:hover {
+  color: var(--erp-maroon);
 }
 
 .pos-category-select {
@@ -5886,7 +5917,11 @@ body:has(.luxury-admin-shell) #main {
   background: #FFFDFB;
   font-size: 12px;
   color: var(--erp-text);
-  min-width: 170px;
+  flex: 0 0 180px !important;
+  width: 180px !important;
+  min-width: 140px !important;
+  max-width: 220px !important;
+  box-sizing: border-box;
 }
 
 /* Saree Product Grid */

@@ -143,6 +143,14 @@ export function Admin({
   const [adminCatSearch, setAdminCatSearch] = useState("");
   const [viewAllFlatTable, setViewAllFlatTable] = useState(false);
   const categoryParam = searchParams.get("category");
+  const searchQueryParam = searchParams.get("search");
+
+  useEffect(() => {
+    if (searchQueryParam) {
+      setAdminCatSearch(searchQueryParam);
+      setViewAllFlatTable(true);
+    }
+  }, [searchQueryParam]);
 
   function isSareeInCat(
     product: Row,
