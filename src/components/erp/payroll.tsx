@@ -307,7 +307,7 @@ export function Payroll({ refs }: { refs: References }) {
           <div className="sp-panel-head">
             <div>
               <h3 className="sp-panel-title">
-                Salary Preview · {preview.employee.name} ({month})
+                Salary Preview · {preview.employee?.name} ({month})
               </h3>
               <p className="sp-panel-sub">
                 Based on marked attendance and assigned salary rule
@@ -430,8 +430,8 @@ export function Payroll({ refs }: { refs: References }) {
                     ],
                     ...rows.map((r) => [
                       r.period,
-                      r.employee_snapshot.code,
-                      r.employee_snapshot.name,
+                      r.employee_snapshot?.code,
+                      r.employee_snapshot?.name,
                       r.status,
                       r.base_paise / 100,
                       r.overtime_paise / 100,
@@ -469,10 +469,10 @@ export function Payroll({ refs }: { refs: References }) {
                     </td>
                     <td>
                       <strong style={{ color: 'var(--erp-maroon)' }}>
-                        {r.employee_snapshot.name}
+                        {r.employee_snapshot?.name}
                       </strong>
                       <small style={{ display: 'block', color: 'var(--erp-text-muted)' }}>
-                        {r.employee_snapshot.code}
+                        {r.employee_snapshot?.code}
                       </small>
                     </td>
                     <td className="money-cell">{money(r.net_paise)}</td>
@@ -614,7 +614,7 @@ export function Payroll({ refs }: { refs: References }) {
             <div className="modal-header">
               <div>
                 <span className="modal-eyebrow">✦ SALARY PAYMENT</span>
-                <h2 className="modal-title">Pay {paying.employee_snapshot.name}</h2>
+                <h2 className="modal-title">Pay {paying.employee_snapshot?.name}</h2>
               </div>
               <button
                 type="button"
@@ -699,7 +699,7 @@ export function Payroll({ refs }: { refs: References }) {
             <div>
               <span className="modal-eyebrow">✦ SALARY SLIP</span>
               <h3 className="pos-panel-title">
-                {slip.employee_snapshot.name} · {slip.period.slice(0, 7)}
+                {slip.employee_snapshot?.name} · {slip.period.slice(0, 7)}
               </h3>
             </div>
             <div className="pos-receipt-btns">
@@ -720,10 +720,10 @@ export function Payroll({ refs }: { refs: References }) {
             <h2 style={{ marginBottom: 4 }}>மகரந்தம் சில்க்ஸ் · MAGARANTHAM SILKS</h2>
             <h3 style={{ marginTop: 0 }}>Salary Slip · {slip.period.slice(0, 7)}</h3>
             <p>
-              <strong>{slip.employee_snapshot.name}</strong> ({slip.employee_snapshot.code})
+              <strong>{slip.employee_snapshot?.name}</strong> ({slip.employee_snapshot?.code})
               <br />
-              {slip.employee_snapshot.employment === 'part_time' ? 'Part Time' : 'Full Time'} ·{' '}
-              {slip.employee_snapshot.pay_basis} · Status: <strong>{slip.status}</strong>
+              {slip.employee_snapshot?.employment === 'part_time' ? 'Part Time' : 'Full Time'} ·{' '}
+              {slip.employee_snapshot?.pay_basis} · Status: <strong>{slip.status}</strong>
             </p>
             <div className="receipt-divider" />
             <div className="total-row">

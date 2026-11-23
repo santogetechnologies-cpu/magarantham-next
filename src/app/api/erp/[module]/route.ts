@@ -184,6 +184,9 @@ export async function DELETE(req:Request,{params}:{params:Promise<{module:string
  let fallbackSub:string|null=null;
  if(cat.parent_id){const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();fallbackSub=allStyle?.id||null;}
  await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ // Rules and banners aimed at this category must not outlive it (a banner whose category is cleared would show on every category page).
+ await db.from('banners').update({published:false}).eq('category_id',catId);
+ await db.from('catalog_discounts').delete().eq('target_id',catId).in('scope',['category','subcategory']);
  const del=await db.from('product_categories').delete().eq('id',catId);
  if(del.error)throw new Fault(409,'DELETE_FAILED','This category could not be deleted.');
  await removeCategoryImage(catId);

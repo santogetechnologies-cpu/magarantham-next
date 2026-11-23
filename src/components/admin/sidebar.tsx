@@ -1,5 +1,5 @@
 "use client";
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Profile } from "@/lib/core";
@@ -426,19 +426,23 @@ export function AdminSidebar({
   isOpen?: boolean;
   onClose?: () => void;
 }) {
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
-    if (cachedCollapsedGroups) return cachedCollapsedGroups;
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.sessionStorage.getItem(COLLAPSED_STORAGE_KEY);
-        if (raw) {
-          cachedCollapsedGroups = JSON.parse(raw);
-          return cachedCollapsedGroups!;
-        }
-      } catch { }
+  // Start identical to the server render, then restore the saved state after mount
+  // (reading storage during render caused hydration mismatches).
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (cachedCollapsedGroups) {
+      setCollapsedGroups(cachedCollapsedGroups);
+      return;
     }
-    return {};
-  });
+    try {
+      const raw = window.sessionStorage.getItem(COLLAPSED_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === "object") {
+        cachedCollapsedGroups = parsed;
+        setCollapsedGroups(parsed);
+      }
+    } catch { }
+  }, []);
   const navRef = useRef<HTMLElement>(null);
   const searchParams = useSearchParams();
 

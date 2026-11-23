@@ -27,7 +27,21 @@ export async function api<T = Record<string, unknown>>(
     body,
     cache: "no-store",
   });
-  const result = await res.json();
+  let result: any = {};
+  try {
+    result = await res.json();
+  } catch {
+    // Non-JSON reply (proxy error page, timeout, oversized upload)
+    if (!res.ok)
+      result = {
+        message:
+          res.status === 413
+            ? "That file is too large."
+            : res.status >= 500
+              ? "The server is not responding right now. Please try again in a moment."
+              : "Please try again.",
+      };
+  }
   if (!res.ok) {
     const e = new Error(result.message || result.error || "Please try again.");
     Object.assign(e, { code: result.error, status: res.status });

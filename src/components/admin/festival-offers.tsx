@@ -8,6 +8,12 @@ import { api } from "../api";
 import { money } from "@/lib/core";
 import { EnhancedOffer, OfferTargetRecord, OfferTargetType } from "@/lib/offers";
 
+/** datetime-local inputs work in local time; ISO strings are UTC. */
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 type CategoryItem = {
   id: string;
   parent_id: string | null;
@@ -214,12 +220,12 @@ export function FestivalOffersManager({
     // Format local datetime strings for input
     setStartsAt(
       offer.starts_at
-        ? new Date(offer.starts_at).toISOString().slice(0, 16)
+        ? toLocalInput(offer.starts_at)
         : "",
     );
     setEndsAt(
       offer.ends_at
-        ? new Date(offer.ends_at).toISOString().slice(0, 16)
+        ? toLocalInput(offer.ends_at)
         : "",
     );
 

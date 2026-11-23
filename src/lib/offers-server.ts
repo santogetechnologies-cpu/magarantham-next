@@ -196,10 +196,9 @@ export async function saveOfferWithTargets(
   if (input.kind === "percent") {
     value = Math.max(1, Math.min(90, value));
   } else {
-    // If entered in rupees (< 100000), convert to paise
-    if (value > 0 && value < 100000) {
-      value = Math.round(value * 100);
-    }
+    // Fixed offers are always sent in paise (the form converts rupees; the
+    // on/off toggle resends the stored value). Never rescale here.
+    value = Math.max(1, Math.round(value));
   }
 
   const baseRecord: Record<string, any> = {

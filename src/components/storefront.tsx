@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { CategoryItem, Product, Settings, money, unitPrice } from "@/lib/core";
 import { Catalogue, ProductCard } from "./catalogue";
-import { useShop } from "./shop-context";
+import { useShop, checkoutLines } from "./shop-context";
 import { api } from "./api";
 import { BannerSlot } from "./banner-slot";
 export type Banner = {
@@ -578,10 +578,21 @@ export function Cart({
   products: Product[];
   settings: Settings;
 }) {
-  const { cart, quantity, clear } = useShop();
+  const { cart, quantity, clear, remove, notice } = useShop();
+  // Drop sarees that are no longer sold online so checkout does not fail on them.
+  useEffect(() => {
+    if (!products.length) return;
+    const gone = [...new Set(cart.filter((l) => !products.some((p) => p.id === l.product_id)).map((l) => l.product_id))];
+    if (gone.length) {
+      remove(gone);
+      notice(`${gone.length} saree${gone.length === 1 ? " is" : "s are"} no longer available and ${gone.length === 1 ? "was" : "were"} removed from your bag.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, cart.length]);
   const items = cart.map((l) => {
     const prod = products.find((p) => p.id === l.product_id);
-    const linePrice = l.piece_price_paise != null ? l.piece_price_paise : prod ? unitPrice(prod) : 0;
+    // Checkout charges the saree's current price, so show exactly that.
+    const linePrice = prod ? unitPrice(prod) : 0;
     return {
       l,
       p: prod,
@@ -621,8 +632,8 @@ export function Cart({
                     )}
                     <p>{money(linePrice)}</p>
                     <p className="subtle">
-                      {p.available < l.quantity
-                        ? "This quantity is unavailable."
+                      {p.available < cart.filter((x) => x.product_id === p.id).reduce((t, x) => t + x.quantity, 0)
+                        ? `Only ${p.available} available.`
                         : ""}
                     </p>
                     {l.piece_id ? (
@@ -637,7 +648,10 @@ export function Cart({
                           min="1"
                           max="20"
                           value={l.quantity}
-                          onChange={(e) => quantity(p.id, Number(e.target.value))}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (e.target.value !== "" && Number.isInteger(n) && n >= 1) quantity(p.id, Math.min(20, n));
+                          }}
                         />
                       </label>
                     )}
@@ -728,32 +742,57 @@ export function Checkout({
     const address = Object.fromEntries(
       addressFields.map(([k]) => [k, String(form.get(k) || "")]),
     );
-    let key = sessionStorage.getItem("ms-checkout-key");
+    const store = {
+      get: (k: string) => {
+        try {
+          return sessionStorage.getItem(k);
+        } catch {
+          return null;
+        }
+      },
+      set: (k: string, v: string) => {
+        try {
+          sessionStorage.setItem(k, v);
+        } catch {}
+      },
+      del: (k: string) => {
+        try {
+          sessionStorage.removeItem(k);
+        } catch {}
+      },
+    };
+    const lines = checkoutLines(cart, new Set(products.map((p) => p.id)));
+    if (!lines.length) {
+      notice("The sarees in your bag are no longer available.");
+      setBusy(false);
+      return;
+    }
+    let key = store.get("ms-checkout-key");
     if (!key) {
       key = crypto.randomUUID();
-      sessionStorage.setItem("ms-checkout-key", key);
+      store.set("ms-checkout-key", key);
     }
     const request = {
       key,
-      cart,
+      cart: lines,
       address,
       channel,
       coupon: String(form.get("coupon") || ""),
       whatsapp_consent: form.get("consent") === "on",
     };
     const fingerprint = JSON.stringify({ ...request, key: undefined });
-    if (sessionStorage.getItem("ms-checkout-input") !== fingerprint) {
+    if (store.get("ms-checkout-input") !== fingerprint) {
       request.key = crypto.randomUUID();
-      sessionStorage.setItem("ms-checkout-key", request.key);
-      sessionStorage.setItem("ms-checkout-input", fingerprint);
+      store.set("ms-checkout-key", request.key);
+      store.set("ms-checkout-input", fingerprint);
     }
     try {
       const result = await api<{
         redirect: string;
       }>("/api/checkout", request);
       clear();
-      sessionStorage.removeItem("ms-checkout-key");
-      sessionStorage.removeItem("ms-checkout-input");
+      store.del("ms-checkout-key");
+      store.del("ms-checkout-input");
       window.location.assign(result.redirect);
     } catch (error) {
       notice((error as Error).message);

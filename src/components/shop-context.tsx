@@ -24,16 +24,53 @@ export type Line = {
   piece_colour?: string;
 };
 
+const CART_KEY = "ms-cart";
+
+function readCart(): Line[] {
+  try {
+    const data = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter(
+        (x) =>
+          x &&
+          typeof x.product_id === "string" &&
+          Number.isInteger(x.quantity) &&
+          x.quantity > 0 &&
+          x.quantity <= 20 &&
+          (x.piece_id === undefined || typeof x.piece_id === "string"),
+      )
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lines the server checkout accepts: one line per saree, pieces of the same
+ * saree merged, piece-only fields removed (checkout prices by saree).
+ */
+export function checkoutLines(cart: Line[], availableIds?: Set<string>) {
+  const qty = new Map<string, number>();
+  for (const l of cart) {
+    if (availableIds && !availableIds.has(l.product_id)) continue;
+    qty.set(l.product_id, Math.min(20, (qty.get(l.product_id) || 0) + l.quantity));
+  }
+  return [...qty].map(([product_id, quantity]) => ({ product_id, quantity })).slice(0, 20);
+}
+
 const Context = createContext<{
   cart: Line[];
   add: (id: string, piece?: PieceSelection) => void;
   quantity: (id: string, n: number, pieceId?: string) => void;
+  remove: (ids: string[]) => void;
   clear: () => void;
   notice: (s: string) => void;
 }>({
   cart: [],
   add: () => {},
   quantity: () => {},
+  remove: () => {},
   clear: () => {},
   notice: () => {},
 });
@@ -46,26 +83,23 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    try {
-      const data = JSON.parse(localStorage.getItem("ms-cart") || "[]");
-      if (Array.isArray(data))
-        setCart(
-          data
-            .filter(
-              (x) =>
-                typeof x.product_id === "string" &&
-                Number.isInteger(x.quantity) &&
-                x.quantity > 0 &&
-                x.quantity <= 20,
-            )
-            .slice(0, 20),
-        );
-    } catch {}
+    setCart(readCart());
     setReady(true);
+    // Keep the bag in step across open tabs.
+    function onStorage(e: StorageEvent) {
+      if (e.key === CART_KEY) setCart(readCart());
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   useEffect(() => {
-    if (ready) localStorage.setItem("ms-cart", JSON.stringify(cart));
+    if (!ready) return;
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch {
+      // Private mode / storage full: the bag still works for this visit.
+    }
   }, [cart, ready]);
 
   useEffect(() => {
@@ -161,6 +195,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
                     : !(x.product_id === id && !x.piece_id),
                 ),
           ),
+        remove: (ids) => setCart((c) => c.filter((x) => !ids.includes(x.product_id))),
         clear: () => setCart([]),
         notice: setMessage,
       }}

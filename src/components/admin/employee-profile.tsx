@@ -1,4 +1,5 @@
 "use client";
+import { indiaDate } from "@/lib/barcode";
 import React, { useState, useEffect, useMemo } from "react";
 import { Profile, money } from "@/lib/core";
 import { api } from "../api";
@@ -66,8 +67,8 @@ export function EmployeeProfileView({
   const [showApplyLeave, setShowApplyLeave] = useState(false);
   const [leaveForm, setLeaveForm] = useState({
     leave_type: "casual",
-    start_date: new Date().toISOString().slice(0, 10),
-    end_date: new Date().toISOString().slice(0, 10),
+    start_date: indiaDate(),
+    end_date: indiaDate(),
     days: 1,
     reason: "",
   });
@@ -154,7 +155,7 @@ export function EmployeeProfileView({
           daily_minutes: emp.daily_minutes || 480,
           overtime_rate_paise: emp.overtime_rate_paise || 0,
           active: emp.active,
-          joined_on: emp.joined_on || new Date().toISOString().slice(0, 10),
+          joined_on: emp.joined_on || indiaDate(),
           ended_on: emp.ended_on || null,
           policy_id: emp.policy_id || null,
           allowances: emp.allowances || [],
