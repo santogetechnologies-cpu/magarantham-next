@@ -229,6 +229,7 @@ export async function posProducts() {
       subcategory_id: p.subcategory_id ? String(p.subcategory_id) : undefined,
       subcategory_name: p.subcategory_name ? String(p.subcategory_name) : undefined,
       pieces: prodPieces, // retain full admin pieces including purchase cost & location
+      category_visible: p.category_visible !== false,
     };
   });
 }

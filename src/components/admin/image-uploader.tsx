@@ -11,11 +11,18 @@ export function ImageUploader({
   currentImageUrl,
   onUploadComplete,
   label = "Upload Product Image",
+  maxWidth = 1200,
+  maxHeight = 1200,
+  maxSizeKB = 50,
 }: {
   kind?: "product" | "employee" | "media";
   currentImageUrl?: string;
   onUploadComplete: (url: string) => void;
   label?: string;
+  /** Banners need larger images than product thumbnails. */
+  maxWidth?: number;
+  maxHeight?: number;
+  maxSizeKB?: number;
 }) {
   const [compressing, setCompressing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -40,10 +47,10 @@ export function ImageUploader({
     try {
       // Automatic iterative compression targeting 1 KB - 50 KB (unchanged)
       const compressed = await compressImage(file, {
-        maxSizeKB: 50,
+        maxSizeKB,
         minSizeKB: 1,
-        maxWidth: 1200,
-        maxHeight: 1200,
+        maxWidth,
+        maxHeight,
         preferFormat: "image/webp",
       });
 

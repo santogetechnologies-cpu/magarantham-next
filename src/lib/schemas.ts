@@ -79,12 +79,17 @@ export const bannerSchema = z
     title: text(120),
     subtitle: z.string().max(300),
     image_path: image,
+    mobile_image_path: z.union([image, z.literal("")]).optional().default(""),
     button_label: text(40),
     link_path: z
       .string()
       .max(150)
       .regex(/^\/(?!\/)[a-zA-Z0-9/?=&%_-]*$/),
-    position: z.enum(["home", "shop"]),
+    position: z.enum(["home_hero", "home", "home_bottom", "shop", "category"]),
+    category_id: z.uuid().nullable().optional().default(null),
+    text_align: z.enum(["left", "center", "right"]).optional().default("left"),
+    show_text: z.boolean().optional().default(true),
+    theme: z.enum(["dark", "light"]).optional().default("dark"),
     sort_order: z.number().int().min(-100).max(100),
     published: z.boolean(),
     starts_at: optionalDate,

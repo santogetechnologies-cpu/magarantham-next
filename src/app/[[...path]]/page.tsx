@@ -10,8 +10,8 @@ import {
   Cart,
   Checkout,
   Bulk,
-  BannerStrip,
 } from "@/components/storefront";
+import { BannerSlot } from "@/components/banner-slot";
 import { Catalogue } from "@/components/catalogue";
 import { AuthForm, Mfa } from "@/components/auth-form";
 import { Account } from "@/components/account";
@@ -39,9 +39,7 @@ export default async function Page({
           <h1>All sarees.</h1>
           <p>A colour for every mood. A saree for every day.</p>
         </header>
-        <BannerStrip
-          banners={store.banners.filter((b) => b.position === "shop")}
-        />
+        <BannerSlot banners={store.banners} position="shop" />
         <section className="section shop-section">
           <Catalogue
             products={store.products}
@@ -86,6 +84,8 @@ export default async function Page({
     }
 
     return (
+      <>
+      <BannerSlot banners={store.banners} position="category" categoryIds={[cat.id, ...(subCat ? [subCat.id] : [])]} />
       <CategoryCollectionPage
         category={cat}
         subCategory={subCat}
@@ -93,6 +93,7 @@ export default async function Page({
         products={store.products}
         settings={store.settings}
       />
+      </>
     );
   }
   if (path[0] === "products" && path.length === 2) {
@@ -112,12 +113,15 @@ export default async function Page({
     );
     if (!cat) notFound();
     return (
-      <CategoryCollectionPage
-        category={cat}
-        categories={store.categories}
-        products={store.products}
-        settings={store.settings}
-      />
+      <>
+        <BannerSlot banners={store.banners} position="category" categoryIds={[cat.id]} />
+        <CategoryCollectionPage
+          category={cat}
+          categories={store.categories}
+          products={store.products}
+          settings={store.settings}
+        />
+      </>
     );
   }
   if (route === "cart") return <Cart {...store} />;

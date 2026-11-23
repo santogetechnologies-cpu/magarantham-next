@@ -15,6 +15,8 @@ import { StockModal } from "./admin/stock-modal";
 import { DataTable, Column } from "./admin/data-table";
 import { CatalogueHierarchyManager } from "./admin/catalogue-hierarchy";
 import { FestivalOffersManager } from "./admin/festival-offers";
+import { PageHeader } from "./admin/page-header";
+import { BannersManager } from "./admin/banners";
 
 type Row = Record<string, any>;
 
@@ -194,6 +196,7 @@ export function Admin({
   const entity =
     form?.entity ||
     ({
+      dashboard: "overview",
       staff: "profiles",
       "admin-accounts": "profiles",
       "staff-permissions": "profiles",
@@ -837,59 +840,43 @@ export function Admin({
           onOpenSidebar={() => setSidebarOpen(true)}
         />
 
-        <main className="luxury-admin-main">
+        <main className="luxury-admin-main ms-main" key={section}>
           {orderId ? (
             <OrderView id={orderId} admin />
           ) : (
             <>
-              {/* Header block (hidden on Overview, Products, and inline Add/Edit Product workspace) */}
-              {section &&
-                section !== "dashboard" &&
-                section !== "product-new" &&
-                section !== "products" && (
-                  <div className="section-heading" style={{ marginBottom: 24 }}>
-                    <div>
-                      <p className="eyebrow">மகரந்தம் சில்க்ஸ் · STORE ADMINISTRATION</p>
-                      <h1 style={{ fontFamily: "var(--serif)", fontSize: 32, margin: 0, letterSpacing: "-0.4px" }}>
-                        {title}.
-                      </h1>
-                    </div>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <button
-                        className="button button-outline"
-                        onClick={() => void load()}
-                        disabled={busy}
-                      >
-                        Refresh
-                      </button>
-                      {section === "products" && (
+              {section !== "product-new" && section !== "products" && (
+                <PageHeader
+                  section={section}
+                  actions={
+                    section && section !== "dashboard" ? (
+                      <>
                         <button
-                          className="button"
-                          onClick={() => {
-                            setEditingProduct(null);
-                            setProductModalOpen(true);
-                          }}
+                          className="ms-btn ms-btn-ghost ms-btn-sm"
+                          onClick={() => void load()}
+                          disabled={busy}
                         >
-                          Add Saree ＋
+                          Refresh
                         </button>
-                      )}
-                      {section === "inventory" && (
-                        <button
-                          className="button"
-                          onClick={() => {
-                            setStockModalProductId("");
-                            setStockModalOpen(true);
-                          }}
-                        >
-                          Record Stock Movement ＋
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                        {section === "inventory" && (
+                          <button
+                            className="ms-btn ms-btn-primary ms-btn-sm"
+                            onClick={() => {
+                              setStockModalProductId("");
+                              setStockModalOpen(true);
+                            }}
+                          >
+                            + Record stock movement
+                          </button>
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                />
+              )}
 
               {loadError && (
-                <div role="alert" className="notice" style={{ marginBottom: 20 }}>
+                <div role="alert" className="ms-alert ms-alert-danger">
                   {loadError}
                 </div>
               )}
@@ -1599,8 +1586,10 @@ export function Admin({
                 <FestivalOffersManager onRefresh={load} />
               )}
 
+              {section === "banners" && <BannersManager />}
+
               {/* GENERAL ADMIN FORMS (Banners, Shipping, Bulk, Coupons, Leaves, Settings) */}
-              {form && section !== "products" && section !== "offers" && (
+              {form && section !== "products" && section !== "offers" && section !== "banners" && (
                 <div>
                   {section !== "settings" && section !== "bulk" && (
                     <div style={{ marginBottom: 16 }}>

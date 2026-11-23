@@ -237,6 +237,10 @@ export async function saveOfferWithTargets(
     offerId = data.id;
   }
 
+  // Checkout (SQL) reads target_type/priority from the offer row and its
+  // offer_targets rows, so keep them in the database as well as the JSON map.
+  await db.from("offers").update({ target_type: targetType, priority }).eq("id", offerId);
+
   // 2. Persist extended targets in metadata map
   const targetsMap = await getTargetsMap();
   const cleanedTargets = targets.map((t) => ({

@@ -60,6 +60,11 @@ export function POS({ profile }: { profile: Profile }) {
   const [quoteError, setQuoteError] = useState('');
   const [discountType, setDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [discountInput, setDiscountInput] = useState('');
+  // Spot (counter) discount per bill line, in percent of that line.
+  const [lineSpot, setLineSpot] = useState<Record<string, number>>({});
+  const [spotOpen, setSpotOpen] = useState<string | null>(null);
+  // Piece codes scanned per product, so the exact pieces are marked sold.
+  const [scannedPieces, setScannedPieces] = useState<Record<string, string[]>>({});
   const [bills, setBills] = useState<Row[]>([]);
   const [next, setNext] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<Row | null>(null);
@@ -159,6 +164,19 @@ export function POS({ profile }: { profile: Profile }) {
     return subtotal;
   }, [cart, catalog]);
 
+  const spotLines = useMemo(() => {
+    return cart
+      .map((line) => {
+        const pct = Number(lineSpot[line.product_id] || 0);
+        const prod = catalog.find((p) => p.id === line.product_id);
+        if (!prod || pct <= 0) return null;
+        const lineTotal = unitPrice(prod as any) * line.quantity;
+        return { product_id: line.product_id, name: String(prod.name || ''), pct, paise: Math.round((lineTotal * pct) / 100) };
+      })
+      .filter(Boolean) as { product_id: string; name: string; pct: number; paise: number }[];
+  }, [cart, catalog, lineSpot]);
+  const spotTotalPaise = spotLines.reduce((sum, l) => sum + l.paise, 0);
+
   const parsedDiscountNum = useMemo(() => {
     if (!discountInput.trim()) return 0;
     const n = Number(discountInput);
@@ -179,22 +197,24 @@ export function POS({ profile }: { profile: Profile }) {
     Math.floor((rawSubtotalPaise * maxDiscountBps) / 10000),
   );
 
+  const combinedDiscountPaise = rawDiscountPaise + spotTotalPaise;
+
   const discountError = useMemo(() => {
-    if (!discountInput.trim()) return '';
+    if (!discountInput.trim() && spotTotalPaise === 0) return '';
     if (parsedDiscountNum < 0) return 'Discount cannot be negative.';
     if (discountType === 'percent' && parsedDiscountNum > 100) {
       return 'Discount percentage cannot exceed 100%.';
     }
-    if (rawSubtotalPaise > 0 && rawDiscountPaise > rawSubtotalPaise) {
+    if (rawSubtotalPaise > 0 && combinedDiscountPaise > rawSubtotalPaise) {
       return `Discount cannot exceed the subtotal (${money(rawSubtotalPaise)}).`;
     }
-    if (rawSubtotalPaise > 0 && rawDiscountPaise >= rawSubtotalPaise && rawDiscountPaise > 0) {
+    if (rawSubtotalPaise > 0 && combinedDiscountPaise >= rawSubtotalPaise && combinedDiscountPaise > 0) {
       return 'Final bill amount must be greater than ₹0.';
     }
-    if (rawSubtotalPaise > 0 && rawDiscountPaise > maxAllowedDiscountPaise) {
+    if (rawSubtotalPaise > 0 && combinedDiscountPaise > maxAllowedDiscountPaise) {
       return maxDiscountBps === 0
-        ? 'Discounts are currently capped at 0% in POS Settings.'
-        : `Maximum allowed discount is ${maxDiscountBps / 100}% (${money(maxAllowedDiscountPaise)}).`;
+        ? 'Counter discounts are switched off (0%) in POS Settings.'
+        : `Total counter discount is limited to ${maxDiscountBps / 100}% (${money(maxAllowedDiscountPaise)}) in POS Settings.`;
     }
     return '';
   }, [
@@ -202,17 +222,21 @@ export function POS({ profile }: { profile: Profile }) {
     parsedDiscountNum,
     discountType,
     rawSubtotalPaise,
-    rawDiscountPaise,
+    combinedDiscountPaise,
+    spotTotalPaise,
     maxAllowedDiscountPaise,
     maxDiscountBps,
   ]);
 
-  const discount = discountError ? 0 : Math.max(0, Math.min(rawDiscountPaise, maxAllowedDiscountPaise));
+  const discount = discountError ? 0 : Math.max(0, Math.min(combinedDiscountPaise, maxAllowedDiscountPaise));
   const discountTypeLabel =
     discount > 0
-      ? discountType === 'percent'
-        ? `${parsedDiscountNum}%`
-        : 'Fixed ₹'
+      ? [
+          spotTotalPaise > 0 ? 'Spot' : '',
+          rawDiscountPaise > 0 ? (discountType === 'percent' ? `${parsedDiscountNum}%` : 'Fixed ₹') : '',
+        ]
+          .filter(Boolean)
+          .join(' + ')
       : '';
 
   // Live instant client-side price preview (synced with authoritative server pos_quote)
@@ -435,6 +459,13 @@ export function POS({ profile }: { profile: Profile }) {
     }
   }
 
+  function rememberPiece(productId: string, code: string) {
+    setScannedPieces((o) => {
+      const list = o[productId] || [];
+      return list.includes(code) ? o : { ...o, [productId]: [...list, code].slice(-100) };
+    });
+  }
+
   async function scan(code: string) {
     const trimmed = code.trim();
     if (!trimmed) return;
@@ -458,6 +489,15 @@ export function POS({ profile }: { profile: Profile }) {
 
     if (localProd) {
       playScanBeep(true);
+      const isPieceCode =
+        Array.isArray(localProd.pieces) &&
+        localProd.pieces.some(
+          (pc: any) =>
+            (pc.piece_code && pc.piece_code.toLowerCase() === lower) ||
+            (pc.barcode && pc.barcode.toLowerCase() === lower) ||
+            (pc.id && pc.id.toLowerCase() === lower),
+        );
+      if (isPieceCode) rememberPiece(localProd.id, trimmed);
       add(localProd, undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
@@ -469,6 +509,7 @@ export function POS({ profile }: { profile: Profile }) {
     try {
       const r = await api<Row>(`/api/erp/scan?barcode=${encodeURIComponent(trimmed)}`);
       playScanBeep(true);
+      if (r.product?.piece) rememberPiece(r.product.id, String(r.product.piece.id || trimmed));
       add(r.product, r.unit || undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
@@ -585,6 +626,9 @@ export function POS({ profile }: { profile: Profile }) {
     setCart([]);
     setDiscountInput('');
     setDiscountType('fixed');
+    setLineSpot({});
+    setSpotOpen(null);
+    setScannedPieces({});
     setCustomerName('');
     setCustomerPhone('');
     setPayMode('cash');
@@ -1000,6 +1044,8 @@ export function POS({ profile }: { profile: Profile }) {
                 const eachPaise = p ? unitPrice(p as any) : 0;
                 const lineTotalPaise = eachPaise * line.quantity;
                 const isSerialized = line.unit_ids.length > 0;
+                const spotPct = Number(lineSpot[line.product_id] || 0);
+                const spotPaise = Math.round((lineTotalPaise * spotPct) / 100);
 
                 return (
                   <div className="pos-bill-item-row" key={line.product_id}>
@@ -1021,6 +1067,52 @@ export function POS({ profile }: { profile: Profile }) {
                             : p?.sku || 'Qty'}
                         </span>
                       </div>
+                    </div>
+
+                    <div className="pos-spot-wrap">
+                      <button
+                        type="button"
+                        className={`pos-spot-btn ${spotPct > 0 ? 'on' : ''}`}
+                        onClick={() => setSpotOpen(spotOpen === line.product_id ? null : line.product_id)}
+                        title="Give a spot discount on this saree"
+                      >
+                        {spotPct > 0 ? `−${spotPct}%` : 'Spot %'}
+                      </button>
+                      {spotOpen === line.product_id && (
+                        <div className="pos-spot-pop" role="dialog" aria-label="Spot discount">
+                          <span>Spot discount on this saree</span>
+                          <div className="ms-chips">
+                            {[0, 5, 10, 15, 20, 25].map((v) => (
+                              <button
+                                type="button"
+                                key={v}
+                                className={`ms-chip ${spotPct === v ? 'on' : ''}`}
+                                onClick={() => {
+                                  setLineSpot((o) => ({ ...o, [line.product_id]: v }));
+                                  setSpotOpen(null);
+                                }}
+                              >
+                                {v === 0 ? 'None' : `${v}%`}
+                              </button>
+                            ))}
+                          </div>
+                          <label className="pos-spot-custom">
+                            Custom
+                            <input
+                              type="number"
+                              min={0}
+                              max={90}
+                              step={0.5}
+                              value={spotPct || ''}
+                              placeholder="%"
+                              onChange={(e) =>
+                                setLineSpot((o) => ({ ...o, [line.product_id]: Math.max(0, Math.min(90, Number(e.target.value) || 0)) }))
+                              }
+                            />
+                            %
+                          </label>
+                        </div>
+                      )}
                     </div>
 
                     <div className="pos-qty-stepper">
@@ -1057,7 +1149,14 @@ export function POS({ profile }: { profile: Profile }) {
                     </div>
 
                     <div className="pos-bill-item-total">
-                      <strong>{money(lineTotalPaise)}</strong>
+                      {spotPaise > 0 ? (
+                        <span className="pos-line-price">
+                          <s>{money(lineTotalPaise)}</s>
+                          <strong>{money(lineTotalPaise - spotPaise)}</strong>
+                        </span>
+                      ) : (
+                        <strong>{money(lineTotalPaise)}</strong>
+                      )}
                       <button
                         type="button"
                         className="pos-remove-item-btn"
@@ -1106,9 +1205,17 @@ export function POS({ profile }: { profile: Profile }) {
               const savedDiscountLabel = discountTypeLabel;
               const serverDiscountReason =
                 discount > 0
-                  ? discountType === 'percent'
-                    ? `Percentage discount (${parsedDiscountNum}%)`
-                    : `Fixed discount (${money(discount)})`
+                  ? [
+                      ...spotLines.map((l) => `Spot ${l.pct}% on ${l.name} (${money(l.paise)})`),
+                      rawDiscountPaise > 0
+                        ? discountType === 'percent'
+                          ? `Bill ${parsedDiscountNum}% (${money(rawDiscountPaise)})`
+                          : `Bill fixed (${money(rawDiscountPaise)})`
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join('; ')
+                      .slice(0, 300)
                   : '';
 
               const result = await send('pos_sale', {
@@ -1122,6 +1229,11 @@ export function POS({ profile }: { profile: Profile }) {
                 tenders: paymentLines,
                 cash_received_paise: cashReceived,
                 bank_checked: f.get('bank_checked') === 'on',
+                piece_ids: Object.fromEntries(
+                  cart
+                    .filter((l) => scannedPieces[l.product_id]?.length)
+                    .map((l) => [l.product_id, scannedPieces[l.product_id]]),
+                ),
               });
 
               if (result) {
@@ -1238,6 +1350,52 @@ export function POS({ profile }: { profile: Profile }) {
                   </button>
                 </div>
               </div>
+
+              <div className="pos-quick-discount">
+                <span>Quick:</span>
+                {[5, 10, 15].map((v) => (
+                  <button
+                    type="button"
+                    key={v}
+                    className={`ms-chip ${discountType === 'percent' && parsedDiscountNum === v ? 'on' : ''}`}
+                    onClick={() => {
+                      setDiscountType('percent');
+                      setDiscountInput(String(v));
+                    }}
+                  >
+                    {v}% off bill
+                  </button>
+                ))}
+                {[10, 100].map((step) => {
+                  const afterSpot = rawSubtotalPaise - spotTotalPaise;
+                  const roundOff = afterSpot % (step * 100);
+                  return (
+                    <button
+                      type="button"
+                      key={step}
+                      className="ms-chip"
+                      disabled={afterSpot <= 0 || roundOff === 0}
+                      title={`Drop the extra so the bill (before GST) ends in a round ₹${step}`}
+                      onClick={() => {
+                        setDiscountType('fixed');
+                        setDiscountInput(String(roundOff / 100));
+                      }}
+                    >
+                      Round off ₹{step}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {spotTotalPaise > 0 && (
+                <div className="pos-spot-summary">
+                  {spotLines.map((l) => (
+                    <span key={l.product_id}>
+                      Spot {l.pct}% · {l.name} <b>−{money(l.paise)}</b>
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {discountType === 'percent' && discount > 0 && !discountError && (
                 <span className="pos-discount-hint">

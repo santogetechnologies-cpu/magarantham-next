@@ -58,6 +58,7 @@ before(async () => {
     "202611170007_attendance_payroll.sql",
     "202611170008_erp_queries.sql",
     "202611170009_admin_erp_system.sql",
+    "202611230013_discounts_banners.sql",
   ]) {
     await db.exec(
       await readFile(
@@ -471,6 +472,19 @@ test("Staff & Attendance & Salary Policy: Leave tiers, permissions, overtime, an
   // Approve payroll
   await scalar("select payroll_finalize($1,$2,'approve','','bank',false)", [superadmin, runId]);
 
+  // An approved salary can be reopened, edited with a new bonus/deduction, and approved again
+  await scalar("select payroll_finalize($1,$2,'reopen','','bank',false)", [superadmin, runId]);
+  assert.equal((await queryOne("select status from payroll_runs where id=$1", [runId])).status, "draft");
+  const before = await queryOne("select net_paise from payroll_runs where id=$1", [runId]);
+  await scalar(
+    "select payroll_from_attendance($1,$2,'2025-01-01',80000,'[{\"label\":\"Festival bonus\",\"amount_paise\":50000}]'::jsonb,'[{\"label\":\"Advance\",\"amount_paise\":20000}]'::jsonb)",
+    [superadmin, empFull],
+  );
+  const after = await queryOne("select net_paise,bonus_paise,status from payroll_runs where id=$1", [runId]);
+  assert.equal(Number(after.net_paise), Number(before.net_paise) + 30000 - 20000);
+  assert.equal(Number(after.bonus_paise), 80000);
+  await scalar("select payroll_finalize($1,$2,'approve','','bank',false)", [superadmin, runId]);
+
   // Approved payroll month locks attendance modification!
   await assert.rejects(
     () =>
@@ -532,4 +546,37 @@ test("4 Logins & RBAC Security Review: Billing staff restricted to POS only with
   // If employee is deactivated, billing user immediately loses POS capability
   await db.query("update employees set active=false where id=$1", [empId]);
   assert.equal(await scalar("select private.can_actor($1,'pos')", [billingUser]), false);
+});
+
+test("Shared discounts: 'all products' scope applies to POS and online, strongest rule wins", async () => {
+  const superadmin = await user("superadmin");
+  const mainCat = uid(), subCat = uid();
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, mainCat, JSON.stringify({ name: "All Scope Main", slug: `all-main-${mainCat.slice(0, 8)}`, parent_id: null, active: true })]);
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, subCat, JSON.stringify({ name: "All Scope Sub", slug: `all-sub-${subCat.slice(0, 8)}`, parent_id: mainCat, active: true })]);
+  const p = await makeProduct(4, 100000, subCat);
+  const allRule = uid();
+  await scalar("select erp_save($1,'catalog_discounts',$2,$3)", [superadmin, allRule, JSON.stringify({ name: "Store-wide 5%", scope: "all", target_id: null, discount_bps: 500, active: true, starts_at: null, ends_at: null })]);
+  let v = await queryOne("select effective_price_paise from store_catalogue where id=$1", [p]);
+  assert.equal(v.effective_price_paise, 95000);
+  const quote = await scalar("select pos_quote($1,$2,0)", [superadmin, JSON.stringify([{ product_id: p, quantity: 1, unit_ids: [] }])]);
+  assert.equal(Number(quote.subtotal_paise), 95000);
+  // 'all' rule must not carry a target, other scopes must
+  await assert.rejects(() => scalar("select erp_save($1,'catalog_discounts',$2,$3)", [superadmin, uid(), JSON.stringify({ name: "Bad", scope: "all", target_id: mainCat, discount_bps: 500, active: true, starts_at: null, ends_at: null })]));
+  await assert.rejects(() => scalar("select erp_save($1,'catalog_discounts',$2,$3)", [superadmin, uid(), JSON.stringify({ name: "Bad", scope: "product", target_id: null, discount_bps: 500, active: true, starts_at: null, ends_at: null })]), /INVALID_DISCOUNT_TARGET/);
+  // a stronger product rule beats the store-wide rule
+  await scalar("select erp_save($1,'catalog_discounts',$2,$3)", [superadmin, uid(), JSON.stringify({ name: "Hero piece", scope: "product", target_id: p, discount_bps: 2500, active: true, starts_at: null, ends_at: null })]);
+  v = await queryOne("select effective_price_paise from store_catalogue where id=$1", [p]);
+  assert.equal(v.effective_price_paise, 75000);
+  await db.query("update catalog_discounts set active=false");
+});
+
+test("Banners: responsive image, new placements and layout fields save through admin_save", async () => {
+  const superadmin = await user("superadmin");
+  const id = uid();
+  await scalar("select admin_save($1,'banners',$2,$3)", [superadmin, id, JSON.stringify({ title: "Deepavali", subtitle: "", image_path: "/assets/hero.jpg", mobile_image_path: "/assets/product-01.jpg", button_label: "Shop", link_path: "/shop", position: "home_hero", category_id: null, text_align: "center", show_text: true, theme: "light", sort_order: 1, published: true, starts_at: null, ends_at: null })]);
+  const b = await queryOne("select * from banners where id=$1", [id]);
+  assert.equal(b.position, "home_hero");
+  assert.equal(b.mobile_image_path, "/assets/product-01.jpg");
+  assert.equal(b.text_align, "center");
+  await assert.rejects(() => scalar("select admin_save($1,'banners',$2,$3)", [superadmin, uid(), JSON.stringify({ title: "Bad", image_path: "/x.jpg", position: "sidebar" })]));
 });

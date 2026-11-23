@@ -432,6 +432,15 @@ export function FestivalOffersManager({
 
   return (
     <div className="cat-hierarchy-root">
+      <div className="ms-callout" style={{ marginBottom: 18 }}>
+        <span className="ms-callout-icon" aria-hidden="true">i</span>
+        <div>
+          <strong>Festival offers apply to online orders only.</strong> They are taken off at website checkout, only on the
+          categories, subcategories or sarees you target. When several automatic offers match, the customer gets the biggest one.
+          To change prices in the shop <em>and</em> online together, use{" "}
+          <a className="text-link" href="/admin/discounts">Discounts (POS + Online)</a>.
+        </div>
+      </div>
       {/* ------------------------------------------------------------- */}
       {/* HEADER & ACTIONS                                              */}
       {/* ------------------------------------------------------------- */}

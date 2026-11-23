@@ -65,7 +65,7 @@ before(async () => {
   await db.exec(
     `create role anon;create role authenticated;create role service_role bypassrls;create role supabase_auth_admin;create schema auth;create schema storage;create table auth.users(id uuid primary key,email text,raw_app_meta_data jsonb default '{}',raw_user_meta_data jsonb default '{}');create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create function auth.jwt() returns jsonb language sql as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;grant usage on schema auth to authenticated;grant execute on all functions in schema auth to authenticated;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);`,
   );
-  for (const file of ["202611160001_store.sql", "202611160002_operations.sql", "202611170003_pos_payroll.sql", "202611170004_erp_schema.sql", "202611170005_erp_operations.sql", "202611170006_shared_checkout.sql", "202611170007_attendance_payroll.sql", "202611170008_erp_queries.sql", "202611170009_admin_erp_system.sql"])
+  for (const file of ["202611160001_store.sql", "202611160002_operations.sql", "202611170003_pos_payroll.sql", "202611170004_erp_schema.sql", "202611170005_erp_operations.sql", "202611170006_shared_checkout.sql", "202611170007_attendance_payroll.sql", "202611170008_erp_queries.sql", "202611170009_admin_erp_system.sql", "202611230013_discounts_banners.sql"])
     await db.exec(
       await readFile(
         new URL(`../supabase/migrations/${file}`, import.meta.url),
@@ -528,4 +528,34 @@ test('ERP payroll uses attendance and locks approved months',async()=>{
  await scalar("select payroll_finalize($1,$2,'approve','','bank',false)",[actor,run]);
  await assert.rejects(()=>scalar("select attendance_save($1,$2,'2025-01-02',$3)",[actor,emp,JSON.stringify({status:'full_day',leave_units:1,permission_minutes:0,worked_minutes:480,overtime_minutes:0,note:''})]),/PAYROLL_LOCKED/);
  await scalar("select payroll_finalize($1,$2,'paid','BANK-123','bank',true)",[actor,run]);assert.equal(Number(await scalar('select count(*) from expenses where payroll_id=$1',[run])),1);
+});
+test("checkout applies a targeted festival offer only to its category and picks the best automatic offer", async () => {
+  const customer = await user(), cat = uid(), sub = uid(), other = uid(), otherSub = uid();
+  await db.query("insert into product_categories(id,name,slug) values($1::uuid,'Silk target',$1::text)", [cat]);
+  await db.query("insert into product_categories(id,parent_id,name,slug) values($1::uuid,$2,'Silk sub',$1::text)", [sub, cat]);
+  await db.query("insert into product_categories(id,name,slug) values($1::uuid,'Cotton target',$1::text)", [other]);
+  await db.query("insert into product_categories(id,parent_id,name,slug) values($1::uuid,$2,'Cotton sub',$1::text)", [otherSub, other]);
+  const silk = await product(5, 100000), cotton = await product(5, 50000);
+  await db.query("update products set subcategory_id=$1 where id=$2", [sub, silk]);
+  await db.query("update products set subcategory_id=$1 where id=$2", [otherSub, cotton]);
+  const targeted = uid(), storewide = uid();
+  await db.query("insert into offers(id,title,kind,value,active,target_type,priority) values($1,'Silk week','percent',20,true,'category',5)", [targeted]);
+  await db.query("insert into offer_targets(offer_id,target_type,category_id) values($1,'category',$2)", [targeted, cat]);
+  await db.query("insert into offers(id,title,kind,value,active,target_type) values($1,'Small storewide','percent',5,true,'all')", [storewide]);
+  const cart = (items: [string, number][]) => JSON.stringify(items.map(([product_id, quantity]) => ({ product_id, quantity })));
+  // Silk 1000 + cotton 500: targeted 20% of 1000 = 200 beats storewide 5% of 1500 = 75
+  const a = await scalar("select create_checkout($1,$2,$3,$4,'upi',null)", [customer, uid(), cart([[silk, 1], [cotton, 1]]), JSON.stringify(address)]);
+  let o = await row("orders", a);
+  assert.equal(Number(o.discount_paise), 20000);
+  assert.equal(o.offer_id, targeted);
+  // Cotton-only cart: the silk offer cannot apply, so the storewide one does
+  const b = await scalar("select create_checkout($1,$2,$3,$4,'upi',null)", [customer, uid(), cart([[cotton, 2]]), JSON.stringify(address)]);
+  o = await row("orders", b);
+  assert.equal(Number(o.discount_paise), 5000);
+  assert.equal(o.offer_id, storewide);
+  // A coupon aimed at silk is rejected for a cotton-only cart
+  await db.query("insert into offers(title,code,kind,value,active,target_type) values('Silk code','SILKONLY','percent',10,true,'category')");
+  await db.query("insert into offer_targets(offer_id,target_type,category_id) select id,'category',$1 from offers where code='SILKONLY'", [cat]);
+  await assert.rejects(() => scalar("select create_checkout($1,$2,$3,$4,'upi','SILKONLY')", [customer, uid(), cart([[cotton, 1]]), JSON.stringify(address)]), /COUPON_NOT_ELIGIBLE/);
+  await db.query("update offers set active=false where id in ($1,$2) or code='SILKONLY'", [targeted, storewide]);
 });

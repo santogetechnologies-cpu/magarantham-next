@@ -66,12 +66,15 @@ export const adminNavGroups: NavGroup[] = [
   {
     title: "Offers & Marketing",
     items: [
+      { key: "discounts", label: "Discounts (POS + Online)", href: "/admin/discounts", cap: "superadmin", icon: "percent" },
+      { key: "banners", label: "Offer Banners", href: "/admin/banners", cap: "content", icon: "image" },
       { key: "offers", label: "Festival Offers", href: "/admin/offers", cap: "offers", icon: "sparkle" },
+      { key: "coupons", label: "Coupon Codes", href: "/admin/coupons", cap: "offers", icon: "ticket" },
       { key: "bulk", label: "Bulk Inquiries", href: "/admin/bulk", cap: "bulk", icon: "mail" },
     ],
   },
   {
-    title: "STAFF & ATTENDANCE",
+    title: "Staff & Payroll",
     items: [
       // Staff Management
       {
@@ -527,130 +530,113 @@ export function AdminSidebar({
       .join("")
       .toUpperCase() || "MS";
 
+  const [filter, setFilter] = useState("");
+  const q = filter.trim().toLowerCase();
+
   return (
     <>
-      {/* Mobile backdrop */}
       {isOpen && (
-        <div
-          className="admin-mobile-backdrop"
-          onClick={onClose}
-          aria-hidden="true"
-        />
+        <div className="ms-backdrop" onClick={onClose} aria-hidden="true" />
       )}
 
-      <aside className={`luxury-admin-sidebar ${isOpen ? "open" : ""}`}>
-        {/* Brand Header */}
-        <div className="sidebar-brand-block">
-          <Link href="/admin" className="sidebar-brand-link" onClick={onClose}>
-            <div className="brand-crest-wrapper">
-              <span className="brand-crest-symbol">✦</span>
-              <span className="brand-tamil-title" lang="ta">மகரந்தம் சில்க்ஸ்</span>
-            </div>
-            <span className="brand-title-en">MAGARANTHAM SILKS</span>
-            <span className="brand-subtitle-gold">ENTERPRISE ERP &amp; RETAIL SUITE</span>
+      <aside className={`luxury-admin-sidebar ms-side ${isOpen ? "open" : ""}`}>
+        <div className="ms-side-brand">
+          <Link href="/admin" className="ms-brand-link" onClick={onClose}>
+            <span className="ms-brand-mark" aria-hidden="true">M</span>
+            <span className="ms-brand-text">
+              <strong>Magarantham</strong>
+              <small lang="ta">மகரந்தம் சில்க்ஸ் · ERP</small>
+            </span>
           </Link>
           {onClose && (
-            <button
-              type="button"
-              className="sidebar-close-btn"
-              onClick={onClose}
-              aria-label="Close navigation"
-            >
+            <button type="button" className="ms-side-close" onClick={onClose} aria-label="Close navigation">
               ✕
             </button>
           )}
         </div>
 
-        {/* User Card */}
-        <div className="sidebar-user-card">
-          <div className="user-avatar-initials">{initials}</div>
-          <div className="user-details">
-            <span className="user-name">
-              {profile.display_name || profile.email.split("@")[0]}
-            </span>
-            <span className="user-role-badge">{roleDisplay}</span>
-          </div>
+        <div className="ms-side-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+          <input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Find a page…"
+            aria-label="Filter menu"
+          />
         </div>
 
-        {/* Navigation Groups */}
-        <nav
-          ref={navRef}
-          onScroll={saveScroll}
-          className="sidebar-grouped-nav"
-          aria-label="ERP Admin Navigation"
-        >
+        <nav ref={navRef} onScroll={saveScroll} className="ms-side-nav" aria-label="ERP navigation">
           {adminNavGroups.map((group) => {
-            const visibleItems = group.items.filter((item) => permitted(item.cap));
+            const visibleItems = group.items.filter(
+              (item) => permitted(item.cap) && (!q || item.label.toLowerCase().includes(q) || group.title.toLowerCase().includes(q)),
+            );
             if (!visibleItems.length) return null;
-            const isCollapsed = collapsedGroups[group.title];
+            const isCollapsed = !q && collapsedGroups[group.title];
+            const groupActive = visibleItems.some(isItemActive);
 
             return (
-              <div key={group.title} className="sidebar-nav-group">
+              <div key={group.title} className={`ms-nav-group ${groupActive ? "has-active" : ""}`}>
                 <button
                   type="button"
-                  className="nav-group-header"
+                  className="ms-nav-group-head"
                   onClick={() => toggleGroup(group.title)}
                   aria-expanded={!isCollapsed}
                 >
                   <span>{group.title}</span>
-                  <span className={`group-chevron ${isCollapsed ? "collapsed" : ""}`}>
-                    ▾
-                  </span>
+                  <svg className={`ms-chevron ${isCollapsed ? "collapsed" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                 </button>
 
-                {!isCollapsed && (
-                  <ul className="nav-group-items">
-                    {visibleItems.map((item) => {
-                      const isActive = isItemActive(item);
-
-                      return (
-                        <React.Fragment key={item.href + item.label}>
-                          {item.subHeading && (
-                            <li className="nav-subheading">
-                              <span>{item.subHeading}</span>
-                            </li>
-                          )}
-                          <li>
-                            <Link
-                              href={item.href}
-                              className={`nav-item-link ${isActive ? "active" : ""}`}
-                              onClick={() => {
-                                saveScroll();
-                                onClose?.();
-                              }}
-                            >
-                              <NavIcon name={item.icon} />
-                              <span className="nav-item-label">{item.label}</span>
-                              {item.badge && (
-                                <span className="nav-item-badge">{item.badge}</span>
-                              )}
-                            </Link>
-                          </li>
-                        </React.Fragment>
-                      );
-                    })}
-                  </ul>
-                )}
+                <ul className={`ms-nav-items ${isCollapsed ? "collapsed" : ""}`}>
+                  {visibleItems.map((item) => {
+                    const isActive = isItemActive(item);
+                    return (
+                      <React.Fragment key={item.href + item.label}>
+                        {item.subHeading && !q && (
+                          <li className="ms-nav-sub">{item.subHeading}</li>
+                        )}
+                        <li>
+                          <Link
+                            href={item.href}
+                            className={`ms-nav-link ${isActive ? "active" : ""}`}
+                            aria-current={isActive ? "page" : undefined}
+                            onClick={() => {
+                              saveScroll();
+                              onClose?.();
+                            }}
+                          >
+                            <NavIcon name={item.icon} />
+                            <span className="ms-nav-label">{item.label}</span>
+                            {item.badge && <span className="ms-nav-badge">{item.badge}</span>}
+                          </Link>
+                        </li>
+                      </React.Fragment>
+                    );
+                  })}
+                </ul>
               </div>
             );
           })}
         </nav>
 
-        {/* Footer Actions */}
-        <div className="sidebar-footer">
-          <Link href="/" target="_blank" className="footer-action-link" title="Open Online Storefront in new tab">
-            <span>Store</span>
-            <span aria-hidden="true">↗</span>
-          </Link>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="footer-signout-btn"
-            title="Sign out of ERP Admin"
-          >
-            <span>Sign Out</span>
-            <span aria-hidden="true">⎋</span>
-          </button>
+        <div className="ms-side-foot">
+          <div className="ms-user">
+            <span className="ms-avatar">{initials}</span>
+            <span className="ms-user-text">
+              <strong>{profile.display_name || profile.email.split("@")[0]}</strong>
+              <small>{roleDisplay}</small>
+            </span>
+          </div>
+          <div className="ms-foot-actions">
+            <Link href="/" target="_blank" className="ms-foot-btn" title="Open the online store in a new tab">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 9h18l-2 11H5Z" /><path d="M8 9V6a4 4 0 0 1 8 0v3" /></svg>
+              Store
+            </Link>
+            <button type="button" onClick={handleSignOut} className="ms-foot-btn" title="Sign out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
     </>

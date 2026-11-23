@@ -1,0 +1,43 @@
+// Page titles and one-line helper text shown in the ERP page header.
+export const adminPages: Record<string, { title: string; subtitle: string }> = {
+  "": { title: "Dashboard", subtitle: "Today's sales, stock and staff at a glance." },
+  dashboard: { title: "Dashboard", subtitle: "Today's sales, stock and staff at a glance." },
+  pos: { title: "POS Billing", subtitle: "Scan or tap sarees, apply discounts and take payment." },
+  orders: { title: "Online Orders", subtitle: "Pack, ship and track website orders." },
+  products: { title: "Saree Catalogue", subtitle: "Every saree sold in the shop and online." },
+  "product-new": { title: "Add New Saree", subtitle: "Create a product that appears in POS and the website." },
+  categories: { title: "Categories", subtitle: "Main categories and subcategories shared by POS and the website." },
+  inventory: { title: "Stock Ledger", subtitle: "Every stock movement, in one place." },
+  "stock-movements": { title: "Stock Movements", subtitle: "Full audit trail of stock in and out." },
+  "low-stock": { title: "Low Stock Alerts", subtitle: "Sarees at or below their minimum level." },
+  labels: { title: "Barcode Labels", subtitle: "Print price and barcode stickers." },
+  purchases: { title: "Purchases", subtitle: "Order from suppliers, receive stock and record payments." },
+  suppliers: { title: "Suppliers", subtitle: "Weavers and mills you buy from." },
+  offers: { title: "Festival Offers", subtitle: "Online coupons and automatic festival campaigns." },
+  discounts: { title: "Discounts", subtitle: "One discount engine for the shop counter and the website." },
+  banners: { title: "Banners", subtitle: "Offer banners for desktop and mobile, placed where you choose." },
+  coupons: { title: "Coupons", subtitle: "Coupon codes customers enter at online checkout." },
+  bulk: { title: "Bulk Inquiries", subtitle: "Wholesale and event enquiries from the website." },
+  employees: { title: "Staff", subtitle: "Profiles, salary setup and logins for your team." },
+  "employee-new": { title: "Add Staff Member", subtitle: "Register a new employee." },
+  attendance: { title: "Attendance", subtitle: "Mark the daily roll call and review the month." },
+  leaves: { title: "Leave Management", subtitle: "Approve and track staff leave." },
+  payroll: { title: "Payroll", subtitle: "Calculate, adjust, approve and pay monthly salaries." },
+  "salary-policies": { title: "Salary Rules", subtitle: "Working days, paid leave, half-days and loss-of-pay rules." },
+  "staff-logins": { title: "Staff Logins", subtitle: "Who signed in today and from where." },
+  reports: { title: "Reports", subtitle: "Sales, expenses and stock summaries for any date range." },
+  expenses: { title: "Expenses", subtitle: "Daily shop spending and petty cash." },
+  "expense-categories": { title: "Expense Heads", subtitle: "Groups used to classify expenses." },
+  staff: { title: "Staff Access", subtitle: "Admin accounts and what each person can open." },
+  "admin-accounts": { title: "Admin Accounts", subtitle: "Staff user accounts." },
+  "staff-permissions": { title: "Permissions", subtitle: "Role and permission matrix." },
+  settings: { title: "Store Settings", subtitle: "Brand, checkout, shipping and tax settings." },
+  "pos-settings": { title: "POS Settings", subtitle: "Receipt, tax and counter discount limits." },
+  shipping: { title: "Shipping & Tracking", subtitle: "Courier providers and tracking links." },
+  audit: { title: "Activity Logs", subtitle: "Every change made in the ERP." },
+  notifications: { title: "Notifications", subtitle: "Store alerts." },
+};
+
+export function pageMeta(section: string) {
+  return adminPages[section] || { title: section.replaceAll("-", " "), subtitle: "" };
+}

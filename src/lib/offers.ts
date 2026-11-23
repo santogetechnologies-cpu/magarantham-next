@@ -199,6 +199,7 @@ export function resolveProductOffer(
     id: string;
     price_paise: number;
     discount_percent?: number;
+    effective_price_paise?: number;
     category?: string;
     category_id?: string;
     subcategory_id?: string | null;
@@ -208,6 +209,11 @@ export function resolveProductOffer(
   now = Date.now(),
 ): ProductOfferResult {
   const originalPricePaise = product.price_paise || 0;
+  // Shared POS + online discount (Discounts page) already applied by the database.
+  const catalogPricePaise =
+    product.effective_price_paise != null && product.effective_price_paise > 0
+      ? Math.min(originalPricePaise, product.effective_price_paise)
+      : originalPricePaise;
   if (originalPricePaise <= 0) {
     return {
       originalPricePaise: 0,
@@ -241,7 +247,8 @@ export function resolveProductOffer(
     if (tier) {
       const tierRank =
         tier === "product" ? 4 : tier === "subcategory" ? 3 : tier === "category" ? 2 : 1;
-      const discountPaise = calculateOfferDiscountPaise(offer, originalPricePaise);
+      // Checkout applies festival offers on top of the catalogue price.
+      const discountPaise = calculateOfferDiscountPaise(offer, catalogPricePaise);
       matchedCandidates.push({
         offer,
         tier,
@@ -265,13 +272,15 @@ export function resolveProductOffer(
   const bestOffer = matchedCandidates[0];
 
   if (bestOffer && bestOffer.discountPaise > 0) {
-    const effectivePricePaise = Math.max(0, originalPricePaise - bestOffer.discountPaise);
-    const savingsPaise = bestOffer.discountPaise;
+    const effectivePricePaise = Math.max(0, catalogPricePaise - bestOffer.discountPaise);
+    const savingsPaise = originalPricePaise - effectivePricePaise;
     const percentOff = Math.round((savingsPaise / originalPricePaise) * 100);
     const badgeText =
-      bestOffer.offer.kind === "percent"
-        ? `${bestOffer.offer.value}% OFF`
-        : `₹${Math.round(bestOffer.discountPaise / 100)} OFF`;
+      catalogPricePaise < originalPricePaise
+        ? `${percentOff}% OFF`
+        : bestOffer.offer.kind === "percent"
+          ? `${bestOffer.offer.value}% OFF`
+          : `₹${Math.round(bestOffer.discountPaise / 100)} OFF`;
 
     return {
       originalPricePaise,
@@ -285,7 +294,23 @@ export function resolveProductOffer(
     };
   }
 
-  // Tier 4: Existing Product Discount fallback (catalog default)
+  // Tier 4: shared catalogue discount, exactly as the database prices it
+  if (catalogPricePaise < originalPricePaise) {
+    const savingsPaise = originalPricePaise - catalogPricePaise;
+    const percentOff = Math.round((savingsPaise / originalPricePaise) * 100);
+    return {
+      originalPricePaise,
+      effectivePricePaise: catalogPricePaise,
+      discountPaise: savingsPaise,
+      savingsPaise,
+      appliedOffer: null,
+      offerLevel: "catalog_default",
+      badgeText: `${percentOff}% OFF`,
+      percentOff,
+    };
+  }
+
+  // Preview mode (no database): product's own discount percent
   const defaultDiscountPercent = product.discount_percent || 0;
   if (defaultDiscountPercent > 0) {
     const discountPaise = Math.round((originalPricePaise * defaultDiscountPercent) / 100);

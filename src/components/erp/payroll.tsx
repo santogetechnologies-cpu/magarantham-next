@@ -5,6 +5,7 @@ import { money } from '@/lib/core';
 import { indiaDate } from '@/lib/barcode';
 import { api } from '../api';
 import { ComponentsInput, References, Row, useERP, downloadCSV } from './shared';
+import { PayrollRun } from './payroll-run';
 
 export function Payroll({ refs }: { refs: References }) {
   const [employee, setEmployee] = useState('');
@@ -23,6 +24,7 @@ export function Payroll({ refs }: { refs: References }) {
   const [next, setNext] = useState<number | null>(null);
   const [slip, setSlip] = useState<Row | null>(null);
   const [paying, setPaying] = useState<Row | null>(null);
+  const [view, setView] = useState<'all' | 'one'>('all');
   const slipRef = useRef<HTMLElement>(null);
 
   const { busy, send, notice } = useERP();
@@ -147,7 +149,21 @@ export function Payroll({ refs }: { refs: References }) {
         </div>
       </div>
 
+      <div className="ms-seg pr-view-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={view === 'all'} className={view === 'all' ? 'on' : ''} onClick={() => setView('all')}>
+          All staff for a month
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'one'} className={view === 'one' ? 'on' : ''} onClick={() => setView('one')}>
+          One staff member (detailed)
+        </button>
+      </div>
+
+      {view === 'all' && (
+        <PayrollRun staff={staff} runs={rows} month={month} setMonth={setMonth} onChanged={() => load()} />
+      )}
+
       {/* Calculator & Draft Generator Card */}
+      {view === 'one' && (<>
       <form
         className="sp-panel"
         onSubmit={async (e) => {
@@ -377,6 +393,8 @@ export function Payroll({ refs }: { refs: References }) {
         </section>
       )}
 
+      </>)}
+
       {/* Salary Runs History & Actions */}
       <section className="table-widget-panel">
         <div className="widget-header">
@@ -497,6 +515,7 @@ export function Payroll({ refs }: { refs: References }) {
                               type="button"
                               className="button outline-btn mini-btn"
                               onClick={() => {
+                                setView('one');
                                 setEmployee(r.employee_id);
                                 setMonth(r.period.slice(0, 7));
                                 setBonusRupees(
@@ -518,13 +537,24 @@ export function Payroll({ refs }: { refs: References }) {
                           </>
                         )}
                         {r.status === 'approved' && (
-                          <button
-                            type="button"
-                            className="button gold-btn mini-btn"
-                            onClick={() => setPaying(r)}
-                          >
-                            Mark Salary Paid
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="button gold-btn mini-btn"
+                              onClick={() => setPaying(r)}
+                            >
+                              Mark Salary Paid
+                            </button>
+                            <button
+                              type="button"
+                              className="button outline-btn mini-btn"
+                              disabled={busy}
+                              onClick={() => send('payroll_finalize', { id: r.id, action: 'reopen' }, load)}
+                              title="Move back to draft to change bonus, allowances or deductions"
+                            >
+                              Reopen
+                            </button>
+                          </>
                         )}
                         <button
                           type="button"

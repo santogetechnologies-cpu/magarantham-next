@@ -74,7 +74,8 @@ export async function getStore() {
   // Filter out any archived or unpublished products strictly
   const piecesMap = await getPiecesMap();
   const rawPublishedProducts = rawCatalogue
-    .filter((prod: Record<string, unknown>) => prod.published === true && prod.archived !== true)
+    // Hidden categories/subcategories are not sellable online (checkout rejects them), so hide them here too.
+    .filter((prod: Record<string, unknown>) => prod.published === true && prod.archived !== true && prod.category_visible !== false)
     .map((prod) => {
       const pid = String(prod.id);
       return publicProduct({

@@ -8,7 +8,12 @@ import {StoreSync} from "@/components/store-sync";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { ShopProvider } from "@/components/shop-context";
+import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
+import "./erp-ui.css";
+import "./banners.css";
+const uiFont = Inter({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
+const displayFont = Fraunces({ subsets: ["latin"], variable: "--font-display", display: "swap", weight: ["500", "600", "700"] });
 export const metadata: Metadata = {
   title: {
     default: "மகரந்தம் சில்க்ஸ் | Sarees for every occasion",
@@ -38,7 +43,7 @@ export default async function RootLayout({
     initialProfile = null;
   }
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="en" data-scroll-behavior="smooth" className={`${uiFont.variable} ${displayFont.variable}`}>
       <body>
         <a className="skip-link" href="#main">
           Skip to content

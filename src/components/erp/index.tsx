@@ -1,8 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Profile } from '@/lib/core';
-import { erpModules } from '@/lib/erp-fields';
 import { api } from '../api';
 import { ERPRecords } from './records';
 import { Purchases } from './purchases';
@@ -19,6 +17,8 @@ import { CategoriesManager } from './categories';
 import { References } from './shared';
 import { AdminSidebar } from '../admin/sidebar';
 import { AdminTopbar } from '../admin/topbar';
+import { PageHeader } from '../admin/page-header';
+import { DiscountsManager } from './discounts';
 
 export function ERP({
   module,
@@ -44,8 +44,6 @@ export function ERP({
     void refreshRefs();
   }, [module]);
 
-  const moduleConfig = erpModules[module];
-  const pageTitle = moduleConfig?.title || module;
 
   return (
     <div className="luxury-admin-shell">
@@ -63,30 +61,25 @@ export function ERP({
           onOpenSidebar={() => setSidebarOpen(true)}
         />
 
-        <main className="luxury-admin-main">
-          <header className="section-heading" style={{ marginBottom: 24 }}>
-            <div>
-              <p className="eyebrow">மகரந்தம் சில்க்ஸ் · ONE SHOP · ONE STOCK LEDGER</p>
-              <h1 style={{ fontFamily: 'var(--serif)', fontSize: 32, margin: 0 }}>
-                {pageTitle}.
-              </h1>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                type="button"
-                className="button button-outline"
-                onClick={() => void refreshRefs()}
-              >
-                Refresh Data
-              </button>
-              <Link className="text-link" href="/shop" target="_blank">
-                Online Shop ↗
-              </Link>
-            </div>
-          </header>
+        <main className="luxury-admin-main ms-main" key={module}>
+          <PageHeader
+            section={module}
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="ms-btn ms-btn-ghost ms-btn-sm"
+                  onClick={() => void refreshRefs()}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
+                  Refresh
+                </button>
+              </>
+            }
+          />
 
           {error && (
-            <div role="alert" className="notice" style={{ marginBottom: 20 }}>
+            <div role="alert" className="ms-alert ms-alert-danger">
               {error}
             </div>
           )}
@@ -117,6 +110,8 @@ export function ERP({
             <Payroll refs={refs} />
           ) : module === 'reports' ? (
             <Reports />
+          ) : module === 'discounts' ? (
+            <DiscountsManager refs={refs} />
           ) : (
             <ERPRecords
               module={module}

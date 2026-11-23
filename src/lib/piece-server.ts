@@ -97,6 +97,7 @@ export async function savePiecesForProduct(
 ): Promise<IndividualPiece[]> {
   const map = await getPiecesMap();
   const pid = String(productId);
+  const before = map[pid] || [];
 
   // Normalize pieces with IDs, timestamps and barcodes if missing
   const normalized: IndividualPiece[] = pieces.map((p, idx) => ({
@@ -114,13 +115,14 @@ export async function savePiecesForProduct(
     location: p.location ? p.location.trim() : undefined,
     created_at: p.created_at || new Date().toISOString(),
     unit_id: p.unit_id != null ? p.unit_id : undefined,
+    sold_refs: Array.isArray(p.sold_refs) ? p.sold_refs.slice(-20) : undefined,
   }));
 
   map[pid] = normalized;
   await savePiecesMap(map);
 
-  // Synchronize product stock counts in database
-  await syncProductStockFromPieces(pid, normalized);
+  // Apply the change in available pieces to the database stock ledger
+  await syncProductStockFromPieces(pid, normalized, before);
 
   return normalized;
 }
@@ -133,10 +135,12 @@ export async function updatePieceStatus(
   const map = await getPiecesMap();
   let foundPiece: IndividualPiece | null = null;
   let targetProductId: string | null = null;
+  let before: IndividualPiece[] = [];
 
   for (const [pid, pieces] of Object.entries(map)) {
     const idx = pieces.findIndex((p) => p.id === pieceId || p.piece_code === pieceId || p.barcode === pieceId);
     if (idx !== -1) {
+      before = pieces.map((x) => ({ ...x }));
       pieces[idx].status = status;
       foundPiece = pieces[idx];
       targetProductId = pid;
@@ -146,7 +150,7 @@ export async function updatePieceStatus(
 
   if (foundPiece && targetProductId) {
     await savePiecesMap(map);
-    await syncProductStockFromPieces(targetProductId, map[targetProductId]);
+    await syncProductStockFromPieces(targetProductId, map[targetProductId], before);
   }
 
   return foundPiece;
@@ -160,46 +164,106 @@ export async function deletePiece(
   const pid = String(productId);
   if (!map[pid]) return false;
 
-  const prevLen = map[pid].length;
+  const before = map[pid];
   map[pid] = map[pid].filter((p) => p.id !== pieceId && p.piece_code !== pieceId);
-  if (map[pid].length !== prevLen) {
+  if (map[pid].length !== before.length) {
     await savePiecesMap(map);
-    await syncProductStockFromPieces(pid, map[pid]);
+    await syncProductStockFromPieces(pid, map[pid], before);
     return true;
   }
   return false;
 }
 
+const pieceQty = (p: IndividualPiece) =>
+  p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1;
+const availableQty = (pieces: IndividualPiece[]) =>
+  pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + pieceQty(p), 0);
+
+/**
+ * Keeps products.stock_on_hand in step with admin piece edits.
+ *
+ * The database stock is the ledger shared by POS and online orders, so piece
+ * edits are applied as a +/- change instead of overwriting it. Overwriting would
+ * bring back stock already sold at the counter or online, and the online
+ * `reserved` count is never touched here (checkout owns it).
+ */
 export async function syncProductStockFromPieces(
   productId: string,
   explicitPieces?: IndividualPiece[],
-): Promise<{ stock_on_hand: number; reserved: number }> {
+  previousPieces?: IndividualPiece[],
+): Promise<{ stock_on_hand: number } | null> {
   const pieces = explicitPieces || (await getPiecesForProduct(productId));
-  const availableCount = pieces
-    .filter((p) => p.status === "available")
-    .reduce((sum, p) => sum + (p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1), 0);
-  const reservedCount = pieces
-    .filter((p) => p.status === "reserved")
-    .reduce((sum, p) => sum + (p.quantity != null && !isNaN(Number(p.quantity)) ? Math.max(0, Number(p.quantity)) : 1), 0);
-
+  const after = availableQty(pieces);
   const db = service();
   try {
-    const updatePayload: Record<string, any> = {
-      stock_on_hand: availableCount,
-      reserved: reservedCount,
-    };
+    const { data: prod } = await db
+      .from("products")
+      .select("stock_on_hand,reserved")
+      .eq("id", productId)
+      .maybeSingle();
+    if (!prod) return null;
+    const current = Number(prod.stock_on_hand || 0);
+    const reserved = Number(prod.reserved || 0);
+    const hadPieces = (previousPieces || []).length > 0;
+    // First time pieces are recorded they describe stock that may already exist.
+    const target = hadPieces
+      ? current + (after - availableQty(previousPieces || []))
+      : Math.max(current, after);
+    const next = Math.max(reserved, target);
+    const updatePayload: Record<string, any> = {};
+    if (next !== current) updatePayload.stock_on_hand = next;
     if (pieces.length > 0 && pieces[0]?.min_quantity != null && !isNaN(Number(pieces[0].min_quantity))) {
       updatePayload.min_stock_level = Math.max(0, Number(pieces[0].min_quantity));
     }
-    await db
-      .from("products")
-      .update(updatePayload)
-      .eq("id", productId);
+    if (Object.keys(updatePayload).length) {
+      await db.from("products").update(updatePayload).eq("id", productId);
+    }
+    return { stock_on_hand: next };
   } catch (err) {
     console.warn("syncProductStockFromPieces database update error:", err);
+    return null;
   }
+}
 
-  return { stock_on_hand: availableCount, reserved: reservedCount };
+/**
+ * After a POS sale (stock already reduced in the database), mark the sold
+ * pieces so piece lists, labels and the website stay in step. Scanned pieces are
+ * used first, then the oldest available pieces. Safe to call twice for a sale.
+ */
+export async function markPiecesSold(
+  lines: { product_id: string; quantity: number; piece_ids?: string[] }[],
+  saleRef: string,
+): Promise<void> {
+  const map = await getPiecesMap();
+  let changed = false;
+  for (const line of lines) {
+    const pieces = map[String(line.product_id)];
+    if (!pieces?.length) continue;
+    if (pieces.some((p) => p.sold_refs?.includes(saleRef))) continue;
+    let need = Math.max(0, Math.round(line.quantity));
+    const preferred = new Set((line.piece_ids || []).map((x) => x.toLowerCase()));
+    const order = [
+      ...pieces.filter((p) => preferred.has(String(p.id).toLowerCase()) || preferred.has(String(p.piece_code).toLowerCase()) || preferred.has(String(p.barcode).toLowerCase())),
+      ...pieces,
+    ];
+    for (const piece of order) {
+      if (need <= 0) break;
+      if (piece.status !== "available") continue;
+      const qty = pieceQty(piece);
+      if (qty <= 0) continue;
+      const take = Math.min(need, qty);
+      if (qty - take <= 0) {
+        piece.status = "sold";
+        if (qty > 1) piece.quantity = qty;
+      } else {
+        piece.quantity = qty - take;
+      }
+      piece.sold_refs = [...(piece.sold_refs || []), saleRef].slice(-20);
+      need -= take;
+      changed = true;
+    }
+  }
+  if (changed) await savePiecesMap(map);
 }
 
 export function generatePieceCode(

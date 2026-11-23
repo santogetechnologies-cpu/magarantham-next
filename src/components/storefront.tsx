@@ -5,6 +5,7 @@ import { CategoryItem, Product, Settings, money, unitPrice } from "@/lib/core";
 import { Catalogue, ProductCard } from "./catalogue";
 import { useShop } from "./shop-context";
 import { api } from "./api";
+import { BannerSlot } from "./banner-slot";
 export type Banner = {
   id: string;
   title: string;
@@ -139,6 +140,7 @@ export function Home({
         </div>
       )}
 
+      <BannerSlot banners={banners} position="home_hero" />
       <section className="hero">
         <img
           className="hero-image"
@@ -316,7 +318,7 @@ export function Home({
           </div>
         </div>
       </section>
-      <BannerStrip banners={banners.filter((b) => b.position === "home")} />
+      <BannerSlot banners={banners} position="home" />
       <section className="section types-section">
         <p className="eyebrow">Every kind of saree, all in one place</p>
         <h2>Your style is here.</h2>
@@ -340,6 +342,7 @@ export function Home({
           Bulk purchase ↗
         </Link>
       </section>
+      <BannerSlot banners={banners} position="home_bottom" />
     </>
   );
 }

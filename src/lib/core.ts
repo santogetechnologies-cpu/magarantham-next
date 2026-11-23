@@ -44,6 +44,8 @@ export type IndividualPiece = {
   location?: string; // admin-only
   created_at: string;
   unit_id?: number | string;
+  /** POS sale ids that consumed this piece (keeps sale marking idempotent). */
+  sold_refs?: string[];
 };
 
 export type CategoryItem = {
