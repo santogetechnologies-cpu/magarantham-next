@@ -96,20 +96,21 @@ export function POSBillingDashboard({ profile }: { profile: Profile }) {
                 ✦ மகரந்தம் சில்க்ஸ் &middot; RETAIL POS COUNTER &middot; CASHIER DESK
               </p>
               <h1
+                className="hero-main-title"
                 style={{
                   fontFamily: 'var(--serif)',
                   fontSize: 32,
                   margin: '4px 0 8px',
-                  color: 'var(--erp-maroon)',
+                  color: '#FFFFFF',
                   letterSpacing: '-0.3px',
                 }}
               >
-                Cashier Billing Dashboard.
+                Cashier Billing Dashboard
               </h1>
-              <p className="hero-meta-subtitle" style={{ fontSize: 14 }}>
-                <strong>{emp?.name || profile.display_name || 'Cashier'}</strong>{' '}
+              <p className="hero-meta-subtitle" style={{ fontSize: 14, color: '#FDE8D3' }}>
+                <strong style={{ color: '#FFFFFF' }}>{emp?.name || profile.display_name || 'Cashier'}</strong>{' '}
                 {emp?.code ? `(Staff Code: ${emp.code})` : ''} &middot;{' '}
-                <span style={{ color: '#15803D', fontWeight: 600 }}>
+                <span style={{ color: '#34D399', fontWeight: 600 }}>
                   ● Shift Active &amp; Ready
                 </span>{' '}
                 &middot; {todayFormatted}

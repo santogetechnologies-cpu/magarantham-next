@@ -1341,13 +1341,13 @@ export function EmployeesManager({
 
                   <ComponentsInput
                     label="Recurring Monthly Allowances (e.g. Conveyance, Food)"
-                    components={modal.allowances}
+                    value={modal.allowances}
                     onChange={(allowances) => setModal({ ...modal, allowances })}
                   />
 
                   <ComponentsInput
                     label="Recurring Monthly Deductions (e.g. PF, Loan, Advance)"
-                    components={modal.deductions}
+                    value={modal.deductions}
                     onChange={(deductions) => setModal({ ...modal, deductions })}
                   />
                 </div>
