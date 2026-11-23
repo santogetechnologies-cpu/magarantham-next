@@ -21,6 +21,32 @@ type LastScanned = {
   isUnit: boolean;
 };
 
+function playScanBeep(success = true) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    if (success) {
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.12);
+    } else {
+      osc.frequency.setValueAtTime(320, ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch {}
+}
+
 export function POS({ profile }: { profile: Profile }) {
   const [catalog, setCatalog] = useState<Row[]>([]);
   const [settings, setSettings] = useState<Row>({});
@@ -363,7 +389,8 @@ export function POS({ profile }: { profile: Profile }) {
         return old;
       }
       if (line) {
-        const maxAvail = Math.min(100, Math.max(1, Number(product.available ?? 100)));
+        const stockVal = product.available ?? product.stock_on_hand ?? 100;
+        const maxAvail = Math.min(100, Math.max(1, Number(stockVal || 1)));
         if (line.quantity >= maxAvail) {
           notice(
             maxAvail < 100
@@ -412,13 +439,42 @@ export function POS({ profile }: { profile: Profile }) {
     const trimmed = code.trim();
     if (!trimmed) return;
     setScanning(true);
+
+    // 1. Instant local catalog match for zero-latency scanning
+    const lower = trimmed.toLowerCase();
+    const localProd = catalog.find((p) => {
+      if (p.barcode && p.barcode.toLowerCase() === lower) return true;
+      if (p.sku && p.sku.toLowerCase() === lower) return true;
+      if (Array.isArray(p.pieces)) {
+        return p.pieces.some(
+          (pc: any) =>
+            (pc.piece_code && pc.piece_code.toLowerCase() === lower) ||
+            (pc.barcode && pc.barcode.toLowerCase() === lower) ||
+            (pc.id && pc.id.toLowerCase() === lower),
+        );
+      }
+      return false;
+    });
+
+    if (localProd) {
+      playScanBeep(true);
+      add(localProd, undefined, trimmed);
+      setBarcodeInput('');
+      scannerRef.current?.focus();
+      setScanning(false);
+      return;
+    }
+
+    // 2. Authoritative backend scan lookup (supports serialized units, pieces, barcodes, SKUs)
     try {
       const r = await api<Row>(`/api/erp/scan?barcode=${encodeURIComponent(trimmed)}`);
+      playScanBeep(true);
       add(r.product, r.unit || undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
     } catch (e) {
-      notice((e as Error).message);
+      playScanBeep(false);
+      notice((e as Error).message || `Barcode or code "${trimmed}" was not found.`);
       scannerRef.current?.select();
     } finally {
       setScanning(false);
@@ -744,8 +800,8 @@ export function POS({ profile }: { profile: Profile }) {
         </div>
         <div className="pos-scanner-input-wrap">
           <label htmlFor="pos-barcode-input" className="pos-scanner-label">
-            Barcode Scanner — Scan unit sticker (MSU…), product barcode, or type SKU &amp;
-            press Enter (Price adds automatically)
+            Barcode Scanner — Scan piece code (KAN-PUR-001), barcode, or type SKU &amp;
+            press Enter (Adds to bill automatically)
           </label>
           <input
             id="pos-barcode-input"
@@ -754,7 +810,7 @@ export function POS({ profile }: { profile: Profile }) {
             value={barcodeInput}
             onChange={(e) => setBarcodeInput(e.target.value)}
             autoComplete="off"
-            placeholder="Scan barcode here or type SKU (e.g. MSU1001, KS-001) and press Enter..."
+            placeholder="Scan barcode here or type SKU / piece code (e.g. KAN-PUR-001, MSU1001, KS-001)..."
             className="pos-scanner-input"
           />
         </div>

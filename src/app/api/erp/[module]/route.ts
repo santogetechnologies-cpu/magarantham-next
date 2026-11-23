@@ -8,10 +8,73 @@ const access:Record<string,Capability|'superadmin'|undefined>={reference:undefin
 export async function GET(req:Request,{params}:{params:Promise<{module:string}>}){try{
  const {module}=await params;if(!(module in access))throw new Fault(404,'NOT_FOUND');const session=await staff(access[module]);const db=service(),url=new URL(req.url);const page=z.coerce.number().int().min(0).max(100000).parse(url.searchParams.get('page')||0);
  if(module==='reference')return ok(await erpReferences(session.profile));
- if(module==='scan'){const code=z.string().trim().min(1).max(48).parse(url.searchParams.get('barcode'));let productId:string|undefined;let unit:Record<string,unknown>|null=null;
- if(/^MSU[0-9]+$/.test(code)){const r=await db.from('product_units').select('id,product_id,state,barcode').eq('barcode',code).single();if(r.error||r.data.state!=='in_stock')throw new Fault(409,'UNIT_UNAVAILABLE');productId=r.data.product_id;unit={...r.data,id:String(r.data.id)};}
- else{const r=await db.from('products').select('id').eq('barcode',code).maybeSingle();if(r.error)throw new Fault(503,'ERP_LOAD_FAILED');productId=r.data?.id;if(!productId){const sku=await db.from('products').select('id').eq('sku',code).maybeSingle();productId=sku.data?.id;}}
- if(!productId)throw new Fault(404,'BARCODE_NOT_FOUND');const r=await db.from('store_catalogue').select('*').eq('id',productId).eq('category_visible',true).single();if(r.error)throw new Fault(404,'PRODUCT_UNAVAILABLE');const {publicProduct}=await import('@/lib/core');return ok({product:{...publicProduct(r.data),barcode:r.data.barcode},unit});}
+ if(module==='scan'){
+  const rawCode=url.searchParams.get('barcode')||'';
+  const code=z.string().trim().min(1).max(100).parse(rawCode);
+  let productId:string|undefined;
+  let unit:Record<string,unknown>|null=null;
+  let matchedPiece:Record<string,unknown>|null=null;
+
+  // 1. Check ERP serialized units in product_units (MSU...)
+  if(/^MSU[0-9]+$/i.test(code)){
+   const r=await db.from('product_units').select('id,product_id,state,barcode').eq('barcode',code).maybeSingle();
+   if(r.data){
+    if(r.data.state!=='in_stock')throw new Fault(409,'UNIT_UNAVAILABLE','This serialized unit is already sold or unavailable.');
+    productId=r.data.product_id;
+    unit={...r.data,id:String(r.data.id)};
+   }
+  }
+
+  // 2. Check Level 4 Saree Pieces (piece_code, piece barcode, piece id)
+  if(!productId){
+   try{
+    const {getPiecesMap}=await import('@/lib/piece-server');
+    const piecesMap=await getPiecesMap();
+    const lower=code.toLowerCase();
+    for(const [pid,pieces] of Object.entries(piecesMap)){
+     const found=(pieces||[]).find(pc=>
+      (pc.piece_code&&pc.piece_code.toLowerCase()===lower)||
+      (pc.barcode&&pc.barcode.toLowerCase()===lower)||
+      (pc.id&&pc.id.toLowerCase()===lower)
+     );
+     if(found){
+      productId=pid;
+      matchedPiece={...found};
+      break;
+     }
+    }
+   }catch{}
+  }
+
+  // 3. Check Products table by barcode (case-insensitive)
+  if(!productId){
+   const r=await db.from('products').select('id').ilike('barcode',code).maybeSingle();
+   if(r.data?.id)productId=r.data.id;
+  }
+
+  // 4. Check Products table by SKU (case-insensitive)
+  if(!productId){
+   const r=await db.from('products').select('id').ilike('sku',code).maybeSingle();
+   if(r.data?.id)productId=r.data.id;
+  }
+
+  if(!productId)throw new Fault(404,'BARCODE_NOT_FOUND',`Barcode or SKU "${code}" was not found in catalogue.`);
+
+  // 5. Load full product data
+  let r=await db.from('store_catalogue').select('*').eq('id',productId).maybeSingle();
+  if(!r.data){
+   r=await db.from('products').select('*').eq('id',productId).maybeSingle();
+  }
+  if(r.error||!r.data||r.data.archived)throw new Fault(404,'PRODUCT_UNAVAILABLE','This saree is archived or unavailable for sale.');
+
+  const {publicProduct}=await import('@/lib/core');
+  const prodData=publicProduct(r.data);
+  if(matchedPiece&&matchedPiece.colour&&matchedPiece.colour!=='Standard'){
+   prodData.name=`${prodData.name} - ${matchedPiece.colour}`;
+  }
+
+  return ok({product:{...prodData,barcode:r.data.barcode||code,piece:matchedPiece},unit});
+ }
  if(module==='pos'){const {data:settings,error}=await db.from('pos_settings').select('*').eq('id',true).single();if(error)throw new Fault(503,'ERP_LOAD_FAILED');return ok({settings,products:await posProducts(),references:await erpReferences(session.profile)});}
  if(module==='pos_sale'){const saleId=url.searchParams.get('id');let q=db.from('pos_sales').select('*').order('created_at',{ascending:false}).order('id');if(session.profile.role==='billing')q=q.eq('cashier_id',session.user.id);if(saleId)q=q.eq('id',id.parse(saleId));const {data,error}=await q.range(page*50,page*50+50);if(error)throw new Fault(503,'ERP_LOAD_FAILED');return ok({rows:data.slice(0,50),nextPage:data.length>50?page+1:null});}
  if(module==='labels'){let q=db.from('product_units').select('id,product_id,barcode,purchase_id,printed_at,products(name,sku,price_paise)').eq('state','in_stock').order('id');const product=url.searchParams.get('product_id'),purchase=url.searchParams.get('purchase_id');if(product)q=q.eq('product_id',id.parse(product));if(purchase)q=q.eq('purchase_id',id.parse(purchase));const quantity=z.coerce.number().int().min(1).max(500).parse(url.searchParams.get('quantity')||100);const after=z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).parse(url.searchParams.get('after')||0);const {data,error}=await q.gt('id',after).limit(quantity+1);if(error)throw new Fault(503,'ERP_LOAD_FAILED');return ok({rows:data.slice(0,quantity),nextAfter:data.length>quantity?data[quantity-1].id:null});}
