@@ -21,9 +21,46 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
  let q=db.from(table).select(table==='purchases'?'*,purchase_items(*),suppliers(name)': '*');
  if(module==='expenses'&&session.profile.role!=='superadmin')q=q.eq('source','manual');
  if(module==='attendance'){const month=z.string().regex(/^\d{4}-\d{2}$/).parse(url.searchParams.get('month'));const start=`${month}-01`;const next=new Date(`${start}T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);q=q.gte('work_on',start).lt('work_on',next.toISOString().slice(0,10));const emp=url.searchParams.get('employee_id');if(emp)q=q.eq('employee_id',id.parse(emp));q=q.order('work_on',{ascending:false});}
- q=q.order(table==='attendance'?'employee_id':table==='product_categories'?'created_at':'id');const {data,error}=await q.range(page*100,page*100+100);if(error)throw new Fault(503,'ERP_LOAD_FAILED',error.code==='42501'||!process.env.SUPABASE_SERVICE_ROLE_KEY?'Missing SUPABASE_SERVICE_ROLE_KEY in .env.local. Add your Supabase Secret / service_role key and restart the server.':undefined);let list=data.slice(0,100) as unknown as Record<string,any>[];
+ if(module==='expenses'){q=q.order('expense_on',{ascending:false}).order('created_at',{ascending:false});}
+ else{q=q.order(table==='attendance'?'employee_id':table==='product_categories'?'created_at':'id');}
+ const {data,error}=await q.range(page*100,page*100+100);if(error)throw new Fault(503,'ERP_LOAD_FAILED',error.code==='42501'||!process.env.SUPABASE_SERVICE_ROLE_KEY?'Missing SUPABASE_SERVICE_ROLE_KEY in .env.local. Add your Supabase Secret / service_role key and restart the server.':undefined);let list=data.slice(0,100) as unknown as Record<string,any>[];
  if(table==='product_categories')list=await enrichCategories(list);
  if(module==='purchases'&&list.length){const balances=await rpc('purchase_balances',{p_actor:session.user.id,p_ids:list.map(p=>p.id)});return ok({rows:list.map(p=>({...p,due_paise:balances.find((b:{id:string})=>b.id===p.id)?.due_paise||0})),nextPage:data.length>100?page+1:null});}
+ if(module==='expenses'&&list.length){
+  const actorIds=Array.from(new Set(list.flatMap(r=>[r.actor_id,r.void_by].filter(Boolean))));
+  if(actorIds.length){
+   const [profilesRes, employeesRes]=await Promise.all([
+    db.from('profiles').select('id,display_name,email,role').in('id',actorIds),
+    db.from('employees').select('id,name,code,profile_id,designation').or(`profile_id.in.(${actorIds.join(',')}),id.in.(${actorIds.join(',')})`),
+   ]);
+   const profMap=new Map((profilesRes.data||[]).map(p=>[p.id,p]));
+   const empByProf=new Map((employeesRes.data||[]).map(e=>[e.profile_id,e]));
+   const empById=new Map((employeesRes.data||[]).map(e=>[e.id,e]));
+   list=list.map(r=>{
+    const emp=empByProf.get(r.actor_id)||empById.get(r.actor_id);
+    const prof=profMap.get(r.actor_id);
+    const name=emp?.name||prof?.display_name||(prof?.email?prof.email.split('@')[0]:'Administrator');
+    const role=prof?.role||(emp?'billing':'superadmin');
+    const code=emp?.code||'';
+    const designation=emp?.designation||(role==='superadmin'?'Super Administrator':role==='billing'?'POS Billing Staff':'Store Staff');
+    let voidByName='';
+    if(r.void_by){
+     const vEmp=empByProf.get(r.void_by)||empById.get(r.void_by);
+     const vProf=profMap.get(r.void_by);
+     voidByName=vEmp?.name||vProf?.display_name||(vProf?.email?vProf.email.split('@')[0]:'Staff');
+    }
+    return {
+     ...r,
+     created_by_name:name,
+     created_by_role:role,
+     created_by_code:code,
+     created_by_designation:designation,
+     created_by_email:prof?.email||'',
+     void_by_name:voidByName,
+    };
+   });
+  }
+ }
  return ok({rows:list,nextPage:data.length>100?page+1:null});
 }catch(e){return failure(e);}}
 export async function POST(req:Request,{params}:{params:Promise<{module:string}>}){try{

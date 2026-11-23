@@ -100,7 +100,7 @@ export function ERP({
           ) : module === 'labels' ? (
             <Labels refs={refs} />
           ) : module === 'expenses' ? (
-            <Expenses refs={refs} />
+            <Expenses refs={refs} profile={profile} />
           ) : module === 'employees' ? (
             <EmployeesManager
               refs={refs}
