@@ -18,6 +18,7 @@ export type NavItem = {
   badge?: string;
   icon: string;
   matchQuery?: { param: string; value: string };
+  subHeading?: string;
 };
 
 export type NavGroup = {
@@ -70,13 +71,97 @@ export const adminNavGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Staff & Payroll",
+    title: "STAFF & ATTENDANCE",
     items: [
-      { key: "employees", label: "Employees", href: "/admin/employees", cap: "superadmin", icon: "users" },
-      { key: "staff-logins", label: "Staff Logins", href: "/admin/staff-logins", cap: "superadmin", icon: "activity" },
-      { key: "attendance", label: "Daily Attendance", href: "/admin/attendance", cap: "attendance", icon: "clock" },
-      { key: "payroll", label: "Monthly Payroll", href: "/admin/payroll", cap: "superadmin", icon: "wallet" },
-      { key: "salary-policies", label: "Salary Rules", href: "/admin/salary-policies", cap: "superadmin", icon: "file" },
+      // Staff Management
+      {
+        key: "employees",
+        label: "All Employees",
+        href: "/admin/employees",
+        cap: "superadmin",
+        icon: "users",
+        subHeading: "Staff Management",
+      },
+      {
+        key: "employees",
+        label: "Add Employee",
+        href: "/admin/employees?action=new",
+        cap: "superadmin",
+        icon: "plus",
+        matchQuery: { param: "action", value: "new" },
+      },
+      {
+        key: "employees",
+        label: "Departments",
+        href: "/admin/employees?tab=departments",
+        cap: "superadmin",
+        icon: "building",
+        matchQuery: { param: "tab", value: "departments" },
+      },
+      {
+        key: "employees",
+        label: "Staff Reports",
+        href: "/admin/employees?tab=reports",
+        cap: "superadmin",
+        icon: "chart",
+        matchQuery: { param: "tab", value: "reports" },
+      },
+      // Attendance Management
+      {
+        key: "attendance",
+        label: "Daily Attendance",
+        href: "/admin/attendance",
+        cap: "attendance",
+        icon: "clock",
+        subHeading: "Attendance Management",
+      },
+      {
+        key: "attendance",
+        label: "Monthly Reports",
+        href: "/admin/attendance?tab=monthly",
+        cap: "attendance",
+        icon: "calendar",
+        matchQuery: { param: "tab", value: "monthly" },
+      },
+      {
+        key: "attendance",
+        label: "Leave Management",
+        href: "/admin/attendance?tab=leaves",
+        cap: "attendance",
+        icon: "file",
+        matchQuery: { param: "tab", value: "leaves" },
+      },
+      {
+        key: "attendance",
+        label: "Overtime Reports",
+        href: "/admin/attendance?tab=overtime",
+        cap: "attendance",
+        icon: "zap",
+        matchQuery: { param: "tab", value: "overtime" },
+      },
+      // Payroll & Rules
+      {
+        key: "payroll",
+        label: "Monthly Payroll",
+        href: "/admin/payroll",
+        cap: "superadmin",
+        icon: "wallet",
+        subHeading: "Payroll & Compensation",
+      },
+      {
+        key: "salary-policies",
+        label: "Salary Rules",
+        href: "/admin/salary-policies",
+        cap: "superadmin",
+        icon: "file",
+      },
+      {
+        key: "staff-logins",
+        label: "Staff Logins",
+        href: "/admin/staff-logins",
+        cap: "superadmin",
+        icon: "activity",
+      },
     ],
   },
   {
@@ -305,6 +390,12 @@ function NavIcon({ name }: { name: string }) {
           <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4" />
         </svg>
       );
+    case "zap":
+      return (
+        <svg {...props}>
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      );
     case "map":
       return (
         <svg {...props}>
@@ -513,22 +604,29 @@ export function AdminSidebar({
                       const isActive = isItemActive(item);
 
                       return (
-                        <li key={item.href + item.label}>
-                          <Link
-                            href={item.href}
-                            className={`nav-item-link ${isActive ? "active" : ""}`}
-                            onClick={() => {
-                              saveScroll();
-                              onClose?.();
-                            }}
-                          >
-                            <NavIcon name={item.icon} />
-                            <span className="nav-item-label">{item.label}</span>
-                            {item.badge && (
-                              <span className="nav-item-badge">{item.badge}</span>
-                            )}
-                          </Link>
-                        </li>
+                        <React.Fragment key={item.href + item.label}>
+                          {item.subHeading && (
+                            <li className="nav-subheading">
+                              <span>{item.subHeading}</span>
+                            </li>
+                          )}
+                          <li>
+                            <Link
+                              href={item.href}
+                              className={`nav-item-link ${isActive ? "active" : ""}`}
+                              onClick={() => {
+                                saveScroll();
+                                onClose?.();
+                              }}
+                            >
+                              <NavIcon name={item.icon} />
+                              <span className="nav-item-label">{item.label}</span>
+                              {item.badge && (
+                                <span className="nav-item-badge">{item.badge}</span>
+                              )}
+                            </Link>
+                          </li>
+                        </React.Fragment>
                       );
                     })}
                   </ul>
