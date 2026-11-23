@@ -427,40 +427,39 @@ export function Expenses({
         className="sp-toolbar"
         style={{
           display: 'flex',
-          gap: 12,
+          gap: 10,
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: 16,
           background: '#FFFFFF',
-          padding: '12px 16px',
-          borderRadius: 10,
+          padding: '10px 14px',
+          borderRadius: 8,
           border: '1px solid var(--erp-border, #EAD5C0)',
         }}
       >
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', flex: 1, minWidth: 280 }}>
-          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 180 }}>
-            <input
-              type="text"
-              placeholder="🔍 Search description, payee, ref, or recorded by user..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                fontSize: 13,
-                borderRadius: 6,
-                border: '1px solid #D4B99F',
-                background: '#FAF7F2',
-              }}
-            />
-          </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+          <input
+            type="text"
+            placeholder="Search description, payee, ref, or staff..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              flex: '1 1 200px',
+              minWidth: 160,
+              padding: '7px 10px',
+              fontSize: 13,
+              borderRadius: 6,
+              border: '1px solid #D4B99F',
+              background: '#FAF7F2',
+            }}
+          />
 
           <select
             value={selectedCat}
             onChange={(e) => setSelectedCat(e.target.value)}
             style={{
-              padding: '8px 12px',
+              padding: '7px 10px',
               fontSize: 13,
               borderRadius: 6,
               border: '1px solid #D4B99F',
@@ -480,7 +479,7 @@ export function Expenses({
             value={selectedMethod}
             onChange={(e) => setSelectedMethod(e.target.value)}
             style={{
-              padding: '8px 12px',
+              padding: '7px 10px',
               fontSize: 13,
               borderRadius: 6,
               border: '1px solid #D4B99F',
@@ -499,7 +498,7 @@ export function Expenses({
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value as any)}
             style={{
-              padding: '8px 12px',
+              padding: '7px 10px',
               fontSize: 13,
               borderRadius: 6,
               border: '1px solid #D4B99F',
@@ -508,8 +507,8 @@ export function Expenses({
             }}
           >
             <option value="all">All Statuses</option>
-            <option value="posted">Posted Only</option>
-            <option value="void">Voided Only</option>
+            <option value="posted">Posted</option>
+            <option value="void">Void</option>
           </select>
         </div>
 
@@ -527,7 +526,7 @@ export function Expenses({
             type="button"
             className="button button-outline"
             onClick={handleExportCSV}
-            style={{ fontSize: 12, padding: '6px 12px' }}
+            style={{ fontSize: 12, padding: '5px 10px' }}
           >
             📥 Export CSV
           </button>
@@ -560,19 +559,9 @@ export function Expenses({
               <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
                 PAYMENT METHOD
               </th>
-              {/* Dedicated Creator Column */}
-              <th
-                style={{
-                  padding: '12px 14px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'var(--erp-maroon)',
-                  background: '#F4E7D7',
-                  borderLeft: '1px solid #E5D0B8',
-                  borderRight: '1px solid #E5D0B8',
-                }}
-              >
-                RECORDED BY (USER / STAFF)
+              {/* Simplified Clean Creator Column */}
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+                RECORDED BY
               </th>
               <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
                 STATUS
@@ -595,11 +584,7 @@ export function Expenses({
                   refs.expense_categories?.find((c) => c.id === r.category_id)?.name || 'General';
                 const creatorName = r.created_by_name || 'Admin';
                 const creatorCode = r.created_by_code || '';
-                const creatorRole = r.created_by_designation || r.created_by_role || 'Staff';
                 const isVoid = r.status === 'void';
-
-                // Initial for avatar circle
-                const initial = (creatorName[0] || 'A').toUpperCase();
 
                 return (
                   <tr
@@ -607,11 +592,11 @@ export function Expenses({
                     style={{
                       borderBottom: '1px solid #F1E5D8',
                       background: isVoid ? '#FAF9F8' : '#FFFFFF',
-                      opacity: isVoid ? 0.8 : 1,
+                      opacity: isVoid ? 0.85 : 1,
                     }}
                   >
                     {/* Date / Category */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top' }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                       <strong style={{ fontSize: 13, color: 'var(--erp-text)', display: 'block' }}>
                         {r.expense_on}
                       </strong>
@@ -633,7 +618,7 @@ export function Expenses({
                     </td>
 
                     {/* Description & Payee */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top', maxWidth: 280 }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', maxWidth: 280 }}>
                       <strong
                         style={{
                           fontSize: 13.5,
@@ -652,7 +637,7 @@ export function Expenses({
                     </td>
 
                     {/* Amount */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                       <strong
                         style={{
                           fontSize: 15,
@@ -665,7 +650,7 @@ export function Expenses({
                     </td>
 
                     {/* Payment Method & Reference */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top' }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                       <span
                         style={{
                           display: 'inline-block',
@@ -709,84 +694,34 @@ export function Expenses({
                       )}
                     </td>
 
-                    {/* RECORDED BY USER / STAFF */}
-                    <td
-                      style={{
-                        padding: '12px 14px',
-                        verticalAlign: 'top',
-                        background: isVoid ? '#F5F3F1' : '#FFFDF9',
-                        borderLeft: '1px solid #F1E5D8',
-                        borderRight: '1px solid #F1E5D8',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div
+                    {/* RECORDED BY - Easy & Simple */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      <strong
+                        style={{
+                          fontSize: 13.5,
+                          color: 'var(--erp-maroon)',
+                          display: 'block',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {creatorName}
+                      </strong>
+                      {creatorCode && (
+                        <small
                           style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #800020, #5A0619)',
-                            color: '#FFFFFF',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 13,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                            boxShadow: '0 2px 4px rgba(128,0,32,0.15)',
+                            display: 'block',
+                            fontSize: 11,
+                            color: 'var(--erp-text-muted)',
+                            marginTop: 2,
                           }}
                         >
-                          {initial}
-                        </div>
-                        <div>
-                          <strong
-                            style={{
-                              fontSize: 13.5,
-                              color: 'var(--erp-maroon)',
-                              display: 'block',
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            {creatorName}
-                          </strong>
-                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 3 }}>
-                            {creatorCode && (
-                              <span
-                                style={{
-                                  fontSize: 10.5,
-                                  fontWeight: 700,
-                                  background: '#FAF0E4',
-                                  color: '#8A5314',
-                                  padding: '1px 5px',
-                                  borderRadius: 4,
-                                  border: '1px solid #E2CCA8',
-                                }}
-                              >
-                                {creatorCode}
-                              </span>
-                            )}
-                            <span style={{ fontSize: 11, color: 'var(--erp-text-muted)' }}>
-                              {creatorRole}
-                            </span>
-                          </div>
-                          {r.created_at && (
-                            <small
-                              style={{
-                                display: 'block',
-                                fontSize: 10.5,
-                                color: '#9CA3AF',
-                                marginTop: 2,
-                              }}
-                            >
-                              Logged: {formatTime(r.created_at)}
-                            </small>
-                          )}
-                        </div>
-                      </div>
+                          {creatorCode}
+                        </small>
+                      )}
                     </td>
 
-                    {/* Status & Audit */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top' }}>
+                    {/* STATUS - Easy & Simple */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                       {isVoid ? (
                         <div>
                           <span
@@ -799,52 +734,42 @@ export function Expenses({
                               background: '#FEE2E2',
                               color: '#991B1B',
                             }}
+                            title={r.void_reason ? `Reason: ${r.void_reason}` : undefined}
                           >
-                            ● VOID
+                            Void
                           </span>
                           {r.void_by_name && (
-                            <small style={{ display: 'block', fontSize: 11, color: '#B91C1C', marginTop: 2 }}>
-                              Voided by: {r.void_by_name}
-                            </small>
-                          )}
-                          {r.void_reason && (
                             <small
                               style={{
                                 display: 'block',
                                 fontSize: 11,
-                                color: '#6B7280',
-                                fontStyle: 'italic',
-                                marginTop: 1,
+                                color: '#991B1B',
+                                marginTop: 2,
                               }}
                             >
-                              &quot;{r.void_reason}&quot;
+                              by {r.void_by_name}
                             </small>
                           )}
                         </div>
                       ) : (
-                        <div>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                              background: '#DCFCE7',
-                              color: '#166534',
-                            }}
-                          >
-                            ● POSTED
-                          </span>
-                          <small style={{ display: 'block', fontSize: 11, color: 'var(--erp-text-muted)', marginTop: 2 }}>
-                            {r.source === 'payroll' ? 'Payroll Auto' : 'Manual Entry'}
-                          </small>
-                        </div>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: 4,
+                            background: '#DCFCE7',
+                            color: '#166534',
+                          }}
+                        >
+                          Posted
+                        </span>
                       )}
                     </td>
 
                     {/* Action */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'top', textAlign: 'right' }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
                       {r.source === 'manual' && r.status === 'posted' && (
                         <button
                           type="button"
