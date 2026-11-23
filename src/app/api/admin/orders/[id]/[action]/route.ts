@@ -13,6 +13,7 @@ import {
 } from "@/lib/server";
 import { getOrder } from "@/lib/store";
 import { reconcile, reconcileRefund } from "@/lib/payments";
+import { syncOrderPieces } from "@/lib/piece-server";
 import { uuid } from "@/lib/schemas";
 export async function GET(
   _req: Request,
@@ -104,6 +105,7 @@ export async function POST(
         p_status: p.status,
         p_note: p.note,
       });
+      await syncOrderPieces(id);
     } else if (action === "confirm") {
       const p = z
         .object({
@@ -127,6 +129,7 @@ export async function POST(
         p_actor: s.user.id,
         p_reference: p.reference,
       });
+      await syncOrderPieces(id);
     } else if (action === "tracking") {
       const p = z
         .object({

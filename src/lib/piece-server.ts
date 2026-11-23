@@ -225,6 +225,9 @@ export async function syncProductStockFromPieces(
   }
 }
 
+const hasRef = (p: IndividualPiece, ref: string) =>
+  (p.sold_refs || []).some((r) => r === ref || r.startsWith(`${ref}#`));
+
 /**
  * After a POS sale (stock already reduced in the database), mark the sold
  * pieces so piece lists, labels and the website stay in step. Scanned pieces are
@@ -239,7 +242,7 @@ export async function markPiecesSold(
   for (const line of lines) {
     const pieces = map[String(line.product_id)];
     if (!pieces?.length) continue;
-    if (pieces.some((p) => p.sold_refs?.includes(saleRef))) continue;
+    if (pieces.some((p) => hasRef(p, saleRef))) continue;
     let need = Math.max(0, Math.round(line.quantity));
     const preferred = new Set((line.piece_ids || []).map((x) => x.toLowerCase()));
     const order = [
@@ -258,7 +261,7 @@ export async function markPiecesSold(
       } else {
         piece.quantity = qty - take;
       }
-      piece.sold_refs = [...(piece.sold_refs || []), saleRef].slice(-20);
+      piece.sold_refs = [...(piece.sold_refs || []), `${saleRef}#${take}`].slice(-20);
       need -= take;
       changed = true;
     }
@@ -288,4 +291,52 @@ export function generatePieceBarcode(index = 1): string {
   const padIdx = String(index % 1000).padStart(3, "0");
   const rand = Math.floor(Math.random() * 90 + 10);
   return `MSU${timestamp}${padIdx}${rand}`;
+}
+
+/**
+ * Undo markPiecesSold for a sale/order that was returned or cancelled (the
+ * database has already put the stock back). Safe to call more than once.
+ */
+export async function restorePieces(ref: string): Promise<void> {
+  const map = await getPiecesMap();
+  let changed = false;
+  for (const pieces of Object.values(map)) {
+    for (const piece of pieces) {
+      const entry = (piece.sold_refs || []).find((r) => r === ref || r.startsWith(`${ref}#`));
+      if (!entry) continue;
+      const took = Math.max(1, Number(entry.split("#")[1]) || 1);
+      if (piece.status === "sold") piece.status = "available";
+      else piece.quantity = pieceQty(piece) + took;
+      piece.sold_refs = (piece.sold_refs || []).filter((r) => r !== entry);
+      changed = true;
+    }
+  }
+  if (changed) await savePiecesMap(map);
+}
+
+/**
+ * Bring an online order's pieces in line with its stock state:
+ * consumed (paid) → mark pieces sold; released after payment (cancelled/returned) → restore.
+ * Never throws; piece records are descriptive and must not block order handling.
+ */
+export async function syncOrderPieces(orderId: string): Promise<void> {
+  try {
+    const { data: o } = await service()
+      .from("orders")
+      .select("stock_state,order_items(product_id,quantity)")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!o) return;
+    const ref = `order:${orderId}`;
+    if (o.stock_state === "consumed") {
+      await markPiecesSold(
+        ((o.order_items || []) as { product_id: string; quantity: number }[]).map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
+        ref,
+      );
+    } else if (o.stock_state === "released") {
+      await restorePieces(ref);
+    }
+  } catch (err) {
+    console.warn("syncOrderPieces failed", err);
+  }
 }

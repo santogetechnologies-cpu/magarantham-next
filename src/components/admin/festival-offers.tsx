@@ -63,6 +63,7 @@ export function FestivalOffersManager({
   const [perCustomerLimit, setPerCustomerLimit] = useState<number | string>(1);
   const [active, setActive] = useState(true);
   const [priority, setPriority] = useState<number | string>(10);
+  const [applyInPos, setApplyInPos] = useState(false);
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
 
@@ -176,6 +177,7 @@ export function FestivalOffersManager({
     setPerCustomerLimit(1);
     setActive(true);
     setPriority(10);
+    setApplyInPos(false);
     setStartsAt("");
     setEndsAt("");
     setTargetType("category");
@@ -207,6 +209,7 @@ export function FestivalOffersManager({
     setPerCustomerLimit(offer.per_customer_limit || 1);
     setActive(offer.active);
     setPriority(offer.priority || 0);
+    setApplyInPos(offer.apply_in_pos === true);
 
     // Format local datetime strings for input
     setStartsAt(
@@ -333,6 +336,7 @@ export function FestivalOffersManager({
           ends_at: endsAt ? new Date(endsAt).toISOString() : null,
           target_type: targetType,
           priority: Number(priority || 0),
+          apply_in_pos: !code.trim() && applyInPos,
         },
         targets: targetsToSave,
       });
@@ -435,10 +439,10 @@ export function FestivalOffersManager({
       <div className="ms-callout" style={{ marginBottom: 18 }}>
         <span className="ms-callout-icon" aria-hidden="true">i</span>
         <div>
-          <strong>Festival offers apply to online orders only.</strong> They are taken off at website checkout, only on the
-          categories, subcategories or sarees you target. When several automatic offers match, the customer gets the biggest one.
-          To change prices in the shop <em>and</em> online together, use{" "}
-          <a className="text-link" href="/admin/discounts">Discounts (POS + Online)</a>.
+          <strong>Choose where each offer works.</strong> Offers are taken off online checkout for the categories,
+          subcategories or sarees you target. Turn on <em>Apply in POS billing too</em> in an offer to also take it off
+          shop bills; you can switch it on or off any time by editing the offer. Coupon-code offers stay online only. When
+          several offers match, the customer gets the biggest one.
         </div>
       </div>
       {/* ------------------------------------------------------------- */}
@@ -768,6 +772,9 @@ export function FestivalOffersManager({
                         }}
                       >
                         ⭐ {o.priority}
+                      </span>
+                      <span className={`fo-channel ${!o.code && o.apply_in_pos ? "both" : ""}`}>
+                        {!o.code && o.apply_in_pos ? "POS + Online" : "Online only"}
                       </span>
                     </td>
 
@@ -1208,6 +1215,28 @@ export function FestivalOffersManager({
                         onChange={(e) => setMaxDiscountRupees(e.target.value)}
                         className="ap-input"
                       />
+                    </label>
+                  </div>
+
+                  <div className="fo-pos-toggle">
+                    <label className="ms-switch">
+                      <input
+                        type="checkbox"
+                        checked={applyInPos && !code.trim()}
+                        disabled={Boolean(code.trim())}
+                        onChange={(e) => setApplyInPos(e.target.checked)}
+                      />
+                      <span className="ms-switch-track" aria-hidden="true" />
+                      <span>
+                        <strong>Apply in POS billing too</strong>
+                        <small>
+                          {code.trim()
+                            ? "Coupon-code offers are online only. Remove the code to use this offer at the counter."
+                            : applyInPos
+                              ? "Taken off shop bills and online orders for the targeted sarees."
+                              : "Off: online orders only. Turn on to also take it off shop bills."}
+                        </small>
+                      </span>
                     </label>
                   </div>
 

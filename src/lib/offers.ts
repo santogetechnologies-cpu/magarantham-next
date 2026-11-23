@@ -30,6 +30,8 @@ export type EnhancedOffer = {
   priority: number;
   description?: string | null;
   targets?: OfferTargetRecord[];
+  /** Automatic offers only: also take this offer off POS bills. */
+  apply_in_pos?: boolean;
 };
 
 export type ProductOfferResult = {

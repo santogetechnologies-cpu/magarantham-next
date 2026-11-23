@@ -137,6 +137,7 @@ export async function getOffersWithTargets(): Promise<EnhancedOffer[]> {
 
     return {
       id: oid,
+      apply_in_pos: o.apply_in_pos === true,
       title: o.title || "Special Offer",
       code: o.code || null,
       kind: (o.kind as "percent" | "fixed") || "percent",
@@ -179,6 +180,7 @@ export async function saveOfferWithTargets(
     target_type?: OfferTargetType;
     priority?: number;
     description?: string | null;
+    apply_in_pos?: boolean;
   },
   targets: OfferTargetRecord[] = [],
 ): Promise<string> {
@@ -239,7 +241,10 @@ export async function saveOfferWithTargets(
 
   // Checkout (SQL) reads target_type/priority from the offer row and its
   // offer_targets rows, so keep them in the database as well as the JSON map.
-  await db.from("offers").update({ target_type: targetType, priority }).eq("id", offerId);
+  await db
+    .from("offers")
+    .update({ target_type: targetType, priority, apply_in_pos: Boolean(input.apply_in_pos) })
+    .eq("id", offerId);
 
   // 2. Persist extended targets in metadata map
   const targetsMap = await getTargetsMap();

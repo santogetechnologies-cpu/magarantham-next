@@ -65,6 +65,8 @@ export function POS({ profile }: { profile: Profile }) {
   const [spotOpen, setSpotOpen] = useState<string | null>(null);
   // Piece codes scanned per product, so the exact pieces are marked sold.
   const [scannedPieces, setScannedPieces] = useState<Record<string, string[]>>({});
+  // Automatic festival offer the server applied to the last quote.
+  const [offerInfo, setOfferInfo] = useState<{ paise: number; title: string }>({ paise: 0, title: '' });
   const [bills, setBills] = useState<Row[]>([]);
   const [next, setNext] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<Row | null>(null);
@@ -243,22 +245,26 @@ export function POS({ profile }: { profile: Profile }) {
   const localEstimate = useMemo(() => {
     const subtotal = rawSubtotalPaise;
     const cappedDiscount = Math.min(discount, subtotal);
-    const afterDiscount = Math.max(0, subtotal - cappedDiscount);
+    const offerPaise = Math.max(0, Math.min(offerInfo.paise, subtotal - cappedDiscount));
+    const afterDiscount = Math.max(0, subtotal - cappedDiscount - offerPaise);
     const taxBps = parsedGstPct * 100;
     const tax = Math.round((afterDiscount * taxBps) / 10000);
     return {
       subtotal_paise: subtotal,
       discount_paise: cappedDiscount,
+      offer_discount_paise: offerPaise,
+      offer_title: offerInfo.title,
       tax_paise: tax,
       total_paise: afterDiscount + tax,
     };
-  }, [rawSubtotalPaise, discount, parsedGstPct]);
+  }, [rawSubtotalPaise, discount, parsedGstPct, offerInfo]);
 
   useEffect(() => {
     const v = ++quoteVersion.current;
     if (!cart.length || !settings.enabled || Boolean(discountError)) {
       setQuote(null);
       setQuoteError('');
+      if (!cart.length) setOfferInfo({ paise: 0, title: '' });
       return;
     }
     const timer = setTimeout(() => {
@@ -266,6 +272,7 @@ export function POS({ profile }: { profile: Profile }) {
         .then((r) => {
           if (quoteVersion.current === v) {
             setQuote(r);
+            setOfferInfo({ paise: Number(r.offer_discount_paise || 0), title: String(r.offer_title || '') });
             setQuoteError('');
           }
         })
@@ -589,8 +596,8 @@ export function POS({ profile }: { profile: Profile }) {
         ? activeTenders
         : [{ method: payMode === 'split' ? 'cash' : payMode, amount_paise: total }],
       subtotal_paise: Number(activeTotals.subtotal_paise || 0),
-      discount_paise: Number(activeTotals.discount_paise || 0),
-      discount_type_label: discountTypeLabel,
+      discount_paise: Number(activeTotals.discount_paise || 0) + Number(activeTotals.offer_discount_paise || 0),
+      discount_type_label: [Number(activeTotals.offer_discount_paise || 0) > 0 ? 'Offer' : '', discountTypeLabel].filter(Boolean).join(' + '),
       tax_paise: Number(activeTotals.tax_paise || 0),
       total_paise: total,
       cash_received_paise: cashReceived,
@@ -1202,7 +1209,7 @@ export function POS({ profile }: { profile: Profile }) {
                   reference: String(f.get(`${method}_reference`) || ''),
                 }));
 
-              const savedDiscountLabel = discountTypeLabel;
+              const savedDiscountLabel = [offerInfo.paise > 0 ? 'Offer' : '', discountTypeLabel].filter(Boolean).join(' + ');
               const serverDiscountReason =
                 discount > 0
                   ? [
@@ -1469,9 +1476,15 @@ export function POS({ profile }: { profile: Profile }) {
                   <span>Subtotal ({totalPieces} pcs)</span>
                   <strong>{money(Number(activeTotals.subtotal_paise || 0))}</strong>
                 </div>
+                {Number(activeTotals.offer_discount_paise || 0) > 0 && (
+                  <div className="pos-summary-line discount pos-offer-line">
+                    <span>Festival offer{activeTotals.offer_title ? ` · ${activeTotals.offer_title}` : ''}</span>
+                    <strong>−{money(Number(activeTotals.offer_discount_paise))}</strong>
+                  </div>
+                )}
                 <div className={`pos-summary-line ${Number(activeTotals.discount_paise || 0) > 0 ? 'discount' : ''}`}>
                   <span>
-                    Discount{discountTypeLabel ? ` (${discountTypeLabel})` : ''}
+                    Counter discount{discountTypeLabel ? ` (${discountTypeLabel})` : ''}
                   </span>
                   <strong>
                     {Number(activeTotals.discount_paise || 0) > 0

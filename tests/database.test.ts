@@ -65,7 +65,7 @@ before(async () => {
   await db.exec(
     `create role anon;create role authenticated;create role service_role bypassrls;create role supabase_auth_admin;create schema auth;create schema storage;create table auth.users(id uuid primary key,email text,raw_app_meta_data jsonb default '{}',raw_user_meta_data jsonb default '{}');create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create function auth.jwt() returns jsonb language sql as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;grant usage on schema auth to authenticated;grant execute on all functions in schema auth to authenticated;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);`,
   );
-  for (const file of ["202611160001_store.sql", "202611160002_operations.sql", "202611170003_pos_payroll.sql", "202611170004_erp_schema.sql", "202611170005_erp_operations.sql", "202611170006_shared_checkout.sql", "202611170007_attendance_payroll.sql", "202611170008_erp_queries.sql", "202611170009_admin_erp_system.sql", "202611230013_discounts_banners.sql"])
+  for (const file of ["202611160001_store.sql", "202611160002_operations.sql", "202611170003_pos_payroll.sql", "202611170004_erp_schema.sql", "202611170005_erp_operations.sql", "202611170006_shared_checkout.sql", "202611170007_attendance_payroll.sql", "202611170008_erp_queries.sql", "202611170009_admin_erp_system.sql", "202611230013_discounts_banners.sql", "202611230014_pos_festival_offers.sql"])
     await db.exec(
       await readFile(
         new URL(`../supabase/migrations/${file}`, import.meta.url),

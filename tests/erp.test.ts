@@ -59,6 +59,7 @@ before(async () => {
     "202611170008_erp_queries.sql",
     "202611170009_admin_erp_system.sql",
     "202611230013_discounts_banners.sql",
+    "202611230014_pos_festival_offers.sql",
   ]) {
     await db.exec(
       await readFile(
@@ -579,4 +580,37 @@ test("Banners: responsive image, new placements and layout fields save through a
   assert.equal(b.mobile_image_path, "/assets/product-01.jpg");
   assert.equal(b.text_align, "center");
   await assert.rejects(() => scalar("select admin_save($1,'banners',$2,$3)", [superadmin, uid(), JSON.stringify({ title: "Bad", image_path: "/x.jpg", position: "sidebar" })]));
+});
+
+test("POS: automatic festival offer applies at the counter with its targets, plus capped counter discount", async () => {
+  const superadmin = await user("superadmin");
+  const cat = uid(), sub = uid(), other = uid(), otherSub = uid();
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, cat, JSON.stringify({ name: "Offer Silk", slug: `offer-silk-${cat.slice(0, 8)}`, parent_id: null, active: true })]);
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, sub, JSON.stringify({ name: "Offer Silk Sub", slug: `offer-silk-sub-${sub.slice(0, 8)}`, parent_id: cat, active: true })]);
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, other, JSON.stringify({ name: "Offer Cotton", slug: `offer-cotton-${other.slice(0, 8)}`, parent_id: null, active: true })]);
+  await scalar("select erp_save($1,'product_categories',$2,$3)", [superadmin, otherSub, JSON.stringify({ name: "Offer Cotton Sub", slug: `offer-cotton-sub-${otherSub.slice(0, 8)}`, parent_id: other, active: true })]);
+  const silk = await makeProduct(5, 100000, sub), cotton = await makeProduct(5, 100000, otherSub);
+  const offer = uid();
+  await db.query("insert into offers(id,title,kind,value,active,target_type,apply_in_pos) values($1,'Silk festival','percent',10,true,'category',false)", [offer]);
+  await db.query("insert into offer_targets(offer_id,target_type,category_id) values($1,'category',$2)", [offer, cat]);
+  const cart = JSON.stringify([{ product_id: silk, quantity: 1, unit_ids: [] }, { product_id: cotton, quantity: 1, unit_ids: [] }]);
+  // Switch off: online only, so the counter quote has no festival offer
+  assert.equal(Number((await scalar("select pos_quote($1,$2,0)", [superadmin, cart])).offer_discount_paise), 0);
+  await db.query("update offers set apply_in_pos=true where id=$1", [offer]);
+  // Subtotal 2000; offer 10% of silk only = 100; counter discount 50; tax 5% of 1850 = 92.50
+  const quote = await scalar("select pos_quote($1,$2,5000)", [superadmin, cart]);
+  assert.equal(Number(quote.offer_discount_paise), 10000);
+  assert.equal(quote.offer_title, "Silk festival");
+  assert.equal(Number(quote.total_paise), 185000 + 9250);
+  const key = uid();
+  const sale = await scalar("select pos_checkout($1,$2,$3,$4,$5,$6,$7,$8)", [
+    superadmin, key, cart, JSON.stringify({ name: "", phone: "", discount_reason: "Regular customer" }), 5000,
+    JSON.stringify([{ method: "cash", amount_paise: 194250, reference: "" }]), 194250, false,
+  ]);
+  const row = await queryOne("select discount_paise,total_paise,pricing_snapshot from pos_sales where id=$1", [sale]);
+  assert.equal(Number(row.discount_paise), 15000);
+  assert.equal(Number(row.total_paise), 194250);
+  assert.equal(Number(row.pricing_snapshot.offer_discount_paise), 10000);
+  assert.equal(Number((await queryOne("select used_count from offers where id=$1", [offer])).used_count), 1);
+  await db.query("update offers set active=false where id=$1", [offer]);
 });

@@ -647,6 +647,7 @@ export async function POST(
           target_type: offerData.target_type || "all",
           priority: Number(offerData.priority || 0),
           description: offerData.description || null,
+          apply_in_pos: offerData.apply_in_pos === true,
         },
         targets,
       );

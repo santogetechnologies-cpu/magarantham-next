@@ -1,4 +1,5 @@
 import "server-only";
+import { syncOrderPieces } from "./piece-server";
 import { Fault, service, rpc, razor } from "./server";
 export async function reconcile(
   paymentId: string,
@@ -28,7 +29,7 @@ export async function reconcile(
     payment.order_id !== o.provider_order_id
   )
     throw new Fault(409, "PAYMENT_MISMATCH");
-  return rpc("record_payment", {
+  const result = await rpc("record_payment", {
     p_order: o.id,
     p_event: event || `capture:${payment.id}`,
     p_payment: payment.id,
@@ -36,6 +37,9 @@ export async function reconcile(
     p_currency: payment.currency,
     p_method: payment.method,
   });
+  // Paid online order: mark its sarees' pieces sold (idempotent).
+  await syncOrderPieces(o.id);
+  return result;
 }
 export async function reconcileRefund(id: string, event: string) {
   if (!/^rfnd_[a-zA-Z0-9]+$/.test(id))
