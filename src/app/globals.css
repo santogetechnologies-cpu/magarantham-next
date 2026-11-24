@@ -5856,6 +5856,48 @@ body:has(.luxury-admin-shell) #main {
   background: #FEE2E2;
 }
 
+.pos-hold-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400E;
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pos-hold-btn:hover {
+  background: #FDE68A;
+  border-color: #F59E0B;
+}
+
+.pos-held-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1E40AF;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.pos-held-btn:hover {
+  background: #DBEAFE;
+  border-color: #93C5FD;
+}
+
 /* Catalogue Filters */
 .pos-filter-bar {
   display: flex;

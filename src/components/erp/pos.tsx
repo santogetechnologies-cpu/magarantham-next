@@ -23,6 +23,27 @@ type LastScanned = {
   offer?: string;
 };
 
+export type HeldBill = {
+  id: string;
+  heldAt: string;
+  holdNumber: number;
+  note?: string;
+  customerName: string;
+  customerPhone: string;
+  cart: CartLine[];
+  scannedPieces: Record<string, string[]>;
+  lineSpot: Record<string, number>;
+  discountType: 'fixed' | 'percent';
+  discountInput: string;
+  payMode: PayMode;
+  tenders: { cash: number; upi: number; card: number };
+  cashReceived: number;
+  cashReceivedEdited: boolean;
+  totalPieces: number;
+  estimatedTotalPaise: number;
+  itemSummary: string;
+};
+
 function playScanBeep(success = true) {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -90,6 +111,13 @@ export function POS({ profile }: { profile: Profile }) {
   const [savingGst, setSavingGst] = useState(false);
   const [gstInput, setGstInput] = useState('0');
 
+  // Held / Parked Bills state
+  const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
+  const [heldModalOpen, setHeldModalOpen] = useState(false);
+  const [holdPromptOpen, setHoldPromptOpen] = useState(false);
+  const [holdNoteInput, setHoldNoteInput] = useState('');
+  const [conflictHeldBill, setConflictHeldBill] = useState<HeldBill | null>(null);
+
   const { busy, send, notice } = useERP();
   const scannerRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
@@ -98,6 +126,30 @@ export function POS({ profile }: { profile: Profile }) {
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gstEditingRef = useRef(false);
+
+  const HELD_STORAGE_KEY = 'ms_pos_held_bills';
+
+  // Load held bills from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HELD_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setHeldBills(parsed);
+      }
+    } catch (e) {
+      console.error('Failed to load held bills from storage:', e);
+    }
+  }, []);
+
+  function persistHeldBills(list: HeldBill[]) {
+    setHeldBills(list);
+    try {
+      localStorage.setItem(HELD_STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.error('Failed to save held bills to storage:', e);
+    }
+  }
 
   async function load() {
     try {
@@ -146,6 +198,17 @@ export function POS({ profile }: { profile: Profile }) {
     let lastKeyTime = 0;
 
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'F4' || (e.altKey && (e.key === 'h' || e.key === 'H'))) {
+        e.preventDefault();
+        handleOpenHoldModal();
+        return;
+      }
+      if (e.key === 'F2' || (e.altKey && (e.key === 'r' || e.key === 'R'))) {
+        e.preventDefault();
+        setHeldModalOpen(true);
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -668,6 +731,187 @@ export function POS({ profile }: { profile: Profile }) {
     scannerRef.current?.focus();
   }
 
+  function handleOpenHoldModal() {
+    if (cart.length === 0) {
+      notice('No items in the current bill to hold.');
+      return;
+    }
+    setHoldNoteInput(customerName.trim() ? `Customer: ${customerName.trim()}` : '');
+    setHoldPromptOpen(true);
+  }
+
+  function handleConfirmHold(customNote?: string) {
+    if (cart.length === 0) return;
+    const now = new Date();
+    const nextHoldNumber =
+      (heldBills.length > 0
+        ? Math.max(...heldBills.map((b) => b.holdNumber || 0))
+        : 0) + 1;
+
+    const summary = cart
+      .map((l) => {
+        const p = catalog.find((item) => item.id === l.product_id);
+        return `${p?.name || 'Saree'} (${l.quantity})`;
+      })
+      .join(', ');
+
+    const finalNote = customNote !== undefined ? customNote.trim() : holdNoteInput.trim();
+
+    const newHeldBill: HeldBill = {
+      id: `HOLD-${Date.now()}`,
+      heldAt: now.toISOString(),
+      holdNumber: nextHoldNumber,
+      note: finalNote || (customerName.trim() ? `Customer: ${customerName.trim()}` : `Walk-in Hold #${nextHoldNumber}`),
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      cart: [...cart],
+      scannedPieces: { ...scannedPieces },
+      lineSpot: { ...lineSpot },
+      discountType,
+      discountInput,
+      payMode,
+      tenders: { ...tenders },
+      cashReceived,
+      cashReceivedEdited,
+      totalPieces,
+      estimatedTotalPaise: total,
+      itemSummary: summary,
+    };
+
+    const nextList = [newHeldBill, ...heldBills];
+    persistHeldBills(nextList);
+    clearBill();
+    setHoldPromptOpen(false);
+    setHoldNoteInput('');
+    playScanBeep(true);
+    notice(`✓ Bill #${newHeldBill.holdNumber} placed on hold (${newHeldBill.totalPieces} items · ${money(newHeldBill.estimatedTotalPaise)}).`);
+    scannerRef.current?.focus();
+  }
+
+  function handleInitiateResume(bill: HeldBill) {
+    if (cart.length > 0) {
+      setConflictHeldBill(bill);
+      return;
+    }
+    doResumeBill(bill);
+  }
+
+  function doResumeBill(bill: HeldBill) {
+    setCart(bill.cart || []);
+    setScannedPieces(bill.scannedPieces || {});
+    setLineSpot(bill.lineSpot || {});
+    setDiscountType(bill.discountType || 'fixed');
+    setDiscountInput(bill.discountInput || '');
+    setCustomerName(bill.customerName || '');
+    setCustomerPhone(bill.customerPhone || '');
+    setPayMode(bill.payMode || 'cash');
+    setTenders(bill.tenders || { cash: 0, upi: 0, card: 0 });
+    setCashReceived(bill.cashReceived || 0);
+    setCashReceivedEdited(Boolean(bill.cashReceivedEdited));
+
+    const nextList = heldBills.filter((b) => b.id !== bill.id);
+    persistHeldBills(nextList);
+
+    setHeldModalOpen(false);
+    setConflictHeldBill(null);
+    playScanBeep(true);
+    notice(`✓ Bill #${bill.holdNumber} recalled back to register.`);
+    scannerRef.current?.focus();
+  }
+
+  function handleHoldCurrentAndResume(billToResume: HeldBill) {
+    const now = new Date();
+    const nextHoldNumber =
+      (heldBills.length > 0
+        ? Math.max(...heldBills.map((b) => b.holdNumber || 0))
+        : 0) + 1;
+
+    const summary = cart
+      .map((l) => {
+        const p = catalog.find((item) => item.id === l.product_id);
+        return `${p?.name || 'Saree'} (${l.quantity})`;
+      })
+      .join(', ');
+
+    const currentParked: HeldBill = {
+      id: `HOLD-${Date.now()}`,
+      heldAt: now.toISOString(),
+      holdNumber: nextHoldNumber,
+      note: customerName.trim() ? `Customer: ${customerName.trim()}` : `Walk-in Hold #${nextHoldNumber}`,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      cart: [...cart],
+      scannedPieces: { ...scannedPieces },
+      lineSpot: { ...lineSpot },
+      discountType,
+      discountInput,
+      payMode,
+      tenders: { ...tenders },
+      cashReceived,
+      cashReceivedEdited,
+      totalPieces,
+      estimatedTotalPaise: total,
+      itemSummary: summary,
+    };
+
+    const nextList = [currentParked, ...heldBills.filter((b) => b.id !== billToResume.id)];
+    persistHeldBills(nextList);
+
+    setCart(billToResume.cart || []);
+    setScannedPieces(billToResume.scannedPieces || {});
+    setLineSpot(billToResume.lineSpot || {});
+    setDiscountType(billToResume.discountType || 'fixed');
+    setDiscountInput(billToResume.discountInput || '');
+    setCustomerName(billToResume.customerName || '');
+    setCustomerPhone(billToResume.customerPhone || '');
+    setPayMode(billToResume.payMode || 'cash');
+    setTenders(billToResume.tenders || { cash: 0, upi: 0, card: 0 });
+    setCashReceived(billToResume.cashReceived || 0);
+    setCashReceivedEdited(Boolean(billToResume.cashReceivedEdited));
+
+    setHeldModalOpen(false);
+    setConflictHeldBill(null);
+    playScanBeep(true);
+    notice(`✓ Current bill parked as Hold #${currentParked.holdNumber}. Bill #${billToResume.holdNumber} resumed!`);
+    scannerRef.current?.focus();
+  }
+
+  function handleDiscardCurrentAndResume(billToResume: HeldBill) {
+    doResumeBill(billToResume);
+  }
+
+  function handleDeleteHeldBill(id: string, holdNum: number) {
+    if (!window.confirm(`Are you sure you want to discard Held Bill #${holdNum}?`)) {
+      return;
+    }
+    const nextList = heldBills.filter((b) => b.id !== id);
+    persistHeldBills(nextList);
+    notice(`Held Bill #${holdNum} discarded.`);
+  }
+
+  function formatRelativeTime(iso: string) {
+    try {
+      const diffMs = Date.now() - new Date(iso).getTime();
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+
+      const timeStr = new Date(iso).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      if (diffMin < 1) return `Just now (${timeStr})`;
+      if (diffMin === 1) return `1 min ago (${timeStr})`;
+      if (diffMin < 60) return `${diffMin} mins ago (${timeStr})`;
+      if (diffHour === 1) return `1 hr ago (${timeStr})`;
+      return `${diffHour} hrs ago (${timeStr})`;
+    } catch {
+      return '';
+    }
+  }
+
   function selectPayMode(mode: PayMode) {
     setPayMode(mode);
     setCashReceivedEdited(false);
@@ -796,6 +1040,39 @@ export function POS({ profile }: { profile: Profile }) {
           )}
         </div>
         <div className="pos-status-right">
+          {/* Quick Held Bills Button */}
+          <button
+            type="button"
+            className="button outline-btn mini-btn"
+            onClick={() => setHeldModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: heldBills.length > 0 ? '#FEF3C7' : undefined,
+              borderColor: heldBills.length > 0 ? '#D97706' : undefined,
+              color: heldBills.length > 0 ? '#92400E' : undefined,
+              fontWeight: heldBills.length > 0 ? 700 : undefined,
+            }}
+            title="View and resume parked / held bills (Shortcut: F2 or Alt+R)"
+          >
+            <span>⏸ Held Bills</span>
+            {heldBills.length > 0 && (
+              <span
+                style={{
+                  background: '#D97706',
+                  color: '#FFF',
+                  borderRadius: '999px',
+                  padding: '1px 7px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  lineHeight: 1.3,
+                }}
+              >
+                {heldBills.length}
+              </span>
+            )}
+          </button>
           {!settings.enabled && profile.role === 'superadmin' && (
             <button
               type="button"
@@ -1057,16 +1334,39 @@ export function POS({ profile }: { profile: Profile }) {
                   : `${cart.length} ${cart.length === 1 ? 'style' : 'styles'} · ${totalPieces} ${totalPieces === 1 ? 'piece' : 'pieces'}`}
               </p>
             </div>
-            {cart.length > 0 && (
-              <button
-                type="button"
-                className="pos-clear-btn"
-                disabled={busy}
-                onClick={clearBill}
-              >
-                Clear Bill
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {heldBills.length > 0 && (
+                <button
+                  type="button"
+                  className="pos-held-btn"
+                  onClick={() => setHeldModalOpen(true)}
+                  title="View and resume held bills (Shortcut: F2)"
+                >
+                  <span>⏸ Held ({heldBills.length})</span>
+                </button>
+              )}
+              {cart.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="pos-hold-btn"
+                    disabled={busy}
+                    onClick={handleOpenHoldModal}
+                    title="Park / Hold current bill to serve next customer (Shortcut: F4)"
+                  >
+                    <span>⏸ Hold Bill</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="pos-clear-btn"
+                    disabled={busy}
+                    onClick={clearBill}
+                  >
+                    Clear Bill
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Itemized Bill Lines WITH Live Unit Price & Line Total */}
@@ -1743,6 +2043,22 @@ export function POS({ profile }: { profile: Profile }) {
                 🖨 Print Bill
               </button>
               <button
+                type="button"
+                className="button outline-btn"
+                disabled={cart.length === 0 || busy}
+                onClick={handleOpenHoldModal}
+                style={{
+                  background: '#FEF3C7',
+                  borderColor: '#FCD34D',
+                  color: '#92400E',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+                title="Park this bill temporarily to ring up another customer (Shortcut: F4)"
+              >
+                ⏸ Hold Bill
+              </button>
+              <button
                 type="submit"
                 className="button gold-btn pos-complete-btn"
                 disabled={!canComplete}
@@ -2059,6 +2375,334 @@ export function POS({ profile }: { profile: Profile }) {
           </div>
         )}
       </section>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 1. HOLD BILL PROMPT MODAL                                     */}
+      {/* ------------------------------------------------------------- */}
+      {holdPromptOpen && (
+        <div className="cat-modal-backdrop" onClick={() => setHoldPromptOpen(false)}>
+          <div
+            className="cat-modal-card"
+            style={{ maxWidth: 480 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cat-modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                <span>⏸</span>
+                <span>Hold Current Bill</span>
+              </h2>
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setHoldPromptOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleConfirmHold(holdNoteInput);
+              }}
+              style={{ padding: '20px 24px' }}
+            >
+              <p style={{ margin: '0 0 16px', color: '#555', fontSize: 13.5, lineHeight: 1.5 }}>
+                Park this bill temporarily to attend to the next customer. You can recall and complete it anytime.
+              </p>
+
+              {/* Bill Summary Banner */}
+              <div
+                style={{
+                  background: '#FAF5EE',
+                  border: '1px solid #EAD5C0',
+                  borderRadius: 8,
+                  padding: '12px 16px',
+                  marginBottom: 18,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, color: '#666' }}>Bill Items</div>
+                  <strong style={{ color: '#800020', fontSize: 14 }}>
+                    {totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'} ({cart.length} {cart.length === 1 ? 'style' : 'styles'})
+                  </strong>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12, color: '#666' }}>Estimated Total</div>
+                  <strong style={{ color: '#800020', fontSize: 18 }}>{money(total)}</strong>
+                </div>
+              </div>
+
+              {/* Note / Customer Label Input */}
+              <label className="ap-field" style={{ marginBottom: 20 }}>
+                <span className="ap-label" style={{ fontWeight: 700, color: '#444' }}>
+                  Hold Note / Customer Label <small style={{ fontWeight: 400, color: '#888' }}>(Optional)</small>
+                </span>
+                <input
+                  type="text"
+                  autoFocus
+                  value={holdNoteInput}
+                  onChange={(e) => setHoldNoteInput(e.target.value)}
+                  placeholder="e.g. Went to ATM, Choosing matching blouse, Saree table 3..."
+                  className="ap-input"
+                  style={{ height: 40, fontSize: 13.5 }}
+                />
+                <small style={{ color: '#888', marginTop: 4, display: 'block' }}>
+                  Press Enter to hold immediately or type a quick reference note.
+                </small>
+              </label>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  onClick={() => setHoldPromptOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button gold-btn"
+                  style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>⏸</span>
+                  <span>Hold Bill (Enter)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* 2. HELD BILLS LIST MODAL / DRAWER                             */}
+      {/* ------------------------------------------------------------- */}
+      {heldModalOpen && (
+        <div className="cat-modal-backdrop" onClick={() => setHeldModalOpen(false)}>
+          <div
+            className="cat-modal-card"
+            style={{ maxWidth: 680, width: '95%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cat-modal-header">
+              <div>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                  <span>⏸</span>
+                  <span>Held Bills (Parked Orders)</span>
+                </h2>
+                <span style={{ fontSize: 12, color: '#777', marginTop: 2, display: 'block' }}>
+                  {heldBills.length === 0
+                    ? 'No bills currently on hold'
+                    : `${heldBills.length} ${heldBills.length === 1 ? 'bill' : 'bills'} waiting to be recalled`}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setHeldModalOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '16px 20px', maxHeight: '68vh', overflowY: 'auto' }}>
+              {heldBills.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <span style={{ fontSize: 44, display: 'block', marginBottom: 12, opacity: 0.6 }}>⏸</span>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: '#800020', margin: '0 0 6px' }}>
+                    No bills currently on hold
+                  </p>
+                  <p style={{ fontSize: 13, color: '#666', maxWidth: 380, margin: '0 auto' }}>
+                    When a customer steps away or is picking another saree, click <strong>"Hold Bill"</strong> to temporarily park their items and ring up the next customer.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {heldBills.map((b) => (
+                    <div
+                      key={b.id}
+                      style={{
+                        background: '#FFFDF9',
+                        border: '1px solid #EAD5C0',
+                        borderRadius: 10,
+                        padding: '14px 16px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                      }}
+                    >
+                      {/* Top line: Hold Badge, Note, and Time */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
+                            style={{
+                              background: '#FEF3C7',
+                              color: '#92400E',
+                              border: '1px solid #FCD34D',
+                              borderRadius: 6,
+                              padding: '2px 8px',
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            Hold #{b.holdNumber}
+                          </span>
+                          <strong style={{ color: '#800020', fontSize: 14 }}>
+                            {b.note || `Hold #${b.holdNumber}`}
+                          </strong>
+                        </div>
+                        <span style={{ fontSize: 11.5, color: '#888' }}>
+                          🕒 {formatRelativeTime(b.heldAt)}
+                        </span>
+                      </div>
+
+                      {/* Middle line: Customer details & Items preview */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ flex: '1 1 300px' }}>
+                          <div style={{ fontSize: 12.5, color: '#333', marginBottom: 4 }}>
+                            👤 <strong>{b.customerName || 'Walk-in customer'}</strong>
+                            {b.customerPhone && (
+                              <span style={{ color: '#666', marginLeft: 8 }}>· 📞 {b.customerPhone}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#666', lineHeight: 1.4 }}>
+                            🛍️ <strong>{b.totalPieces} {b.totalPieces === 1 ? 'piece' : 'pieces'}:</strong>{' '}
+                            <span style={{ color: '#555' }}>{b.itemSummary}</span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Bill Amount
+                          </div>
+                          <strong style={{ fontSize: 18, color: '#800020' }}>
+                            {money(b.estimatedTotalPaise)}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {/* Bottom line: Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8, borderTop: '1px dashed #EAD5C0' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHeldBill(b.id, b.holdNumber)}
+                          style={{
+                            background: '#FEF2F2',
+                            border: '1px solid #FECACA',
+                            color: '#B91C1C',
+                            borderRadius: 6,
+                            padding: '6px 12px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                          title="Discard this held bill"
+                        >
+                          <span>🗑️</span>
+                          <span>Discard</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateResume(b)}
+                          className="button gold-btn"
+                          style={{
+                            padding: '6px 16px',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                          title="Load this bill back into the register"
+                        >
+                          <span>▶</span>
+                          <span>Recall / Resume Bill</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #EAD5C0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAF5EE' }}>
+              <small style={{ color: '#777' }}>
+                💡 Held bills remain safely saved until you recall or discard them.
+              </small>
+              <button
+                type="button"
+                className="button outline-btn mini-btn"
+                onClick={() => setHeldModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* 3. CONFLICT RECALL MODAL                                      */}
+      {/* ------------------------------------------------------------- */}
+      {conflictHeldBill && (
+        <div className="cat-modal-backdrop" onClick={() => setConflictHeldBill(null)}>
+          <div className="cat-modal-card" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <div className="cat-modal-header">
+              <h2 style={{ color: '#800020', margin: 0, fontSize: 18 }}>⚠️ Active Bill in Progress</h2>
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setConflictHeldBill(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <p style={{ margin: '0 0 12px', color: '#333', fontSize: 13.5, lineHeight: 1.5 }}>
+                The register already contains <strong>{cart.length} item(s)</strong> ({money(total)}) for the current customer.
+              </p>
+              <p style={{ margin: '0 0 20px', color: '#666', fontSize: 13 }}>
+                What would you like to do before recalling <strong>Hold #{conflictHeldBill.holdNumber}</strong>?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  type="button"
+                  className="button gold-btn"
+                  style={{ fontWeight: 700, padding: '10px 16px' }}
+                  onClick={() => handleHoldCurrentAndResume(conflictHeldBill)}
+                >
+                  ⏸ Hold Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
+                </button>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  style={{ color: '#B91C1C', borderColor: '#FECACA', background: '#FEF2F2', padding: '9px 16px' }}
+                  onClick={() => handleDiscardCurrentAndResume(conflictHeldBill)}
+                >
+                  🗑 Discard Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
+                </button>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  style={{ padding: '8px 16px' }}
+                  onClick={() => setConflictHeldBill(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
