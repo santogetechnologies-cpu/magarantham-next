@@ -23,7 +23,8 @@ create index if not exists idx_offer_targets_offer on public.offer_targets(offer
 create index if not exists idx_offer_targets_cat on public.offer_targets(category_id) where category_id is not null;
 create index if not exists idx_offer_targets_subcat on public.offer_targets(subcategory_id) where subcategory_id is not null;
 create index if not exists idx_offer_targets_product on public.offer_targets(product_id) where product_id is not null;
-create index if not exists idx_offers_priority on public.offers(priority desc, created_at desc);
+-- offers has no created_at column here (added in 013); index on priority only so this migration can run.
+create index if not exists idx_offers_priority on public.offers(priority desc);
 
 -- 4. RLS policies for offer_targets
 alter table public.offer_targets enable row level security;

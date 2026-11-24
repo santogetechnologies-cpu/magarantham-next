@@ -2025,3 +2025,51 @@ body:has(.luxury-admin-shell) {
   white-space: nowrap;
 }
 .fo-channel.both { background: var(--ms-green-bg); color: var(--ms-green); }
+
+/* ==========================================================================
+   PURCHASES
+   ========================================================================== */
+.pu-head-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.pu-head-grid .pu-note { grid-column: 1 / -1; }
+.pu-small-link { font-size: 12px !important; align-self: flex-start; }
+.pu-picker { position: relative; }
+.luxury-admin-shell .pu-picker input { width: 100%; }
+.pu-picker-list {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 280px; overflow-y: auto; list-style: none; margin: 0; padding: 6px;
+  background: #fff; border: 1px solid var(--ms-line); border-radius: 12px; box-shadow: var(--ms-shadow-3);
+  animation: ms-pop 0.16s var(--ms-ease) both;
+}
+.pu-picker-list button { width: 100%; display: flex; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 8px; text-align: left; }
+.pu-picker-list button:hover { background: var(--ms-brand-50); }
+.pu-picker-list img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+.pu-picker-list span { display: flex; flex-direction: column; min-width: 0; }
+.pu-picker-list strong { font-size: 13px; color: var(--ms-ink); }
+.pu-picker-list small { font-size: 11.5px; color: var(--ms-muted); }
+.luxury-admin-shell input.pu-num { width: 96px; min-height: 34px !important; padding: 4px 8px !important; }
+.luxury-admin-shell input.pu-tax { width: 72px; }
+.pu-foot { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+.pu-total { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
+.pu-total span { font-size: 12px; color: var(--ms-muted); }
+.pu-total strong { font-size: 20px; color: var(--ms-brand); font-variant-numeric: tabular-nums; }
+.pu-sub { display: block; font-size: 11.5px; color: var(--ms-muted); font-weight: 500; }
+.pu-progress { width: 90px; height: 6px; border-radius: 999px; background: var(--ms-surface-2); border: 1px solid var(--ms-line); overflow: hidden; margin-bottom: 3px; }
+.pu-progress i { display: block; height: 100%; background: var(--ms-green); border-radius: 999px; transition: width 0.4s var(--ms-ease); }
+.pu-credit { color: var(--ms-green); font-weight: 700; }
+.pu-receive { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; padding: 14px; border-radius: var(--ms-r); background: var(--ms-surface-2); border: 1px solid var(--ms-line); }
+.luxury-admin-shell .pu-note-input { flex: 1 1 220px; }
+.pu-hint { flex-basis: 100%; margin: 0; }
+.pu-pay { margin-top: 14px; padding: 14px; border-radius: var(--ms-r); border: 1px solid var(--ms-line); display: grid; gap: 10px; }
+.pu-pay-head { display: flex; justify-content: space-between; align-items: baseline; }
+.pu-pay-head span { font-size: 20px; font-weight: 700; color: var(--ms-brand); font-variant-numeric: tabular-nums; }
+.pu-pay-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pu-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.luxury-admin-shell .pu-toolbar input[type="search"] { flex: 1 1 240px; width: auto; }
+.luxury-admin-shell .pu-toolbar select { width: auto; flex: 0 1 200px; }
+@media (max-width: 900px) {
+  .pu-head-grid, .pu-pay-grid { grid-template-columns: 1fr; }
+}
+/* Let the saree search dropdown escape the lines table */
+.luxury-admin-shell .table-responsive-wrapper.pu-lines { overflow: visible !important; }
+@media (max-width: 900px) { .luxury-admin-shell .table-responsive-wrapper.pu-lines { overflow-x: auto !important; } .pu-picker-list { position: static; } }
+.pu-pay > button { justify-self: start; }

@@ -211,7 +211,7 @@ export async function rows(
   return result;
 }
 
-export async function posProducts() {
+export async function posProducts(includeCost = false) {
   const data = await rows('store_catalogue', '*', {
     archived: false,
   });
@@ -230,6 +230,8 @@ export async function posProducts() {
       subcategory_name: p.subcategory_name ? String(p.subcategory_name) : undefined,
       pieces: prodPieces, // retain full admin pieces including purchase cost & location
       category_visible: p.category_visible !== false,
+      // Cost price only for people who manage purchases (never billing staff).
+      ...(includeCost ? { purchase_price_paise: Number(p.purchase_price_paise || 0) } : {}),
     };
   });
 }
@@ -237,7 +239,7 @@ export async function posProducts() {
 export async function erpReferences(profile: Profile) {
   const data: Record<string, unknown> = {};
   if (['catalogue', 'inventory', 'pos', 'purchases'].some((c) => can(profile, c)) || profile.role === 'superadmin') {
-    data.products = await posProducts();
+    data.products = await posProducts(can(profile, 'purchases'));
     data.categories = await rows('product_categories');
   }
   if (can(profile, 'purchases')) data.suppliers = await rows('suppliers');

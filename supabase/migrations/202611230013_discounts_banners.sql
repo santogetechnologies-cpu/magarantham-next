@@ -127,6 +127,8 @@ grant execute on function public.payroll_finalize(uuid,uuid,text,text,text,boole
 --    Line prices are still private.product_price(), i.e. the shared POS + online
 --    catalogue discount, so the storefront, POS and checkout agree.
 -- ---------------------------------------------------------------------------
+-- The app lists offers newest first; the original table had no created_at column.
+alter table public.offers add column if not exists created_at timestamptz not null default now();
 alter table public.offers add column if not exists target_type text not null default 'all';
 alter table public.offers add column if not exists priority int not null default 0;
 create table if not exists public.offer_targets (

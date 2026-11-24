@@ -89,6 +89,7 @@ export function POS({ profile }: { profile: Profile }) {
   const scannerRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
   const quoteVersion = useRef(0);
+  const prefsApplied = useRef(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gstEditingRef = useRef(false);
@@ -99,6 +100,11 @@ export function POS({ profile }: { profile: Profile }) {
       setCatalog(data.products || []);
       const nextSettings = data.settings || {};
       setSettings(nextSettings);
+      if (!prefsApplied.current) {
+        prefsApplied.current = true;
+        if (['cash', 'upi', 'card'].includes(nextSettings.default_pay_mode)) setPayMode(nextSettings.default_pay_mode);
+        if (typeof nextSettings.auto_print === 'boolean') setAutoPrint(nextSettings.auto_print);
+      }
       if (!gstEditingRef.current) {
         setGstInput(String(Math.round(Number(nextSettings.tax_bps || 0) / 100)));
       }
@@ -638,7 +644,7 @@ export function POS({ profile }: { profile: Profile }) {
     setScannedPieces({});
     setCustomerName('');
     setCustomerPhone('');
-    setPayMode('cash');
+    setPayMode(['cash', 'upi', 'card'].includes(settings.default_pay_mode) ? settings.default_pay_mode : 'cash');
     setTenders({ cash: 0, upi: 0, card: 0 });
     setCashReceived(0);
     setCashReceivedEdited(false);
@@ -1089,7 +1095,7 @@ export function POS({ profile }: { profile: Profile }) {
                         <div className="pos-spot-pop" role="dialog" aria-label="Spot discount">
                           <span>Spot discount on this saree</span>
                           <div className="ms-chips">
-                            {[0, 5, 10, 15, 20, 25].map((v) => (
+                            {[0, ...(Array.isArray(settings.spot_discount_options) ? settings.spot_discount_options : [5, 10, 15, 20, 25])].map((v: number) => (
                               <button
                                 type="button"
                                 key={v}
@@ -1269,13 +1275,16 @@ export function POS({ profile }: { profile: Profile }) {
                   />
                 </label>
                 <label className="input-group">
-                  <span>Mobile Number</span>
+                  <span>Mobile Number{settings.require_customer_phone ? ' *' : ''}</span>
                   <input
                     name="customer_phone"
                     maxLength={25}
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="+91 98765 43210"
+                    required={Boolean(settings.require_customer_phone)}
+                    pattern={settings.require_customer_phone ? '[0-9+ -]{10,25}' : undefined}
+                    title={settings.require_customer_phone ? 'Enter the customer mobile number (at least 10 digits)' : undefined}
                   />
                 </label>
               </div>
@@ -1360,7 +1369,7 @@ export function POS({ profile }: { profile: Profile }) {
 
               <div className="pos-quick-discount">
                 <span>Quick:</span>
-                {[5, 10, 15].map((v) => (
+                {(Array.isArray(settings.bill_discount_options) ? settings.bill_discount_options : [5, 10, 15]).map((v: number) => (
                   <button
                     type="button"
                     key={v}
@@ -1373,7 +1382,7 @@ export function POS({ profile }: { profile: Profile }) {
                     {v}% off bill
                   </button>
                 ))}
-                {[10, 100].map((step) => {
+                {(Array.isArray(settings.round_off_options) ? settings.round_off_options : [10, 100]).map((step: number) => {
                   const afterSpot = rawSubtotalPaise - spotTotalPaise;
                   const roundOff = afterSpot % (step * 100);
                   return (

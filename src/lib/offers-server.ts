@@ -117,13 +117,17 @@ export async function saveTargetsMap(
  */
 export async function getOffersWithTargets(): Promise<EnhancedOffer[]> {
   const db = service();
-  const [offersRes, targetsMap] = await Promise.all([
+  const [firstRes, targetsMap] = await Promise.all([
     db
       .from("offers")
       .select("*")
       .order("created_at", { ascending: false }),
     getTargetsMap(),
   ]);
+  // Databases without offers.created_at (before migration 013) must still list offers.
+  const offersRes = firstRes.error
+    ? await db.from("offers").select("*").order("id")
+    : firstRes;
 
   const rawOffers = (offersRes.data || []) as Record<string, any>[];
 

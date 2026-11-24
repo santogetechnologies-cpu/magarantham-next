@@ -132,7 +132,8 @@ export function ERPRecords({
                         ? 0
                         : f.type === 'components' ||
                             f.type === 'tiers' ||
-                            f.type === 'weekdays'
+                            f.type === 'weekdays' ||
+                            f.type === 'numbers'
                           ? []
                           : ''),
               ]),

@@ -60,6 +60,7 @@ before(async () => {
     "202611170009_admin_erp_system.sql",
     "202611230013_discounts_banners.sql",
     "202611230014_pos_festival_offers.sql",
+    "202611240015_pos_customisation.sql",
   ]) {
     await db.exec(
       await readFile(
@@ -613,4 +614,25 @@ test("POS: automatic festival offer applies at the counter with its targets, plu
   assert.equal(Number(row.pricing_snapshot.offer_discount_paise), 10000);
   assert.equal(Number((await queryOne("select used_count from offers where id=$1", [offer])).used_count), 1);
   await db.query("update offers set active=false where id=$1", [offer]);
+});
+
+test("POS settings: discount buttons, round-off, payment default and phone rule save and validate", async () => {
+  const superadmin = await user("superadmin");
+  const base = { enabled: true, business_name: "Shop", business_english: "SHOP", address: "", phone: "", gstin: "", invoice_prefix: "MS-POS", receipt_footer: "Thanks", tax_bps: 500, max_discount_bps: 2000, paper_mm: 80 };
+  await scalar("select erp_save($1,'pos_settings',null,$2)", [superadmin, JSON.stringify({ ...base, spot_discount_options: [3, 7, 12], bill_discount_options: [], round_off_options: [50], default_pay_mode: "upi", auto_print: false, require_customer_phone: true })]);
+  let s = await queryOne("select * from pos_settings where id");
+  assert.deepEqual(s.spot_discount_options, [3, 7, 12]);
+  assert.deepEqual(s.bill_discount_options, []);
+  assert.deepEqual(s.round_off_options, [50]);
+  assert.equal(s.default_pay_mode, "upi");
+  assert.equal(s.auto_print, false);
+  assert.equal(s.require_customer_phone, true);
+  // Older clients that do not send the new fields keep the saved values
+  await scalar("select erp_save($1,'pos_settings',null,$2)", [superadmin, JSON.stringify({ ...base, tax_bps: 0 })]);
+  s = await queryOne("select * from pos_settings where id");
+  assert.deepEqual(s.spot_discount_options, [3, 7, 12]);
+  assert.equal(s.default_pay_mode, "upi");
+  // Out-of-range values are rejected by the database
+  await assert.rejects(() => scalar("select erp_save($1,'pos_settings',null,$2)", [superadmin, JSON.stringify({ ...base, spot_discount_options: [95] })]));
+  await scalar("select erp_save($1,'pos_settings',null,$2)", [superadmin, JSON.stringify({ ...base, enabled: true, tax_bps: 500, max_discount_bps: 2000 })]);
 });
