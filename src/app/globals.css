@@ -5973,6 +5973,44 @@ body:has(.luxury-admin-shell) #main {
   font-weight: 700;
 }
 
+/* Signature maroon button design matching topbar + Add saree */
+.pos-btn-maroon,
+.ms-btn-primary {
+  background: linear-gradient(180deg, #8f1a3b 0%, #7a1230 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid #6d0f2a !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px rgba(94, 12, 36, 0.3), 0 4px 12px -4px rgba(122, 18, 48, 0.5) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+
+.pos-btn-maroon:hover:not(:disabled),
+.ms-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #9d2045 0%, #841537 100%) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 2px 4px rgba(94, 12, 36, 0.3), 0 8px 20px -6px rgba(122, 18, 48, 0.55) !important;
+  transform: translateY(-1px) !important;
+  color: #FFFFFF !important;
+}
+
+.pos-btn-maroon:active:not(:disabled),
+.ms-btn-primary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985) !important;
+}
+
+.pos-btn-maroon:disabled,
+.ms-btn-primary:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
 /* Product Picker Modal */
 .pos-picker-modal {
   max-width: 860px;

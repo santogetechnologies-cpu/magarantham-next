@@ -1384,10 +1384,11 @@ export function POS({ profile }: { profile: Profile }) {
         </div>
         <button
           type="submit"
-          className="button gold-btn pos-scan-submit"
+          className="ms-btn ms-btn-primary pos-scan-submit"
           disabled={scanning || !barcodeInput.trim()}
         >
-          {scanning ? 'Scanning…' : '+ Add Scanned Item'}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          <span>{scanning ? 'Scanning…' : 'Add Scanned Item'}</span>
         </button>
       </form>
 
@@ -1468,23 +1469,17 @@ export function POS({ profile }: { profile: Profile }) {
                 <span>⏸ Hold Bill</span>
               </button>
 
-              {/* Manual Add Product button */}
+              {/* Manual Add Saree button matching topbar design */}
               <button
                 type="button"
-                className="button gold-btn mini-btn"
+                className="ms-btn ms-btn-primary ms-btn-sm"
                 onClick={() => setManualPickerOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontWeight: 700,
-                  padding: '7px 14px',
-                  fontSize: '13px',
-                }}
                 title="Search and pick saree from full catalogue (Shortcut: F3)"
               >
-                <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
-                <span>Add Product</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span>Add saree</span>
               </button>
 
               {cart.length > 0 && (
@@ -1630,11 +1625,12 @@ export function POS({ profile }: { profile: Profile }) {
                               <span className="pos-manual-item-price">{money(price)}</span>
                               <button
                                 type="button"
-                                className="button gold-btn mini-btn"
+                                className="ms-btn ms-btn-primary ms-btn-sm"
                                 disabled={isOutOfStock}
-                                style={{ padding: '4px 10px', fontSize: '12px' }}
+                                style={{ height: '28px', padding: '0 10px', fontSize: '11.5px' }}
                               >
-                                + Add
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                                <span>Add saree</span>
                               </button>
                             </div>
                           </div>
@@ -1656,7 +1652,7 @@ export function POS({ profile }: { profile: Profile }) {
             {/* Direct modal trigger button from search bar */}
             <button
               type="button"
-              className="button outline-btn mini-btn"
+              className="ms-btn ms-btn-soft ms-btn-sm"
               onClick={() => setManualPickerOpen(true)}
               style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               title="Browse complete saree catalogue in a full window"
@@ -1867,24 +1863,24 @@ export function POS({ profile }: { profile: Profile }) {
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
                           <button
                             type="button"
-                            className="button gold-btn mini-btn"
+                            className="ms-btn ms-btn-primary ms-btn-sm"
                             onClick={() => setManualPickerOpen(true)}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                            style={{ height: '36px', padding: '0 16px', fontSize: '13px' }}
                           >
-                            <span>+</span>
-                            <span>Add Product from Catalogue</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                            <span>Add saree</span>
                           </button>
                           <button
                             type="button"
-                            className="button outline-btn mini-btn"
+                            className="ms-btn ms-btn-soft ms-btn-sm"
                             onClick={() => {
                               manualSearchRef.current?.focus();
                               setManualDropdownOpen(true);
                             }}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
                           >
                             <span>🔍</span>
-                            <span>Search Product (F3)</span>
+                            <span>Search saree (F3)</span>
                           </button>
                         </div>
                       </div>
@@ -2895,8 +2891,8 @@ export function POS({ profile }: { profile: Profile }) {
                 </button>
                 <button
                   type="submit"
-                  className="button gold-btn"
-                  style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  className="ms-btn ms-btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                   <span>⏸</span>
                   <span>Hold Bill (Enter)</span>
@@ -3135,11 +3131,9 @@ export function POS({ profile }: { profile: Profile }) {
                         <button
                           type="button"
                           onClick={() => handleInitiateResume(b)}
-                          className="button gold-btn"
+                          className="ms-btn ms-btn-primary ms-btn-sm"
                           style={{
-                            padding: '6px 16px',
-                            fontSize: 13,
-                            fontWeight: 700,
+                            padding: '0 16px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 6,
@@ -3222,8 +3216,8 @@ export function POS({ profile }: { profile: Profile }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button
                   type="button"
-                  className="button gold-btn"
-                  style={{ fontWeight: 700, padding: '10px 16px' }}
+                  className="ms-btn ms-btn-primary"
+                  style={{ padding: '10px 16px' }}
                   onClick={() => handleHoldCurrentAndResume(conflictHeldBill)}
                 >
                   ⏸ Park Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
@@ -3428,7 +3422,7 @@ export function POS({ profile }: { profile: Profile }) {
                         </div>
                         <button
                           type="button"
-                          className="button gold-btn mini-btn"
+                          className="ms-btn ms-btn-primary ms-btn-sm"
                           disabled={isOutOfStock || isMaxInCart}
                           onClick={() => {
                             if (isOutOfStock) {
@@ -3443,15 +3437,18 @@ export function POS({ profile }: { profile: Profile }) {
                             playScanBeep(true);
                             notice(`✓ Added "${p.name}" to bill (Qty: ${inCartQty + 1}).`);
                           }}
-                          style={{ minWidth: 90, padding: '7px 12px', fontWeight: 700 }}
+                          style={{ minWidth: 105, height: '32px' }}
                         >
-                          {isOutOfStock
-                            ? 'Out of Stock'
-                            : isMaxInCart
-                              ? 'Max Added'
-                              : inCartQty > 0
-                                ? '+ Add More'
-                                : '+ Add to Bill'}
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                          <span>
+                            {isOutOfStock
+                              ? 'Out of Stock'
+                              : isMaxInCart
+                                ? 'Max Added'
+                                : inCartQty > 0
+                                  ? 'Add More'
+                                  : 'Add saree'}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -3487,9 +3484,9 @@ export function POS({ profile }: { profile: Profile }) {
               </span>
               <button
                 type="button"
-                className="button gold-btn mini-btn"
+                className="ms-btn ms-btn-primary ms-btn-sm"
                 onClick={() => setManualPickerOpen(false)}
-                style={{ padding: '6px 18px', fontWeight: 700 }}
+                style={{ padding: '0 20px', height: '32px' }}
               >
                 Done
               </button>
