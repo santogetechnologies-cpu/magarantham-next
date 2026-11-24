@@ -1762,10 +1762,88 @@ body:has(.luxury-admin-shell) {
   animation: ms-fade-up 0.25s var(--ms-ease) both;
   align-items: center;
 }
-.luxury-admin-shell .pos-qty-btn {
-  border-radius: 8px !important;
-  background: #fff !important;
+/* POS Full-Width Table Quantity Stepper */
+.luxury-admin-shell .pos-qty-stepper,
+.pos-qty-stepper {
+  display: inline-flex !important;
+  align-items: center !important;
   border: 1px solid var(--ms-line-2) !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  overflow: hidden !important;
+  height: 32px !important;
+  box-shadow: 0 1px 2px rgba(29, 20, 22, 0.04) !important;
+  vertical-align: middle !important;
+}
+
+.luxury-admin-shell .pos-qty-stepper .pos-qty-btn,
+.pos-qty-stepper .pos-qty-btn {
+  width: 30px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: var(--ms-surface-2) !important;
+  color: var(--ms-brand) !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  line-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  user-select: none !important;
+}
+
+.luxury-admin-shell .pos-qty-stepper .pos-qty-btn:hover:not(:disabled),
+.pos-qty-stepper .pos-qty-btn:hover:not(:disabled) {
+  background: var(--ms-brand-50) !important;
+  color: var(--ms-brand-700) !important;
+}
+
+.luxury-admin-shell .pos-qty-stepper .pos-qty-btn:disabled,
+.pos-qty-stepper .pos-qty-btn:disabled {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+  background: var(--ms-surface-2) !important;
+}
+
+.luxury-admin-shell .pos-qty-stepper .pos-qty-input,
+.luxury-admin-shell .pos-qty-stepper input.pos-qty-input,
+.pos-qty-stepper .pos-qty-input,
+.pos-qty-stepper input.pos-qty-input {
+  width: 38px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-left: 1px solid var(--ms-line) !important;
+  border-right: 1px solid var(--ms-line) !important;
+  border-radius: 0 !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+  line-height: 32px !important;
+  font-weight: 700 !important;
+  color: var(--ms-brand) !important;
+  background: #FFFFFF !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+.luxury-admin-shell .pos-qty-stepper .pos-qty-input:focus,
+.pos-qty-stepper .pos-qty-input:focus {
+  background: #FFFDFB !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 .luxury-admin-shell .pos-dtype-btn.active,
 .luxury-admin-shell .pos-pay-mode-btn.active,

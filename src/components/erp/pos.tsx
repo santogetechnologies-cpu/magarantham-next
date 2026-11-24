@@ -1698,51 +1698,6 @@ export function POS({ profile }: { profile: Profile }) {
                           {unitSuffix(p?.sale_unit) && (
                             <small className="pos-table-unit"> /{unitSuffix(p?.sale_unit)}</small>
                           )}
-                          <div className="pos-spot-wrap" style={{ marginTop: 4 }}>
-                            <button
-                              type="button"
-                              className={`pos-spot-btn ${spotPct > 0 ? 'on' : ''}`}
-                              onClick={() => setSpotOpen(spotOpen === line.product_id ? null : line.product_id)}
-                              title="Give a spot discount on this saree"
-                            >
-                              {spotPct > 0 ? `−${spotPct}% Spot` : 'Spot %'}
-                            </button>
-                            {spotOpen === line.product_id && (
-                              <div className="pos-spot-pop" role="dialog" aria-label="Spot discount">
-                                <span>Spot discount on this saree</span>
-                                <div className="ms-chips">
-                                  {[0, ...(Array.isArray(settings.spot_discount_options) ? settings.spot_discount_options : [5, 10, 15, 20, 25])].map((v: number) => (
-                                    <button
-                                      type="button"
-                                      key={v}
-                                      className={`ms-chip ${spotPct === v ? 'on' : ''}`}
-                                      onClick={() => {
-                                        setLineSpot((o) => ({ ...o, [line.product_id]: v }));
-                                        setSpotOpen(null);
-                                      }}
-                                    >
-                                      {v === 0 ? 'None' : `${v}%`}
-                                    </button>
-                                  ))}
-                                </div>
-                                <label className="pos-spot-custom">
-                                  Custom
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={90}
-                                    step={0.5}
-                                    value={spotPct || ''}
-                                    placeholder="%"
-                                    onChange={(e) =>
-                                      setLineSpot((o) => ({ ...o, [line.product_id]: Math.max(0, Math.min(90, Number(e.target.value) || 0)) }))
-                                    }
-                                  />
-                                  %
-                                </label>
-                              </div>
-                            )}
-                          </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           {spotPaise > 0 ? (
