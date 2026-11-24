@@ -110,11 +110,8 @@ export function POS({ profile }: { profile: Profile }) {
   const [savingGst, setSavingGst] = useState(false);
   const [gstInput, setGstInput] = useState('0');
 
-  // Manual Product Search (Autocomplete)
-  const [manualSearch, setManualSearch] = useState('');
+  // Unified Product Search & Barcode Scanner State
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
-
-  const manualSearchRef = useRef<HTMLInputElement>(null);
   const manualDropdownRef = useRef<HTMLDivElement>(null);
 
   // Held / Parked Bills state
@@ -276,8 +273,9 @@ export function POS({ profile }: { profile: Profile }) {
       }
       if (e.key === 'F3' || (e.altKey && (e.key === 'p' || e.key === 'P'))) {
         e.preventDefault();
-        manualSearchRef.current?.focus();
-        setManualDropdownOpen(true);
+        scannerRef.current?.focus();
+        scannerRef.current?.select();
+        if (barcodeInput.trim()) setManualDropdownOpen(true);
         return;
       }
       if (e.key === 'F4' || (e.altKey && (e.key === 'h' || e.key === 'H'))) {
@@ -331,8 +329,8 @@ export function POS({ profile }: { profile: Profile }) {
   });
 
   const manualMatches = useMemo(() => {
-    if (!manualSearch.trim()) return [];
-    const q = manualSearch.trim().toLowerCase();
+    if (!barcodeInput.trim()) return [];
+    const q = barcodeInput.trim().toLowerCase();
     return catalog.filter((p) => {
       const name = String(p.name || '').toLowerCase();
       const sku = String(p.sku || '').toLowerCase();
@@ -351,7 +349,7 @@ export function POS({ profile }: { profile: Profile }) {
         fabric.includes(q)
       );
     });
-  }, [catalog, manualSearch]);
+  }, [catalog, barcodeInput]);
 
   const parsedGstPct = Math.min(100, Math.max(0, parseInt(gstInput || '0', 10) || 0));
 
@@ -1398,12 +1396,43 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
         </div>
       )}
 
-      {/* Prominent Barcode Scanner Bar */}
+      {/* Prominent Unified Search & Barcode Scanner Bar */}
       <form
         className="pos-scanner-banner"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          void scan(barcodeInput);
+          const trimmed = barcodeInput.trim();
+          if (!trimmed) return;
+
+          // 1. Exact barcode/piece code match in local index
+          const lower = trimmed.toLowerCase();
+          const hit = codeIndex.get(lower);
+          if (hit?.product) {
+            setManualDropdownOpen(false);
+            await scan(trimmed);
+            return;
+          }
+
+          // 2. If matching manual search result exists, add the top match
+          if (manualMatches.length > 0) {
+            const selected = manualMatches[0];
+            const stock = Number(selected.available ?? selected.stock_on_hand ?? 0);
+            if (stock <= 0) {
+              notice(`"${selected.name}" is currently out of stock.`);
+              return;
+            }
+            add(selected);
+            setBarcodeInput('');
+            setManualDropdownOpen(false);
+            playScanBeep(true);
+            notice(`✓ Added "${selected.name}" to bill.`);
+            scannerRef.current?.focus();
+            return;
+          }
+
+          // 3. Fallback to authoritative backend scan (serialized piece or database SKU)
+          setManualDropdownOpen(false);
+          await scan(trimmed);
         }}
       >
         <div className="pos-scanner-icon" aria-hidden="true">
@@ -1420,21 +1449,151 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
             <path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />
           </svg>
         </div>
-        <div className="pos-scanner-input-wrap">
+        <div className="pos-scanner-input-wrap" ref={manualDropdownRef} style={{ position: 'relative' }}>
           <label htmlFor="pos-barcode-input" className="pos-scanner-label">
-            Barcode Scanner — Scan piece code (KAN-PUR-001), barcode, or type SKU &amp;
-            press Enter (Adds to bill automatically)
+            Search &amp; Barcode Scanner — Scan barcode / piece code or search saree name, SKU, colour, category &amp; press Enter
           </label>
-          <input
-            id="pos-barcode-input"
-            ref={scannerRef}
-            name="barcode"
-            value={barcodeInput}
-            onChange={(e) => setBarcodeInput(e.target.value)}
-            autoComplete="off"
-            placeholder="Scan barcode here or type SKU / piece code (e.g. KAN-PUR-001, MSU1001, KS-001)..."
-            className="pos-scanner-input"
-          />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              id="pos-barcode-input"
+              ref={scannerRef}
+              name="barcode"
+              value={barcodeInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBarcodeInput(val);
+                if (val.trim()) {
+                  setManualDropdownOpen(true);
+                } else {
+                  setManualDropdownOpen(false);
+                }
+              }}
+              onFocus={() => {
+                if (barcodeInput.trim()) setManualDropdownOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setManualDropdownOpen(false);
+                }
+              }}
+              autoComplete="off"
+              placeholder="Scan barcode, piece code, or type saree name, SKU, colour, category (or press F3)..."
+              className="pos-scanner-input"
+            />
+            {barcodeInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBarcodeInput('');
+                  setManualDropdownOpen(false);
+                  scannerRef.current?.focus();
+                }}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  background: 'none',
+                  border: 'none',
+                  color: '#888',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '4px',
+                }}
+                title="Clear input"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Dropdown */}
+          {manualDropdownOpen && barcodeInput.trim() && (
+            <div className="pos-manual-dropdown" role="listbox" aria-label="Matching sarees">
+              <div className="pos-manual-dropdown-header">
+                <span>
+                  Matches ({manualMatches.length} {manualMatches.length === 1 ? 'saree' : 'sarees'})
+                </span>
+                <small style={{ color: '#888', fontWeight: 400 }}>
+                  Press [Enter] to add top match or click any saree
+                </small>
+              </div>
+              <div className="pos-manual-dropdown-list">
+                {manualMatches.length > 0 ? (
+                  manualMatches.slice(0, 15).map((p) => {
+                    const stock = Number(p.available ?? p.stock_on_hand ?? 0);
+                    const isOutOfStock = stock <= 0;
+                    const price = unitPrice(p as any);
+                    const offer = offerFor(p);
+                    return (
+                      <div
+                        key={p.id}
+                        className={`pos-manual-dropdown-item ${isOutOfStock ? 'disabled' : ''}`}
+                        onClick={() => {
+                          if (isOutOfStock) {
+                            notice(`"${p.name}" is currently out of stock.`);
+                            return;
+                          }
+                          add(p);
+                          setBarcodeInput('');
+                          setManualDropdownOpen(false);
+                          playScanBeep(true);
+                          notice(`✓ Added "${p.name}" to bill.`);
+                          scannerRef.current?.focus();
+                        }}
+                      >
+                        <img
+                          src={p.image_path || '/assets/brand-logo.png'}
+                          alt={p.name || 'Saree'}
+                          className="pos-manual-item-thumb"
+                        />
+                        <div className="pos-manual-item-info">
+                          <strong className="pos-manual-item-name">{p.name}</strong>
+                          <div className="pos-manual-item-sub">
+                            <code>{p.sku || 'No SKU'}</code>
+                            {p.barcode && p.barcode !== p.sku && (
+                              <span>Barcode: {p.barcode}</span>
+                            )}
+                            {p.category && <span>• {p.category}</span>}
+                            {p.colour && <span>• {p.colour}</span>}
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: isOutOfStock ? '#DC2626' : '#15803D',
+                              }}
+                            >
+                              • {isOutOfStock ? 'Out of stock' : `${stock} in stock`}
+                            </span>
+                            {offer && (
+                              <span className="pos-offer-chip" style={{ fontSize: '11px' }}>
+                                🎉 {offer.badge}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="pos-manual-item-action">
+                          <span className="pos-manual-item-price">{money(price)}</span>
+                          <button
+                            type="button"
+                            className="ms-btn ms-btn-primary ms-btn-sm"
+                            disabled={isOutOfStock}
+                            style={{ height: '28px', padding: '0 10px', fontSize: '11.5px' }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#777' }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>No sarees found matching &ldquo;{barcodeInput}&rdquo;</p>
+                    <small style={{ color: '#999', display: 'block', marginTop: 4 }}>
+                      Check the spelling or try searching by SKU, barcode or category.
+                    </small>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <button
           type="submit"
@@ -1442,7 +1601,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
           disabled={scanning || !barcodeInput.trim()}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          <span>{scanning ? 'Scanning…' : 'Add Scanned Item'}</span>
+          <span>{scanning ? 'Searching…' : '+ Add to Bill'}</span>
         </button>
       </form>
 
@@ -1533,159 +1692,6 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 >
                   Clear Bill
                 </button>
-              )}
-            </div>
-          </div>
-
-          {/* Manual Product Search Bar */}
-          <div className="pos-manual-search-bar">
-            <div className="pos-manual-search-wrap" ref={manualDropdownRef}>
-              <span className="pos-manual-search-icon" aria-hidden="true">🔍</span>
-              <input
-                ref={manualSearchRef}
-                type="text"
-                className="pos-manual-search-input"
-                placeholder="Type saree name, SKU, barcode, colour or category to add manually (or press F3)..."
-                value={manualSearch}
-                onChange={(e) => {
-                  setManualSearch(e.target.value);
-                  setManualDropdownOpen(true);
-                }}
-                onFocus={() => {
-                  if (manualSearch.trim()) setManualDropdownOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (manualMatches.length > 0) {
-                      const selected = manualMatches[0];
-                      const stock = Number(selected.available ?? selected.stock_on_hand ?? 0);
-                      if (stock <= 0) {
-                        notice(`"${selected.name}" is currently out of stock.`);
-                        return;
-                      }
-                      add(selected);
-                      setManualSearch('');
-                      setManualDropdownOpen(false);
-                      playScanBeep(true);
-                      notice(`✓ Added "${selected.name}" to bill.`);
-                    }
-                  } else if (e.key === 'Escape') {
-                    setManualDropdownOpen(false);
-                  }
-                }}
-              />
-              {manualSearch && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManualSearch('');
-                    setManualDropdownOpen(false);
-                    manualSearchRef.current?.focus();
-                  }}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    background: 'none',
-                    border: 'none',
-                    color: '#888',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    padding: '4px',
-                  }}
-                  title="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-
-              {/* Autocomplete Dropdown */}
-              {manualDropdownOpen && manualSearch.trim() && (
-                <div className="pos-manual-dropdown">
-                  <div className="pos-manual-dropdown-header">
-                    <span>
-                      Matches ({manualMatches.length} {manualMatches.length === 1 ? 'saree' : 'sarees'})
-                    </span>
-                    <small style={{ color: '#888', fontWeight: 400 }}>
-                      Press [Enter] to add top match or click any saree
-                    </small>
-                  </div>
-                  <div className="pos-manual-dropdown-list">
-                    {manualMatches.length > 0 ? (
-                      manualMatches.slice(0, 15).map((p) => {
-                        const stock = Number(p.available ?? p.stock_on_hand ?? 0);
-                        const isOutOfStock = stock <= 0;
-                        const price = unitPrice(p as any);
-                        const offer = offerFor(p);
-                        return (
-                          <div
-                            key={p.id}
-                            className={`pos-manual-dropdown-item ${isOutOfStock ? 'disabled' : ''}`}
-                            onClick={() => {
-                              if (isOutOfStock) {
-                                notice(`"${p.name}" is currently out of stock.`);
-                                return;
-                              }
-                              add(p);
-                              setManualSearch('');
-                              setManualDropdownOpen(false);
-                              playScanBeep(true);
-                              notice(`✓ Added "${p.name}" to bill.`);
-                            }}
-                          >
-                            <img
-                              src={p.image_path || '/assets/brand-logo.png'}
-                              alt={p.name || 'Saree'}
-                              className="pos-manual-item-thumb"
-                            />
-                            <div className="pos-manual-item-info">
-                              <strong className="pos-manual-item-name">{p.name}</strong>
-                              <div className="pos-manual-item-sub">
-                                <code>{p.sku || 'No SKU'}</code>
-                                {p.barcode && p.barcode !== p.sku && (
-                                  <span>Barcode: {p.barcode}</span>
-                                )}
-                                {p.category && <span>• {p.category}</span>}
-                                {p.colour && <span>• {p.colour}</span>}
-                                <span
-                                  style={{
-                                    fontWeight: 700,
-                                    color: isOutOfStock ? '#DC2626' : '#15803D',
-                                  }}
-                                >
-                                  • {isOutOfStock ? 'Out of stock' : `${stock} in stock`}
-                                </span>
-                                {offer && (
-                                  <span className="pos-offer-chip" style={{ fontSize: '11px' }}>
-                                    🎉 {offer.badge}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="pos-manual-item-action">
-                              <span className="pos-manual-item-price">{money(price)}</span>
-                              <button
-                                type="button"
-                                className="ms-btn ms-btn-primary ms-btn-sm"
-                                disabled={isOutOfStock}
-                                style={{ height: '28px', padding: '0 10px', fontSize: '11.5px' }}
-                              >
-                                + Add
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div style={{ padding: '24px', textAlign: 'center', color: '#777' }}>
-                        <p style={{ margin: 0, fontWeight: 600 }}>No sarees found matching &ldquo;{manualSearch}&rdquo;</p>
-                        <small style={{ color: '#999', display: 'block', marginTop: 4 }}>
-                          Check the spelling or try searching by SKU or category.
-                        </small>
-                      </div>
-                    )}
-                  </div>
-                </div>
               )}
             </div>
           </div>
