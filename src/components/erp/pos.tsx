@@ -108,7 +108,7 @@ export function POS({ profile }: { profile: Profile }) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [autoPrint, setAutoPrint] = useState(true);
   const [savingGst, setSavingGst] = useState(false);
-  const [gstInput, setGstInput] = useState('0');
+  const [gstInput, setGstInput] = useState('');
 
   // Unified Product Search & Barcode Scanner State
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
@@ -221,7 +221,8 @@ export function POS({ profile }: { profile: Profile }) {
         if (typeof nextSettings.auto_print === 'boolean') setAutoPrint(nextSettings.auto_print);
       }
       if (!gstEditingRef.current) {
-        setGstInput(String(Math.round(Number(nextSettings.tax_bps || 0) / 100)));
+        const rate = Math.round(Number(nextSettings.tax_bps || 0) / 100);
+        setGstInput(rate > 0 ? String(rate) : '');
       }
     } catch (e) {
       notice((e as Error).message);
@@ -648,7 +649,7 @@ export function POS({ profile }: { profile: Profile }) {
   function handleGstInputChange(raw: string) {
     // Only allow whole integer digits (no decimal/point values)
     const digitsOnly = raw.replace(/[^0-9]/g, '');
-    if (digitsOnly === '') {
+    if (digitsOnly === '' || digitsOnly === '0') {
       setGstInput('');
       if (gstTimerRef.current) clearTimeout(gstTimerRef.current);
       gstTimerRef.current = setTimeout(() => {
@@ -657,7 +658,7 @@ export function POS({ profile }: { profile: Profile }) {
       return;
     }
     const clamped = Math.min(100, parseInt(digitsOnly, 10) || 0);
-    setGstInput(String(clamped));
+    setGstInput(clamped > 0 ? String(clamped) : '');
     if (gstTimerRef.current) clearTimeout(gstTimerRef.current);
     gstTimerRef.current = setTimeout(() => {
       void updateGstRate(clamped * 100, true);
@@ -2415,7 +2416,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           inputMode="numeric"
                           pattern="[0-9]*"
                           maxLength={3}
-                          value={gstInput}
+                          value={gstInput === '0' ? '' : gstInput}
                           placeholder="0"
                           onFocus={() => {
                             gstEditingRef.current = true;
@@ -2426,7 +2427,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                               100,
                               Math.max(0, parseInt(gstInput || '0', 10) || 0),
                             );
-                            setGstInput(String(normalized));
+                            setGstInput(normalized > 0 ? String(normalized) : '');
                             if (gstTimerRef.current) clearTimeout(gstTimerRef.current);
                             void updateGstRate(normalized * 100, true);
                           }}

@@ -7268,6 +7268,13 @@ body:has(.luxury-admin-shell) #main {
   background-color: transparent !important;
 }
 
+.pos-gst-input::placeholder,
+.luxury-admin-shell .pos-gst-input::placeholder {
+  color: #94A3B8 !important;
+  font-weight: 500 !important;
+  opacity: 0.8 !important;
+}
+
 .pos-gst-suffix {
   margin-left: 5px;
   font-size: 13px;
