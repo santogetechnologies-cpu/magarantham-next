@@ -1152,20 +1152,127 @@ export function POS({ profile }: { profile: Profile }) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+
+    const totalPieces = (s.items || []).reduce(
+      (acc: number, item: Row) => acc + Number(item.quantity || 1),
+      0
+    );
+    const totalStyles = (s.items || []).length;
+    const createdAt = s.created_at ? new Date(s.created_at) : new Date();
+    const dateFormatted = createdAt.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const timeFormatted = createdAt.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
     const itemsHtml = (s.items || [])
-      .map(
-        (i: Row) =>
-          `<tr><td><strong>${esc(i.name)}</strong><br/><small>${esc(i.sku)} · ${esc(money(i.unit_paise))}</small></td><td style="text-align:center">${esc(i.quantity)}</td><td style="text-align:right">${esc(money(i.line_paise))}</td></tr>`,
-      )
+      .map((i: Row, idx: number) => {
+        const unitRate = Number(i.unit_paise || 0);
+        const qty = Number(i.quantity || 1);
+        const lineTotal = Number(i.line_paise ?? unitRate * qty);
+        return `<tr>
+          <td style="text-align:center;color:#666;width:20px;padding:5px 2px;">${idx + 1}</td>
+          <td style="padding:5px 2px;"><strong>${esc(i.name)}</strong>${i.sku ? `<br/><small style="color:#666;">SKU: ${esc(i.sku)}</small>` : ''}</td>
+          <td style="text-align:right;white-space:nowrap;padding:5px 2px;">${esc(money(unitRate))}</td>
+          <td style="text-align:center;font-weight:600;padding:5px 2px;">${qty}</td>
+          <td style="text-align:right;font-weight:700;white-space:nowrap;padding:5px 2px;">${esc(money(lineTotal))}</td>
+        </tr>`;
+      })
       .join('');
+
     const tendersHtml = (s.tenders || [])
-      .map(
-        (t: Row) =>
-          `<div class="row"><span>Payment (${esc(String(t.method || '').toUpperCase())})</span><span>${esc(money(t.amount_paise))}</span></div>`,
-      )
+      .map((t: Row) => {
+        const isCash = String(t.method || '').toLowerCase() === 'cash';
+        const cashRec = Number(s.cash_received_paise || 0);
+        const change = Number(s.change_paise || 0);
+        let extra = '';
+        if (isCash && cashRec > 0) {
+          extra = `<div style="font-size:11px;color:#555;padding-left:4px;margin-top:2px;">Cash Given: ${esc(money(cashRec))}${change > 0 ? ` · Change: ${esc(money(change))}` : ''}</div>`;
+        }
+        return `<div class="row"><span>Paid via <strong>${esc(String(t.method || '').toUpperCase())}</strong></span><b>${esc(money(t.amount_paise))}</b></div>${extra}`;
+      })
       .join('');
     const discLabel = s.discount_type_label ? ` (${esc(s.discount_type_label)})` : '';
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(s.invoice_no || 'POS-Invoice')}</title><style>@page{margin:12mm;}body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:420px;margin:0 auto;padding:12px;font-size:13px;line-height:1.5;}h1{font-family:Georgia,serif;font-size:20px;text-align:center;margin:0 0 2px;color:#650019;}.sub{text-align:center;font-size:11px;letter-spacing:1px;font-weight:700;margin-bottom:6px;}.meta{text-align:center;font-size:12px;color:#444;margin-bottom:10px;}.badge{text-align:center;font-weight:700;border-top:1px dashed #999;border-bottom:1px dashed #999;padding:5px 0;margin:8px 0;letter-spacing:1px;font-size:12px;}table{width:100%;border-collapse:collapse;margin:8px 0;}th,td{padding:6px 4px;border-bottom:1px solid #eee;font-size:12px;text-align:left;}th{font-size:11px;text-transform:uppercase;color:#666;}.div{border-top:1px dashed #999;margin:8px 0;}.row{display:flex;justify-content:space-between;padding:3px 0;}.grand{font-size:16px;font-weight:700;color:#650019;}.disc{color:#15803D;}.foot{text-align:center;margin-top:14px;font-size:11px;color:#555;}</style></head><body><h1>${esc(s.business?.business_name || 'மகரந்தம் சில்க்ஸ்')}</h1><div class="sub">${esc(s.business?.business_english || 'MAGARANTHAM SILKS')}</div><div class="meta">${s.business?.address ? `${esc(s.business.address)}<br/>` : ''}${s.business?.phone ? `Ph: ${esc(s.business.phone)}<br/>` : ''}${s.business?.gstin ? `<strong>GSTIN: ${esc(s.business.gstin)}</strong><br/>` : ''}<strong>${esc(s.invoice_no)}</strong> · ${esc(new Date(s.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }))}<br/>${esc(s.customer_name || 'Walk-in customer')} ${esc(s.customer_phone || '')}</div><div class="badge">${s.isDraft ? 'BILL PREVIEW' : taxPaise > 0 || gstPct > 0 ? 'TAX INVOICE (GST)' : 'RETAIL INVOICE'}</div><table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="div"></div><div class="row"><span>Subtotal</span><b>${esc(money(Number(s.subtotal_paise || 0)))}</b></div>${Number(s.discount_paise || 0) > 0 ? `<div class="row disc"><span>Discount${discLabel}</span><b>−${esc(money(Number(s.discount_paise)))}</b></div>` : ''}<div class="row"><span>GST (${gstPct}%)</span><b>${esc(money(taxPaise))}</b></div><div class="div"></div><div class="row grand"><span>GRAND TOTAL</span><span>${esc(money(Number(s.total_paise || 0)))}</span></div><div class="div"></div>${tendersHtml}${Number(s.cash_received_paise || 0) > 0 || Number(s.change_paise || 0) > 0 ? `<div class="row"><span>Cash Received</span><b>${esc(money(Number(s.cash_received_paise || 0)))}</b></div><div class="row"><span>Change Returned</span><b>${esc(money(Number(s.change_paise || 0)))}</b></div>` : ''}<div class="foot">${esc(s.business?.receipt_footer || 'Thank you. Please keep your bill.')}${!s.isDraft ? `<br/>Ref: ${esc(s.id)}` : ''}</div></body></html>`;
+    const docTitle = s.isDraft
+      ? '★ BILL PREVIEW (NOT SAVED) ★'
+      : taxPaise > 0 || gstPct > 0
+        ? 'TAX INVOICE (GST)'
+        : 'RETAIL CASH MEMO';
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${esc(s.invoice_no || 'POS-Invoice')}</title><style>
+@page { margin: 6mm; size: ${s.business?.paper_mm || 80}mm auto; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #111; max-width: 380px; margin: 0 auto; padding: 10px; font-size: 12px; line-height: 1.45; }
+.hdr { text-align: center; margin-bottom: 8px; }
+h1 { font-size: 18px; font-weight: 700; color: #800020; margin: 0 0 2px; }
+.sub { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; margin: 0 0 4px; }
+.meta { font-size: 11px; color: #555; margin: 2px 0; }
+.badge { text-align: center; font-weight: 700; font-size: 11.5px; letter-spacing: 1px; border-top: 1px dashed #555; border-bottom: 1px dashed #555; padding: 4px 0; margin: 8px 0; }
+.meta-box { border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-bottom: 6px; font-size: 11.5px; }
+.meta-row { display: flex; justify-content: space-between; margin: 2px 0; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 11.5px; }
+th { border-top: 1px solid #222; border-bottom: 1px solid #222; font-size: 10.5px; font-weight: 700; text-transform: uppercase; background: #fbf9f7; padding: 4px 2px; }
+td { border-bottom: 1px dashed #eee; vertical-align: top; }
+.count-bar { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #555; padding: 4px 0; border-bottom: 1px dashed #888; }
+.div { border-top: 1px dashed #888; margin: 6px 0; }
+.row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+.grand { display: flex; justify-content: space-between; align-items: center; background: #faf5f3; border: 1px solid #800020; border-radius: 4px; padding: 6px 8px; font-size: 14px; font-weight: 800; color: #800020; margin: 6px 0; }
+.disc { color: #15803D; font-weight: 600; }
+.pay-sec { border-top: 1px dashed #888; padding-top: 6px; margin-top: 6px; }
+.sec-title { font-size: 10.5px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; }
+.foot { text-align: center; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #888; font-size: 11px; color: #555; }
+.thankyou { font-weight: 700; font-size: 12px; color: #800020; margin-bottom: 3px; }
+</style></head><body>
+<div class="hdr">
+  <h1>${esc(s.business?.business_name || 'மகரந்தம் சில்க்ஸ்')}</h1>
+  <div class="sub">${esc(s.business?.business_english || 'MAGARANTHAM SILKS')}</div>
+  ${s.business?.address ? `<div class="meta">${esc(s.business.address)}</div>` : ''}
+  <div class="meta">${s.business?.phone ? `Ph: ${esc(s.business.phone)}` : ''}${s.business?.gstin ? ` · GSTIN: <strong>${esc(s.business.gstin)}</strong>` : ''}</div>
+</div>
+<div class="badge">${docTitle}</div>
+<div class="meta-box">
+  <div class="meta-row"><span><strong>Bill No:</strong> ${esc(s.invoice_no)}</span><span><strong>Date:</strong> ${esc(dateFormatted)}</span></div>
+  <div class="meta-row"><span><strong>Customer:</strong> ${esc(s.customer_name || 'Walk-in customer')}</span><span><strong>Time:</strong> ${esc(timeFormatted)}</span></div>
+  ${s.customer_phone ? `<div class="meta-row"><span><strong>Mobile:</strong> ${esc(s.customer_phone)}</span></div>` : ''}
+</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:20px;text-align:center;">#</th>
+      <th style="text-align:left;">Item Description</th>
+      <th style="text-align:right;">Rate</th>
+      <th style="text-align:center;">Qty</th>
+      <th style="text-align:right;">Amount</th>
+    </tr>
+  </thead>
+  <tbody>${itemsHtml}</tbody>
+</table>
+<div class="count-bar">
+  <span>Total Items: <strong>${totalStyles}</strong></span>
+  <span>Total Pieces: <strong>${totalPieces}</strong></span>
+</div>
+<div style="margin: 6px 0;">
+  <div class="row"><span>Subtotal</span><b>${esc(money(Number(s.subtotal_paise || 0)))}</b></div>
+  ${Number(s.discount_paise || 0) > 0 ? `<div class="row disc"><span>Discount Saved${discLabel}</span><b>−${esc(money(Number(s.discount_paise)))}</b></div>` : ''}
+  ${taxPaise > 0 || gstPct > 0 ? `<div class="row"><span>GST (${gstPct}%)</span><b>+${esc(money(taxPaise))}</b></div>` : ''}
+  <div class="grand"><span>GRAND TOTAL</span><span>${esc(money(Number(s.total_paise || 0)))}</span></div>
+</div>
+<div class="pay-sec">
+  <div class="sec-title">Payment Details</div>
+  ${tendersHtml}
+</div>
+<div class="foot">
+  <div class="thankyou">Thank You! Please Visit Again!</div>
+  ${s.business?.receipt_footer ? `<div>${esc(s.business.receipt_footer)}</div>` : ''}
+  ${!s.isDraft ? `<div style="font-size:9.5px;color:#888;margin-top:4px;">Ref: ${esc(s.id)}</div>` : ''}
+</div>
+</body></html>`;
 
     const win = window.open('', '_blank', 'width=520,height=740');
     if (!win) {
@@ -3113,117 +3220,201 @@ export function Receipt({ sale: s }: { sale: Row }) {
         )
         : 0;
 
+  const createdAt = s.created_at ? new Date(s.created_at) : new Date();
+  const dateFormatted = createdAt.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const timeFormatted = createdAt.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const totalPieces = (s.items || []).reduce(
+    (acc: number, item: Row) => acc + Number(item.quantity || 1),
+    0
+  );
+  const totalStyles = (s.items || []).length;
+
   return (
     <article
       className="erp-print pos-receipt"
       style={{ width: `${s.business?.paper_mm || 80}mm` }}
     >
-      <h2>{s.business?.business_name || 'மகரந்தம் சில்க்ஸ்'}</h2>
-      <b>{s.business?.business_english || 'MAGARANTHAM SILKS'}</b>
-      <p>
+      {/* 1. Store Header */}
+      <div className="pos-receipt-header">
+        <h2 className="pos-receipt-store-tamil">{s.business?.business_name || 'மகரந்தம் சில்க்ஸ்'}</h2>
+        <b className="pos-receipt-store-english">{s.business?.business_english || 'MAGARANTHAM SILKS'}</b>
         {s.business?.address ? (
-          <>
-            {s.business.address}
-            <br />
-          </>
+          <p className="pos-receipt-store-meta">{s.business.address}</p>
         ) : null}
-        {s.business?.phone ? (
-          <>
-            Ph: {s.business.phone}
-            <br />
-          </>
-        ) : null}
-        {s.business?.gstin ? (
-          <>
-            <strong>GSTIN: {s.business.gstin}</strong>
-          </>
-        ) : null}
-      </p>
+        <div className="pos-receipt-contact-row">
+          {s.business?.phone ? <span>Ph: {s.business.phone}</span> : null}
+          {s.business?.gstin ? <span>GSTIN: <strong>{s.business.gstin}</strong></span> : null}
+        </div>
+      </div>
+
+      {/* 2. Document Title Badge */}
       <div className="receipt-doc-title">
         {s.isDraft
-          ? 'BILL PREVIEW (NOT SAVED)'
+          ? '★ BILL PREVIEW (NOT SAVED) ★'
           : taxPaise > 0 || gstPct > 0
             ? 'TAX INVOICE (GST)'
-            : 'RETAIL BILL'}
+            : 'RETAIL CASH MEMO'}
       </div>
-      <h3>{s.invoice_no}</h3>
-      <p>
-        {new Date(s.created_at).toLocaleString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-        })}
-        <br />
-        {s.customer_name || 'Walk-in customer'} {s.customer_phone}
-      </p>
-      {s.status === 'returned' && <strong>FULL RETURN RECORDED</strong>}
-      <table>
+
+      {s.status === 'returned' && (
+        <div className="pos-receipt-returned-badge">
+          ⚠ FULL RETURN RECORDED
+        </div>
+      )}
+
+      {/* 3. Bill & Customer Metadata Box */}
+      <div className="pos-receipt-meta-box">
+        <div className="pos-receipt-meta-row">
+          <span><strong>Bill No:</strong> {s.invoice_no}</span>
+          <span><strong>Date:</strong> {dateFormatted}</span>
+        </div>
+        <div className="pos-receipt-meta-row">
+          <span><strong>Customer:</strong> {s.customer_name || 'Walk-in customer'}</span>
+          <span><strong>Time:</strong> {timeFormatted}</span>
+        </div>
+        {s.customer_phone ? (
+          <div className="pos-receipt-meta-row">
+            <span><strong>Mobile:</strong> {s.customer_phone}</span>
+            {s.cashier_name ? <span><strong>Cashier:</strong> {s.cashier_name}</span> : null}
+          </div>
+        ) : s.cashier_name ? (
+          <div className="pos-receipt-meta-row">
+            <span><strong>Cashier:</strong> {s.cashier_name}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* 4. Product Billing Table with Rate & Qty */}
+      <table className="pos-receipt-table">
         <thead>
           <tr>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Amount</th>
+            <th style={{ width: '20px', textAlign: 'center' }}>#</th>
+            <th style={{ textAlign: 'left' }}>Item Description</th>
+            <th style={{ textAlign: 'right', width: '60px' }}>Rate</th>
+            <th style={{ textAlign: 'center', width: '32px' }}>Qty</th>
+            <th style={{ textAlign: 'right', width: '64px' }}>Amount</th>
           </tr>
         </thead>
         <tbody>
-          {s.items.map((i: Row) => (
-            <tr key={i.product_id}>
-              <td>
-                {i.name}
-                <small>
-                  {i.sku} · {money(i.unit_paise)}
-                </small>
-              </td>
-              <td>{i.quantity}</td>
-              <td>{money(i.line_paise)}</td>
-            </tr>
-          ))}
+          {(s.items || []).map((i: Row, idx: number) => {
+            const unitRate = Number(i.unit_paise || 0);
+            const qty = Number(i.quantity || 1);
+            const linePaise = Number(i.line_paise ?? unitRate * qty);
+
+            return (
+              <tr key={i.product_id || idx}>
+                <td style={{ textAlign: 'center', color: '#666', verticalAlign: 'top', padding: '5px 2px' }}>
+                  {idx + 1}
+                </td>
+                <td style={{ verticalAlign: 'top', padding: '5px 2px' }}>
+                  <strong className="pos-receipt-item-title">{i.name}</strong>
+                  {i.sku && (
+                    <span className="pos-receipt-item-sku">SKU: {i.sku}</span>
+                  )}
+                  {Array.isArray(i.pieces) && i.pieces.length > 0 && (
+                    <span className="pos-receipt-item-pieces">
+                      Tags: {i.pieces.join(', ')}
+                    </span>
+                  )}
+                </td>
+                <td style={{ textAlign: 'right', verticalAlign: 'top', whiteSpace: 'nowrap', padding: '5px 2px' }}>
+                  {money(unitRate)}
+                </td>
+                <td style={{ textAlign: 'center', verticalAlign: 'top', fontWeight: 600, padding: '5px 2px' }}>
+                  {qty}
+                </td>
+                <td style={{ textAlign: 'right', verticalAlign: 'top', fontWeight: 700, whiteSpace: 'nowrap', padding: '5px 2px' }}>
+                  {money(linePaise)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
-      <div className="receipt-divider" />
-      <div className="receipt-total">
-        <span>Subtotal</span>
-        <b>{money(Number(s.subtotal_paise || 0))}</b>
+
+      {/* 5. Summary Count Strip */}
+      <div className="pos-receipt-count-bar">
+        <span>Total Items: <strong>{totalStyles}</strong></span>
+        <span>Total Pieces: <strong>{totalPieces}</strong></span>
       </div>
-      {Number(s.discount_paise || 0) > 0 && (
-        <div className="receipt-total">
-          <span>
-            Discount{s.discount_type_label ? ` (${s.discount_type_label})` : ''}
-          </span>
-          <b>−{money(Number(s.discount_paise))}</b>
+
+      {/* 6. Financial Breakdown */}
+      <div className="pos-receipt-calc">
+        <div className="pos-receipt-calc-row">
+          <span>Subtotal</span>
+          <b>{money(Number(s.subtotal_paise || 0))}</b>
         </div>
-      )}
-      {taxPaise > 0 || gstPct > 0 ? (
-        <div className="receipt-total">
-          <span>GST ({gstPct}%)</span>
-          <b>{money(taxPaise)}</b>
-        </div>
-      ) : null}
-      <div className="receipt-divider" />
-      <div className="receipt-total receipt-grand">
-        <span>GRAND TOTAL</span>
-        <b>{money(Number(s.total_paise || 0))}</b>
-      </div>
-      <div className="receipt-divider" />
-      {s.tenders.map((t: Row) => (
-        <div className="receipt-total" key={t.method}>
-          <span>{t.method.toUpperCase()}</span>
-          <span>{money(t.amount_paise)}</span>
-        </div>
-      ))}
-      {(Number(s.cash_received_paise || 0) > 0 ||
-        Number(s.change_paise || 0) > 0) && (
-          <>
-            <div className="receipt-total">
-              <span>Cash Received</span>
-              <b>{money(Number(s.cash_received_paise || 0))}</b>
-            </div>
-            <div className="receipt-total">
-              <span>Change Returned</span>
-              <b>{money(Number(s.change_paise || 0))}</b>
-            </div>
-          </>
+
+        {Number(s.discount_paise || 0) > 0 && (
+          <div className="pos-receipt-calc-row pos-receipt-disc-row">
+            <span>
+              Discount Saved{s.discount_type_label ? ` (${s.discount_type_label})` : ''}
+            </span>
+            <b>−{money(Number(s.discount_paise))}</b>
+          </div>
         )}
-      <p style={{ marginTop: 10 }}>{s.business?.receipt_footer}</p>
-      {!s.isDraft && <small>Digital bill reference: {s.id}</small>}
+
+        {(taxPaise > 0 || gstPct > 0) && (
+          <div className="pos-receipt-calc-row">
+            <span>GST ({gstPct}%)</span>
+            <b>+{money(taxPaise)}</b>
+          </div>
+        )}
+
+        <div className="pos-receipt-grand-row">
+          <span>GRAND TOTAL</span>
+          <strong>{money(Number(s.total_paise || 0))}</strong>
+        </div>
+      </div>
+
+      {/* 7. Clear Payment Details */}
+      <div className="pos-receipt-payment-section">
+        <div className="pos-receipt-sec-title">PAYMENT DETAILS</div>
+        {(s.tenders || []).map((t: Row) => {
+          const isCash = String(t.method || '').toLowerCase() === 'cash';
+          const cashRec = Number(s.cash_received_paise || 0);
+          const change = Number(s.change_paise || 0);
+
+          return (
+            <div key={t.method} className="pos-receipt-tender-block">
+              <div className="pos-receipt-calc-row">
+                <span>Paid via <strong>{String(t.method || '').toUpperCase()}</strong>:</span>
+                <b>{money(t.amount_paise)}</b>
+              </div>
+              {isCash && cashRec > 0 && (
+                <div className="pos-receipt-cash-sub">
+                  <span>Cash Given: {money(cashRec)}</span>
+                  {change > 0 ? (
+                    <span> · Change Returned: {money(change)}</span>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 8. Footer */}
+      <div className="pos-receipt-footer">
+        <p className="pos-receipt-thankyou">Thank You! Please Visit Again!</p>
+        {s.business?.receipt_footer && (
+          <p className="pos-receipt-custom-note">{s.business.receipt_footer}</p>
+        )}
+        {!s.isDraft && (
+          <small className="pos-receipt-ref-id">Ref: {s.id}</small>
+        )}
+      </div>
     </article>
   );
 }
