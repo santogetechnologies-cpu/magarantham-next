@@ -2108,6 +2108,16 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                         }}
                         className="pos-discount-input"
                         aria-label="Manual discount value"
+                        style={{
+                          border: 'none',
+                          outline: 'none',
+                          boxShadow: 'none',
+                          background: 'transparent',
+                          padding: 0,
+                          minHeight: 'auto',
+                          height: 'auto',
+                          borderRadius: 0,
+                        }}
                       />
                     </div>
 
@@ -2428,6 +2438,16 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           onChange={(e) => handleGstInputChange(e.target.value)}
                           className="pos-gst-input"
                           aria-label="GST percentage whole number"
+                          style={{
+                            border: 'none',
+                            outline: 'none',
+                            boxShadow: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            minHeight: 'auto',
+                            height: 'auto',
+                            borderRadius: 0,
+                          }}
                         />
                         <span className="pos-gst-suffix">%</span>
                       </div>

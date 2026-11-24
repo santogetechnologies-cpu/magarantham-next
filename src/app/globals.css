@@ -7233,23 +7233,39 @@ body:has(.luxury-admin-shell) #main {
   background: #FFFFFF;
 }
 
-.pos-gst-input {
-  width: 100%;
-  min-width: 0;
+.pos-gst-input,
+.luxury-admin-shell .pos-gst-input,
+.luxury-admin-shell .pos-gst-input-wrap input.pos-gst-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
   padding: 0 !important;
-  border: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
   background: transparent !important;
-  text-align: right;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--erp-maroon);
+  background-color: transparent !important;
+  box-shadow: none !important;
   outline: none !important;
+  text-align: right;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--erp-maroon) !important;
 }
 
 .pos-gst-input:focus,
-.pos-gst-input:focus-visible {
+.pos-gst-input:focus-visible,
+.luxury-admin-shell .pos-gst-input:focus,
+.luxury-admin-shell .pos-gst-input:focus-visible,
+.luxury-admin-shell .pos-gst-input-wrap input.pos-gst-input:focus {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   outline: none !important;
-  outline-offset: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .pos-gst-suffix {
@@ -10490,8 +10506,8 @@ select.ap-variant-colour-select:focus-visible {
 
 .pos-discount-controls {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
 }
 
 .pos-discount-input-wrap {
@@ -10499,11 +10515,11 @@ select.ap-variant-colour-select:focus-visible {
   align-items: center;
   gap: 6px;
   height: 40px;
-  padding: 0 11px;
+  padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--erp-border);
   background: #FFFDFB;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
   flex: 1;
   min-width: 0;
 }
@@ -10511,27 +10527,51 @@ select.ap-variant-colour-select:focus-visible {
 .pos-discount-input-wrap:focus-within {
   border-color: var(--erp-gold);
   background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(196, 154, 82, 0.16);
 }
 
 .pos-discount-prefix {
   font-size: 14px;
   font-weight: 700;
   color: var(--erp-maroon);
+  flex-shrink: 0;
+  user-select: none;
 }
 
-.pos-discount-input {
-  width: 100%;
-  min-width: 0;
+.pos-discount-input,
+.luxury-admin-shell .pos-discount-input,
+.luxury-admin-shell .pos-discount-input-wrap input.pos-discount-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
   padding: 0 !important;
-  border: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
   background: transparent !important;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--erp-maroon);
-  outline: none !important;
+  background-color: transparent !important;
   box-shadow: none !important;
-  -moz-appearance: textfield;
-  appearance: textfield;
+  outline: none !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--erp-maroon) !important;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+.pos-discount-input:focus,
+.pos-discount-input:focus-visible,
+.luxury-admin-shell .pos-discount-input:focus,
+.luxury-admin-shell .pos-discount-input:focus-visible,
+.luxury-admin-shell .pos-discount-input-wrap input.pos-discount-input:focus {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .pos-discount-input::-webkit-outer-spin-button,
@@ -10550,60 +10590,40 @@ select.ap-variant-colour-select:focus-visible {
   flex-shrink: 0;
 }
 
-.pos-dtype-btn {
-  padding: 0 12px;
-  font-size: 12px;
+.pos-dtype-btn,
+.luxury-admin-shell .pos-dtype-btn {
+  padding: 0 14px;
+  height: 100%;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--erp-maroon);
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
-  border: none;
 }
 
-.pos-dtype-btn:hover:not(.active) {
-  background: var(--erp-peach);
+.pos-dtype-btn:hover:not(.active),
+.luxury-admin-shell .pos-dtype-btn:hover:not(.active) {
+  background: var(--erp-peach) !important;
 }
 
-.pos-dtype-btn.active {
-  background: var(--erp-burgundy);
-  color: #FFFFFF;
+.pos-dtype-btn.active,
+.luxury-admin-shell .pos-dtype-btn.active {
+  background: var(--erp-burgundy) !important;
+  color: #FFFFFF !important;
 }
 
 .pos-discount-hint {
   font-size: 11px;
   font-weight: 600;
   color: #15803D;
-}
-
-.pos-quick-discount {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.pos-quick-discount > span {
-  font-size: 11px;
-  font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.pos-spot-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 11.5px;
-  color: #555;
-}
-
-.pos-spot-summary span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .pos-summary-eyebrow {

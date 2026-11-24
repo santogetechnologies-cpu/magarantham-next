@@ -1845,6 +1845,40 @@ body:has(.luxury-admin-shell) {
   box-shadow: none !important;
   outline: none !important;
 }
+
+/* POS Discount & GST input overrides - prevents nested boxes & border conflicts */
+.luxury-admin-shell .pos-discount-input-wrap input,
+.luxury-admin-shell .pos-discount-input,
+.luxury-admin-shell .pos-gst-input-wrap input,
+.luxury-admin-shell .pos-gst-input {
+  border: none !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.luxury-admin-shell .pos-discount-input-wrap input:focus,
+.luxury-admin-shell .pos-discount-input:focus,
+.luxury-admin-shell .pos-gst-input-wrap input:focus,
+.luxury-admin-shell .pos-gst-input:focus {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+.luxury-admin-shell .pos-discount-type-toggle button,
+.luxury-admin-shell .pos-dtype-btn {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
 .luxury-admin-shell .pos-dtype-btn.active,
 .luxury-admin-shell .pos-pay-mode-btn.active,
 .luxury-admin-shell .pos-paymode-btn.active {
