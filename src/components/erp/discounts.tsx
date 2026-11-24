@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { money } from '@/lib/core';
+import { parseDiscountChannels, formatDiscountName } from '@/lib/discounts';
 import { api } from '../api';
 import { References, Row, useERP } from './shared';
 
@@ -31,7 +32,18 @@ export function ruleStatus(r: Row, now = Date.now()) {
 }
 
 function emptyDraft(): Row {
-  return { id: null, name: '', scope: 'all', target_id: null, discount_bps: 1000, active: true, starts_at: null, ends_at: null };
+  return {
+    id: null,
+    name: '',
+    scope: 'all',
+    target_id: null,
+    discount_bps: 1000,
+    active: true,
+    apply_in_pos: true,
+    apply_online: true,
+    starts_at: null,
+    ends_at: null,
+  };
 }
 
 export function DiscountsManager({ refs }: { refs: References }) {
@@ -40,6 +52,7 @@ export function DiscountsManager({ refs }: { refs: References }) {
   const [draft, setDraft] = useState<Row | null>(null);
   const [targetSearch, setTargetSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'live' | 'scheduled' | 'off'>('all');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const { busy, send, notice } = useERP();
 
   const categories = refs.categories || [];
@@ -101,9 +114,149 @@ export function DiscountsManager({ refs }: { refs: References }) {
   });
 
   async function save(rule: Row) {
-    const { id, ...data } = rule;
-    const result = await send('catalog_discounts', { id, data }, load);
+    const info = parseDiscountChannels(rule.name, rule.active);
+    const applyPos = rule.apply_in_pos !== undefined ? Boolean(rule.apply_in_pos) : info.applyInPos;
+    const applyOnline = rule.apply_online !== undefined ? Boolean(rule.apply_online) : info.applyOnline;
+    const cleanName = info.cleanName;
+
+    const { name: formattedName, active: formattedActive } = formatDiscountName(
+      cleanName,
+      applyPos,
+      applyOnline
+    );
+
+    const payload = {
+      name: formattedName,
+      scope: rule.scope,
+      target_id: rule.target_id ?? null,
+      discount_bps: Math.round(Number(rule.discount_bps)),
+      active: rule.active !== false && formattedActive,
+      starts_at: rule.starts_at || null,
+      ends_at: rule.ends_at || null,
+    };
+
+    const result = await send('catalog_discounts', { id: rule.id || null, data: payload }, load);
     return Boolean(result);
+  }
+
+  // Toggle specific channel (POS or Website) with instant optimistic feedback
+  async function handleToggleChannel(rule: Row, channel: 'pos' | 'online') {
+    if (togglingId) return;
+    const info = parseDiscountChannels(rule.name, rule.active);
+    const isCurrentlyActive = rule.active !== false;
+
+    let newPos = isCurrentlyActive ? info.applyInPos : false;
+    let newOnline = isCurrentlyActive ? info.applyOnline : false;
+
+    if (channel === 'pos') {
+      newPos = !newPos;
+    } else {
+      newOnline = !newOnline;
+    }
+
+    const { name: newName, active: newActive } = formatDiscountName(
+      info.cleanName,
+      newPos,
+      newOnline
+    );
+
+    let newEndsAt = rule.ends_at;
+    // If turning on when expiry date has passed, offer to clear expiry so it goes live!
+    if ((newPos || newOnline) && rule.ends_at && new Date(rule.ends_at).getTime() <= Date.now()) {
+      const renew = window.confirm(
+        `"${info.cleanName}" expired on ${new Date(rule.ends_at).toLocaleDateString('en-IN')}.\n\nDo you want to clear the expiry date so this discount goes live immediately?`
+      );
+      if (renew) newEndsAt = null;
+    }
+
+    setTogglingId(rule.id);
+
+    // Optimistic UI update for 0ms delay
+    const updatedRow = {
+      ...rule,
+      name: newName,
+      active: newActive,
+      ends_at: newEndsAt,
+    };
+    setRules((prev) => prev.map((item) => (item.id === rule.id ? updatedRow : item)));
+
+    try {
+      const payload = {
+        name: newName,
+        scope: rule.scope,
+        target_id: rule.target_id ?? null,
+        discount_bps: Math.round(Number(rule.discount_bps)),
+        active: newActive,
+        starts_at: rule.starts_at || null,
+        ends_at: newEndsAt || null,
+      };
+
+      const result = await send('catalog_discounts', { id: rule.id, data: payload }, load);
+      if (!result) {
+        // Revert on error
+        setRules((prev) => prev.map((item) => (item.id === rule.id ? rule : item)));
+      } else {
+        notice(`✓ "${info.cleanName}" updated: POS ${newPos ? 'ON' : 'OFF'}, Website ${newOnline ? 'ON' : 'OFF'}`);
+      }
+    } catch (e) {
+      setRules((prev) => prev.map((item) => (item.id === rule.id ? rule : item)));
+      notice(`Could not update status: ${(e as Error).message}`);
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  // Master Toggle (Entire discount On / Off)
+  async function handleToggleMaster(rule: Row) {
+    if (togglingId) return;
+    const info = parseDiscountChannels(rule.name, rule.active);
+    const willBeActive = !rule.active;
+
+    let newEndsAt = rule.ends_at;
+    if (willBeActive && rule.ends_at && new Date(rule.ends_at).getTime() <= Date.now()) {
+      const renew = window.confirm(
+        `"${info.cleanName}" expired on ${new Date(rule.ends_at).toLocaleDateString('en-IN')}.\n\nDo you want to clear the expiry date so this discount goes live immediately?`
+      );
+      if (renew) newEndsAt = null;
+    }
+
+    const { name: newName } = formatDiscountName(
+      info.cleanName,
+      willBeActive ? (info.applyInPos || true) : false,
+      willBeActive ? (info.applyOnline || true) : false
+    );
+
+    setTogglingId(rule.id);
+
+    const updatedRow = {
+      ...rule,
+      name: newName,
+      active: willBeActive,
+      ends_at: newEndsAt,
+    };
+    setRules((prev) => prev.map((item) => (item.id === rule.id ? updatedRow : item)));
+
+    try {
+      const payload = {
+        name: newName,
+        scope: rule.scope,
+        target_id: rule.target_id ?? null,
+        discount_bps: Math.round(Number(rule.discount_bps)),
+        active: willBeActive,
+        starts_at: rule.starts_at || null,
+        ends_at: newEndsAt || null,
+      };
+
+      const result = await send('catalog_discounts', { id: rule.id, data: payload }, load);
+      if (!result) {
+        setRules((prev) => prev.map((item) => (item.id === rule.id ? rule : item)));
+      }
+    } catch (e) {
+      setRules((prev) => prev.map((item) => (item.id === rule.id ? rule : item)));
+      notice(`Could not toggle: ${(e as Error).message}`);
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function remove(rule: Row) {
@@ -156,7 +309,7 @@ export function DiscountsManager({ refs }: { refs: References }) {
       <div className="ms-callout">
         <span className="ms-callout-icon" aria-hidden="true">⇄</span>
         <div>
-          <strong>One discount, both channels.</strong> Rules here change the price in POS billing, the website catalogue and online checkout at the same time.
+          <strong>Channel-specific discounts.</strong> You can turn discounts on or off separately for POS Billing Counter and Website Online Shop.
           When several rules match a saree, the biggest discount wins. Product pieces always follow their saree&apos;s discount. Extra counter discounts are given in POS billing.
         </div>
       </div>
@@ -308,11 +461,91 @@ export function DiscountsManager({ refs }: { refs: References }) {
                 </div>
               </div>
 
-              <label className="ms-switch">
-                <input type="checkbox" checked={Boolean(draft.active)} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
-                <span className="ms-switch-track" aria-hidden="true" />
-                <span>Turn on now (POS and website)</span>
-              </label>
+              <div className="ms-field">
+                <span style={{ fontWeight: 700, color: 'var(--erp-maroon, #800020)' }}>Channels &amp; Availability</span>
+                <p style={{ margin: '2px 0 10px', fontSize: 12, color: '#64748B' }}>
+                  Turn on for POS billing counter and website independently:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                  {/* POS Counter Channel */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: draft.apply_in_pos ? '1.5px solid #166534' : '1px solid #E2E8F0',
+                      background: draft.apply_in_pos ? '#F0FDF4' : '#FFFDF9',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#800020' }}>
+                        <span>🛒</span>
+                        <span>POS Billing Counter</span>
+                      </div>
+                      <small style={{ color: '#64748B', fontSize: 11, display: 'block', marginTop: 2 }}>
+                        Shop counter cashier register
+                      </small>
+                    </div>
+                    <span className="ms-switch" style={{ margin: 0, pointerEvents: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.apply_in_pos)}
+                        onChange={() => {}}
+                      />
+                      <span className="ms-switch-track" aria-hidden="true" />
+                    </span>
+                    <input
+                      type="checkbox"
+                      style={{ display: 'none' }}
+                      checked={Boolean(draft.apply_in_pos)}
+                      onChange={(e) => setDraft({ ...draft, apply_in_pos: e.target.checked })}
+                    />
+                  </label>
+
+                  {/* Website & Online Shop Channel */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: draft.apply_online ? '1.5px solid #166534' : '1px solid #E2E8F0',
+                      background: draft.apply_online ? '#F0FDF4' : '#FFFDF9',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#800020' }}>
+                        <span>🌐</span>
+                        <span>Website &amp; Online Shop</span>
+                      </div>
+                      <small style={{ color: '#64748B', fontSize: 11, display: 'block', marginTop: 2 }}>
+                        Storefront catalogue &amp; checkout
+                      </small>
+                    </div>
+                    <span className="ms-switch" style={{ margin: 0, pointerEvents: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.apply_online)}
+                        onChange={() => {}}
+                      />
+                      <span className="ms-switch-track" aria-hidden="true" />
+                    </span>
+                    <input
+                      type="checkbox"
+                      style={{ display: 'none' }}
+                      checked={Boolean(draft.apply_online)}
+                      onChange={(e) => setDraft({ ...draft, apply_online: e.target.checked })}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
             <aside className="ms-preview">
@@ -398,13 +631,35 @@ export function DiscountsManager({ refs }: { refs: References }) {
             {visible.map((r) => {
               const st = ruleStatus(r, now);
               const count = affected(r.scope, r.target_id).length;
+              const info = parseDiscountChannels(r.name, r.active);
+              const isPosOn = Boolean(r.active && info.applyInPos);
+              const isOnlineOn = Boolean(r.active && info.applyOnline);
+              const isToggling = togglingId === r.id;
+
               return (
                 <article key={r.id} className={`ms-rule ms-rule-${st.key}`}>
                   <div className="ms-rule-pct">{Number(r.discount_bps) / 100}<small>% off</small></div>
                   <div className="ms-rule-body">
-                    <div className="ms-rule-title">
-                      <strong>{r.name}</strong>
+                    <div className="ms-rule-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <strong>{info.cleanName}</strong>
                       <span className={`ms-badge ms-badge-${st.key}`}>{st.label}</span>
+                      {isPosOn && isOnlineOn ? (
+                        <span className="ms-badge" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+                          🛒 POS + 🌐 Online
+                        </span>
+                      ) : isPosOn ? (
+                        <span className="ms-badge" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                          🛒 POS only
+                        </span>
+                      ) : isOnlineOn ? (
+                        <span className="ms-badge" style={{ background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
+                          🌐 Website only
+                        </span>
+                      ) : (
+                        <span className="ms-badge" style={{ background: '#F1F5F9', color: '#64748B', border: '1px solid #CBD5E1' }}>
+                          ✕ Inactive
+                        </span>
+                      )}
                     </div>
                     <p>
                       <span className="ms-scope-tag">{SCOPES.find((s) => s.key === r.scope)?.title}</span>
@@ -416,19 +671,129 @@ export function DiscountsManager({ refs }: { refs: References }) {
                       {r.ends_at ? `until ${new Date(r.ends_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : 'no end date'}
                     </small>
                   </div>
-                  <div className="ms-rule-actions">
-                    <label className="ms-switch" title={r.active ? 'Turn off' : 'Turn on'}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(r.active)}
-                        disabled={busy}
-                        onChange={(e) => void save({ ...r, active: e.target.checked })}
+                  <div className="ms-rule-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {/* Separate POS Toggle */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isPosOn}
+                      disabled={isToggling || busy}
+                      onClick={() => void handleToggleChannel(r, 'pos')}
+                      title={`Click to turn ${isPosOn ? 'OFF' : 'ON'} POS billing counter discount`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: isToggling ? 'wait' : 'pointer',
+                        border: isPosOn ? '1.5px solid #166534' : '1px solid #CBD5E1',
+                        background: isPosOn ? '#DCFCE7' : '#F8FAFC',
+                        color: isPosOn ? '#14532D' : '#64748B',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isPosOn ? '0 1px 2px rgba(22, 101, 52, 0.15)' : 'none',
+                      }}
+                    >
+                      <span>🛒 POS</span>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: isPosOn ? '#16A34A' : '#94A3B8',
+                        }}
                       />
-                      <span className="ms-switch-track" aria-hidden="true" />
-                    </label>
-                    <button type="button" className="ms-btn ms-btn-ghost ms-btn-sm" onClick={() => { setDraft({ id: r.id, name: r.name, scope: r.scope, target_id: r.target_id ?? null, discount_bps: r.discount_bps, active: r.active, starts_at: r.starts_at, ends_at: r.ends_at }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
-                    <button type="button" className="ms-btn ms-btn-ghost ms-btn-sm" onClick={() => setDraft({ id: null, name: `${r.name} (copy)`, scope: r.scope, target_id: r.target_id ?? null, discount_bps: r.discount_bps, active: false, starts_at: r.starts_at, ends_at: r.ends_at })}>Duplicate</button>
-                    <button type="button" className="ms-btn ms-btn-danger-ghost ms-btn-sm" onClick={() => void remove(r)}>Delete</button>
+                      <span style={{ fontSize: 11, letterSpacing: '0.02em' }}>{isPosOn ? 'ON' : 'OFF'}</span>
+                    </button>
+
+                    {/* Separate Website Toggle */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isOnlineOn}
+                      disabled={isToggling || busy}
+                      onClick={() => void handleToggleChannel(r, 'online')}
+                      title={`Click to turn ${isOnlineOn ? 'OFF' : 'ON'} website online shop discount`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: isToggling ? 'wait' : 'pointer',
+                        border: isOnlineOn ? '1.5px solid #166534' : '1px solid #CBD5E1',
+                        background: isOnlineOn ? '#DCFCE7' : '#F8FAFC',
+                        color: isOnlineOn ? '#14532D' : '#64748B',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isOnlineOn ? '0 1px 2px rgba(22, 101, 52, 0.15)' : 'none',
+                      }}
+                    >
+                      <span>🌐 Web</span>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: isOnlineOn ? '#16A34A' : '#94A3B8',
+                        }}
+                      />
+                      <span style={{ fontSize: 11, letterSpacing: '0.02em' }}>{isOnlineOn ? 'ON' : 'OFF'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn-ghost ms-btn-sm"
+                      onClick={() => {
+                        setDraft({
+                          id: r.id,
+                          name: info.cleanName,
+                          scope: r.scope,
+                          target_id: r.target_id ?? null,
+                          discount_bps: r.discount_bps,
+                          active: r.active,
+                          apply_in_pos: info.applyInPos,
+                          apply_online: info.applyOnline,
+                          starts_at: r.starts_at,
+                          ends_at: r.ends_at,
+                        });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn-ghost ms-btn-sm"
+                      onClick={() =>
+                        setDraft({
+                          id: null,
+                          name: `${info.cleanName} (copy)`,
+                          scope: r.scope,
+                          target_id: r.target_id ?? null,
+                          discount_bps: r.discount_bps,
+                          active: false,
+                          apply_in_pos: info.applyInPos,
+                          apply_online: info.applyOnline,
+                          starts_at: r.starts_at,
+                          ends_at: r.ends_at,
+                        })
+                      }
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn-danger-ghost ms-btn-sm"
+                      onClick={() => void remove(r)}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </article>
               );
