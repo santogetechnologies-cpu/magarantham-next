@@ -620,33 +620,33 @@ export function Expenses({
           background: '#FFFFFF',
           borderRadius: 12,
           border: '1px solid var(--erp-border, #EAD5C0)',
-          overflow: 'hidden',
+          overflowX: 'auto',
           boxShadow: '0 2px 8px rgba(128, 0, 32, 0.03)',
         }}
       >
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#F8EFE4', borderBottom: '1.5px solid #E5D0B8' }}>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 140, whiteSpace: 'nowrap' }}>
                 DATE / CATEGORY
               </th>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 180, whiteSpace: 'nowrap' }}>
                 DESCRIPTION &amp; PAYEE
               </th>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 105, whiteSpace: 'nowrap' }}>
                 AMOUNT
               </th>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 125, whiteSpace: 'nowrap' }}>
                 PAYMENT METHOD
               </th>
               {/* Simplified Clean Creator Column */}
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 140, whiteSpace: 'nowrap' }}>
                 RECORDED BY
               </th>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', minWidth: 130, whiteSpace: 'nowrap' }}>
                 STATUS
               </th>
-              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', textAlign: 'right' }}>
+              <th style={{ padding: '12px 14px', fontSize: 12, fontWeight: 700, color: 'var(--erp-maroon)', textAlign: 'right', minWidth: 110, whiteSpace: 'nowrap' }}>
                 ACTION
               </th>
             </tr>

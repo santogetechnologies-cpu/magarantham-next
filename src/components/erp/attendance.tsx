@@ -872,14 +872,14 @@ export function Attendance({ refs }: { refs: References }) {
           {/* Employee Attendance Table */}
           <div className="sp-panel" style={{ padding: 0 }}>
             <div className="table-responsive-wrapper">
-              <table className="luxury-table">
+              <table className="luxury-table" style={{ minWidth: 860 }}>
                 <thead>
                   <tr>
-                    <th style={{ width: 240 }}>Employee</th>
-                    <th style={{ width: 120 }}>Employee ID</th>
-                    <th style={{ width: 160 }}>Role</th>
-                    <th>Attendance Status</th>
-                    <th style={{ width: 120, textAlign: 'right' }}>Actions</th>
+                    <th style={{ width: 240, minWidth: 200, whiteSpace: 'nowrap' }}>Employee</th>
+                    <th style={{ width: 120, minWidth: 110, whiteSpace: 'nowrap' }}>Employee ID</th>
+                    <th style={{ width: 160, minWidth: 140, whiteSpace: 'nowrap' }}>Role</th>
+                    <th style={{ minWidth: 240, whiteSpace: 'nowrap' }}>Attendance Status</th>
+                    <th style={{ width: 120, minWidth: 110, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>

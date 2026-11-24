@@ -1097,18 +1097,18 @@ export function ProductModal({
               onFocusCapture={handleTableFocus}
               onKeyDown={handleTableKeyDown}
             >
-              <table className="ap-variants-table" style={{ minWidth: 880 }}>
+              <table className="ap-variants-table" style={{ minWidth: 980 }}>
                 <thead>
                   <tr className="ap-variants-thead-row">
-                    <th style={{ width: 125 }}>Piece Code</th>
-                    <th style={{ width: 95 }}>Colour</th>
-                    <th style={{ width: 110 }}>Selling Price (₹)</th>
-                    <th style={{ width: 110 }}>Purchase Cost (₹)</th>
-                    <th style={{ width: 75 }}>Stock</th>
-                    <th style={{ width: 80 }}>Low Stock</th>
-                    <th style={{ width: 95 }}>Location</th>
-                    <th style={{ width: 110 }}>Stock Status</th>
-                    <th style={{ width: 60, textAlign: "center" }}>Delete</th>
+                    <th style={{ width: 155, minWidth: 155, whiteSpace: "nowrap" }}>Piece Code</th>
+                    <th style={{ width: 110, minWidth: 110, whiteSpace: "nowrap" }}>Colour</th>
+                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Selling Price (₹)</th>
+                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Purchase Cost (₹)</th>
+                    <th style={{ width: 80, minWidth: 80, whiteSpace: "nowrap" }}>Stock</th>
+                    <th style={{ width: 85, minWidth: 85, whiteSpace: "nowrap" }}>Low Stock</th>
+                    <th style={{ width: 105, minWidth: 105, whiteSpace: "nowrap" }}>Location</th>
+                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Stock Status</th>
+                    <th style={{ width: 70, minWidth: 70, textAlign: "center", whiteSpace: "nowrap" }}>Delete</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1123,7 +1123,7 @@ export function ProductModal({
                           value={pc.piece_code}
                           onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
                           className="ap-inline-input"
-                          style={{ fontWeight: 600, color: "#800020" }}
+                          style={{ fontWeight: 600, color: "#800020", minWidth: 140 }}
                         />
                       </td>
 

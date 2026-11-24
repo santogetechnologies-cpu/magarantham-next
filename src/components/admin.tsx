@@ -1671,13 +1671,13 @@ export function Admin({
 
                   {section !== "settings" && (
                     <div className="data-table">
-                      <table>
+                      <table style={{ minWidth: 680 }}>
                         <thead>
                           <tr>
-                            <th>Name / Code</th>
-                            <th>Details</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                            <th style={{ minWidth: 160, whiteSpace: "nowrap" }}>Name / Code</th>
+                            <th style={{ minWidth: 220, whiteSpace: "nowrap" }}>Details</th>
+                            <th style={{ minWidth: 110, whiteSpace: "nowrap" }}>Status</th>
+                            <th style={{ minWidth: 110, whiteSpace: "nowrap" }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>

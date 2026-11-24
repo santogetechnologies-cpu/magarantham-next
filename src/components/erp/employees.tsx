@@ -662,17 +662,17 @@ export function EmployeesManager({
           {/* Employee Directory Table */}
           {filtered.length > 0 ? (
             <div className="table-responsive-wrapper">
-              <table className="luxury-table">
+              <table className="luxury-table" style={{ minWidth: 920 }}>
                 <thead>
                   <tr>
-                    <th>Employee</th>
-                    <th>Employee ID</th>
-                    <th>Job Role</th>
-                    <th>Department</th>
-                    <th>Phone</th>
-                    <th>Joining Date</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th style={{ minWidth: 180, whiteSpace: 'nowrap' }}>Employee</th>
+                    <th style={{ minWidth: 120, whiteSpace: 'nowrap' }}>Employee ID</th>
+                    <th style={{ minWidth: 130, whiteSpace: 'nowrap' }}>Job Role</th>
+                    <th style={{ minWidth: 130, whiteSpace: 'nowrap' }}>Department</th>
+                    <th style={{ minWidth: 120, whiteSpace: 'nowrap' }}>Phone</th>
+                    <th style={{ minWidth: 110, whiteSpace: 'nowrap' }}>Joining Date</th>
+                    <th style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Status</th>
+                    <th style={{ minWidth: 140, textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>

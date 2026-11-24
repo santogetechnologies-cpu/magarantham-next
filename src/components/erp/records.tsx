@@ -292,13 +292,13 @@ export function ERPRecords({
       )}
 
       <div className="data-table">
-        <table>
+        <table style={{ minWidth: 700 }}>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Details</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th style={{ minWidth: 160, whiteSpace: 'nowrap' }}>Name</th>
+              <th style={{ minWidth: 220, whiteSpace: 'nowrap' }}>Details</th>
+              <th style={{ minWidth: 110, whiteSpace: 'nowrap' }}>Status</th>
+              <th style={{ minWidth: 130, whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
           </thead>
           <tbody>

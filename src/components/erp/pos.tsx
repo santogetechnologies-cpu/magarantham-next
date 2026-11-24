@@ -1209,7 +1209,7 @@ export function POS({ profile }: { profile: Profile }) {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by saree name, SKU, or barcode..."
+                placeholder="Search saree, SKU, or code..."
                 className="pos-search-input"
               />
               {search && (
@@ -2220,16 +2220,16 @@ export function POS({ profile }: { profile: Profile }) {
         </div>
 
         <div className="table-responsive-wrapper pos-bills-table-wrap">
-          <table className="luxury-table pos-bills-table">
+          <table className="luxury-table pos-bills-table" style={{ minWidth: 960 }}>
             <thead>
               <tr>
-                <th>Invoice</th>
-                <th>Customer</th>
-                <th>Sarees Bought</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Return</th>
-                <th>Action</th>
+                <th style={{ minWidth: 155, whiteSpace: 'nowrap' }}>Invoice</th>
+                <th style={{ minWidth: 145, whiteSpace: 'nowrap' }}>Customer</th>
+                <th style={{ minWidth: 190, whiteSpace: 'nowrap' }}>Sarees Bought</th>
+                <th style={{ minWidth: 105, whiteSpace: 'nowrap', textAlign: 'right' }}>Total</th>
+                <th style={{ minWidth: 115, whiteSpace: 'nowrap', textAlign: 'right' }}>Paid</th>
+                <th style={{ minWidth: 125, whiteSpace: 'nowrap', textAlign: 'right' }}>Change Returned</th>
+                <th style={{ minWidth: 135, whiteSpace: 'nowrap', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2252,19 +2252,19 @@ export function POS({ profile }: { profile: Profile }) {
 
                   return (
                     <tr key={b.id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <strong style={{ color: 'var(--erp-maroon)' }}>
                             {b.invoice_no}
                           </strong>
                           <span
                             className={`pill-status ${b.status === 'completed' ? 'status-paid' : 'status-pending'}`}
-                            style={{ fontSize: 10, padding: '1px 7px' }}
+                            style={{ fontSize: 10, padding: '1px 7px', whiteSpace: 'nowrap' }}
                           >
                             {b.status}
                           </span>
                         </div>
-                        <small style={{ display: 'block', color: 'var(--erp-text-muted)', marginTop: 2 }}>
+                        <small style={{ display: 'block', color: 'var(--erp-text-muted)', marginTop: 2, whiteSpace: 'nowrap' }}>
                           {new Date(b.created_at).toLocaleString('en-IN', {
                             timeZone: 'Asia/Kolkata',
                             dateStyle: 'medium',
@@ -2272,19 +2272,19 @@ export function POS({ profile }: { profile: Profile }) {
                           })}
                         </small>
                       </td>
-                      <td>
+                      <td style={{ minWidth: 145 }}>
                         <strong>{b.customer_name || 'Walk-in Customer'}</strong>
                         {b.customer_phone && (
-                          <small style={{ display: 'block', color: 'var(--erp-text-muted)' }}>
+                          <small style={{ display: 'block', color: 'var(--erp-text-muted)', whiteSpace: 'nowrap' }}>
                             {b.customer_phone}
                           </small>
                         )}
                       </td>
-                      <td>
+                      <td style={{ minWidth: 190, maxWidth: 300 }}>
                         {billItems.length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {billItems.map((it: Row, idx: number) => (
-                              <span key={`${it.product_id || idx}-${idx}`} style={{ fontSize: 13 }}>
+                              <span key={`${it.product_id || idx}-${idx}`} style={{ fontSize: 13, lineHeight: 1.3 }}>
                                 <strong style={{ color: 'var(--erp-maroon)' }}>{it.name}</strong>
                                 <span style={{ color: 'var(--erp-text-muted)' }}>
                                   {' '}× {it.quantity}
@@ -2296,7 +2296,7 @@ export function POS({ profile }: { profile: Profile }) {
                           '—'
                         )}
                       </td>
-                      <td className="money-cell">
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {money(b.total_paise)}
                         {Number(b.discount_paise || 0) > 0 && (
                           <small
@@ -2304,25 +2304,27 @@ export function POS({ profile }: { profile: Profile }) {
                               display: 'block',
                               fontWeight: 600,
                               color: '#15803D',
+                              whiteSpace: 'nowrap',
                             }}
                           >
                             Disc: −{money(Number(b.discount_paise))}
                           </small>
                         )}
                       </td>
-                      <td className="money-cell">
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         <strong>{money(totalPaidPaise)}</strong>
                         <small
                           style={{
                             display: 'block',
                             fontWeight: 600,
                             color: 'var(--erp-text-muted)',
+                            whiteSpace: 'nowrap',
                           }}
                         >
                           {payMethodsLabel}
                         </small>
                       </td>
-                      <td className="money-cell">
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {changeReturnedPaise > 0 ? (
                           <strong style={{ color: '#15803D' }}>
                             {money(changeReturnedPaise)}
@@ -2331,8 +2333,8 @@ export function POS({ profile }: { profile: Profile }) {
                           <span style={{ color: 'var(--erp-text-muted)' }}>0 Rs</span>
                         )}
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                           <button
                             type="button"
                             className="button outline-btn mini-btn"
