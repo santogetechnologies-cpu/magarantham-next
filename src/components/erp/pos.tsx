@@ -1776,11 +1776,6 @@ export function POS({ profile }: { profile: Profile }) {
                       <div className="pos-bill-empty">
                         <div className="pos-bill-empty-icon">🧾</div>
                         <p>No items in bill yet</p>
-                        <small>
-                          Scan a barcode above or search manually above to begin billing.
-                          <br />
-                          Prices, discounts, and totals calculate automatically.
-                        </small>
                       </div>
                     </td>
                   </tr>
