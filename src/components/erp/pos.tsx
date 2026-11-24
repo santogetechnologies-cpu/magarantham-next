@@ -112,6 +112,8 @@ export function POS({ profile }: { profile: Profile }) {
 
   // Unified Product Search & Barcode Scanner State
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
+  const [isSearchingBarcode, setIsSearchingBarcode] = useState(false);
+  const [asyncBarcodeMatch, setAsyncBarcodeMatch] = useState<Row | null>(null);
   const manualDropdownRef = useRef<HTMLDivElement>(null);
 
   // Held / Parked Bills state
@@ -328,10 +330,87 @@ export function POS({ profile }: { profile: Profile }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  // Instant scan lookup: every barcode, SKU and piece code -> product, built once per catalogue refresh.
+  const codeIndex = useMemo(() => {
+    const map = new Map<string, { product: Row; piece: boolean }>();
+    for (const p of catalog) {
+      if (p.barcode) map.set(String(p.barcode).toLowerCase(), { product: p, piece: false });
+      if (p.sku) map.set(String(p.sku).toLowerCase(), { product: p, piece: false });
+      for (const pc of Array.isArray(p.pieces) ? p.pieces : []) {
+        for (const k of [pc.piece_code, pc.barcode, pc.id]) {
+          if (k) map.set(String(k).toLowerCase(), { product: p, piece: true });
+        }
+      }
+    }
+    return map;
+  }, [catalog]);
+
+  // Proactively lookup barcodes / piece codes / serialized units in backend if not found locally
+  useEffect(() => {
+    const trimmed = barcodeInput.trim();
+    if (!trimmed || trimmed.length < 3) {
+      setAsyncBarcodeMatch(null);
+      setIsSearchingBarcode(false);
+      return;
+    }
+
+    const q = trimmed.toLowerCase();
+    const hit = codeIndex.get(q);
+    if (hit?.product) {
+      setAsyncBarcodeMatch(null);
+      setIsSearchingBarcode(false);
+      return;
+    }
+
+    // Check if local catalog already has an exact barcode, SKU or piece code match
+    const hasExactLocal = catalog.some((p) => {
+      const b = String(p.barcode || '').toLowerCase();
+      const s = String(p.sku || '').toLowerCase();
+      const pieceHit = Array.isArray(p.pieces) && p.pieces.some((pc: any) =>
+        String(pc.piece_code || '').toLowerCase() === q ||
+        String(pc.barcode || '').toLowerCase() === q
+      );
+      return b === q || s === q || pieceHit;
+    });
+
+    if (hasExactLocal) {
+      setAsyncBarcodeMatch(null);
+      setIsSearchingBarcode(false);
+      return;
+    }
+
+    // Proactively query backend scan endpoint (e.g. MSU serialized unit stickers or new barcodes)
+    setIsSearchingBarcode(true);
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api<Row>(`/api/erp/scan?barcode=${encodeURIComponent(trimmed)}`);
+        if (active && r?.product) {
+          setAsyncBarcodeMatch({
+            ...r.product,
+            matchedCode: trimmed,
+            matchedUnit: r.unit,
+          });
+        } else if (active) {
+          setAsyncBarcodeMatch(null);
+        }
+      } catch {
+        if (active) setAsyncBarcodeMatch(null);
+      } finally {
+        if (active) setIsSearchingBarcode(false);
+      }
+    }, 120);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [barcodeInput, catalog, codeIndex]);
+
   const manualMatches = useMemo(() => {
     if (!barcodeInput.trim()) return [];
     const q = barcodeInput.trim().toLowerCase();
-    return catalog.filter((p) => {
+    const local = catalog.filter((p) => {
       const name = String(p.name || '').toLowerCase();
       const sku = String(p.sku || '').toLowerCase();
       const barcode = String(p.barcode || '').toLowerCase();
@@ -339,6 +418,11 @@ export function POS({ profile }: { profile: Profile }) {
       const subcat = String(p.subcategory_name || '').toLowerCase();
       const colour = String(p.colour || '').toLowerCase();
       const fabric = String(p.fabric || '').toLowerCase();
+      const pieceMatch = Array.isArray(p.pieces) && p.pieces.some((pc: any) =>
+        (pc.piece_code && String(pc.piece_code).toLowerCase().includes(q)) ||
+        (pc.barcode && String(pc.barcode).toLowerCase().includes(q)) ||
+        (pc.id && String(pc.id).toLowerCase().includes(q))
+      );
       return (
         name.includes(q) ||
         sku.includes(q) ||
@@ -346,10 +430,23 @@ export function POS({ profile }: { profile: Profile }) {
         cat.includes(q) ||
         subcat.includes(q) ||
         colour.includes(q) ||
-        fabric.includes(q)
+        fabric.includes(q) ||
+        pieceMatch
       );
     });
-  }, [catalog, barcodeInput]);
+
+    const codeHit = codeIndex.get(q)?.product;
+    let list = local;
+    if (codeHit && !list.some((p) => p.id === codeHit.id)) {
+      list = [codeHit, ...list];
+    }
+
+    if (asyncBarcodeMatch) {
+      list = [asyncBarcodeMatch, ...list.filter((p) => p.id !== asyncBarcodeMatch.id)];
+    }
+
+    return list;
+  }, [catalog, barcodeInput, codeIndex, asyncBarcodeMatch]);
 
   const parsedGstPct = Math.min(100, Math.max(0, parseInt(gstInput || '0', 10) || 0));
 
@@ -596,19 +693,6 @@ export function POS({ profile }: { profile: Profile }) {
       setCashReceivedEdited(false);
     }
   }, [total, payMode]);
-
-  // Instant scan lookup: every barcode, SKU and piece code -> product, built once per catalogue refresh.
-  const codeIndex = useMemo(() => {
-    const map = new Map<string, { product: Row; piece: boolean }>();
-    for (const p of catalog) {
-      if (p.barcode) map.set(String(p.barcode).toLowerCase(), { product: p, piece: false });
-      if (p.sku) map.set(String(p.sku).toLowerCase(), { product: p, piece: false });
-      for (const pc of Array.isArray(p.pieces) ? p.pieces : []) {
-        for (const k of [pc.piece_code, pc.barcode, pc.id]) if (k) map.set(String(k).toLowerCase(), { product: p, piece: true });
-      }
-    }
-    return map;
-  }, [catalog]);
 
   // Best POS festival offer per saree, matching how the server prices the bill.
   const categoryMap = useMemo(() => buildCategoryMap(posCategories as any), [posCategories]);
@@ -1409,6 +1493,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
           const hit = codeIndex.get(lower);
           if (hit?.product) {
             setManualDropdownOpen(false);
+            setAsyncBarcodeMatch(null);
             await scan(trimmed);
             return;
           }
@@ -1421,8 +1506,14 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               notice(`"${selected.name}" is currently out of stock.`);
               return;
             }
-            add(selected);
+            if (selected.matchedCode) {
+              if (selected.piece) rememberPiece(selected.id, String(selected.piece.id || selected.matchedCode));
+              add(selected, selected.matchedUnit || undefined, selected.matchedCode);
+            } else {
+              add(selected);
+            }
             setBarcodeInput('');
+            setAsyncBarcodeMatch(null);
             setManualDropdownOpen(false);
             playScanBeep(true);
             notice(`✓ Added "${selected.name}" to bill.`);
@@ -1432,6 +1523,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
 
           // 3. Fallback to authoritative backend scan (serialized piece or database SKU)
           setManualDropdownOpen(false);
+          setAsyncBarcodeMatch(null);
           await scan(trimmed);
         }}
       >
@@ -1485,6 +1577,8 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 type="button"
                 onClick={() => {
                   setBarcodeInput('');
+                  setAsyncBarcodeMatch(null);
+                  setIsSearchingBarcode(false);
                   setManualDropdownOpen(false);
                   scannerRef.current?.focus();
                 }}
@@ -1511,6 +1605,11 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               <div className="pos-manual-dropdown-header">
                 <span>
                   Matches ({manualMatches.length} {manualMatches.length === 1 ? 'saree' : 'sarees'})
+                  {isSearchingBarcode && (
+                    <span style={{ marginLeft: 8, fontSize: '11px', color: '#800020', fontWeight: 600 }}>
+                      Searching barcode…
+                    </span>
+                  )}
                 </span>
                 <small style={{ color: '#888', fontWeight: 400 }}>
                   Press [Enter] to add top match or click any saree
@@ -1532,8 +1631,14 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                             notice(`"${p.name}" is currently out of stock.`);
                             return;
                           }
-                          add(p);
+                          if (p.matchedCode) {
+                            if (p.piece) rememberPiece(p.id, String(p.piece.id || p.matchedCode));
+                            add(p, p.matchedUnit || undefined, p.matchedCode);
+                          } else {
+                            add(p);
+                          }
                           setBarcodeInput('');
+                          setAsyncBarcodeMatch(null);
                           setManualDropdownOpen(false);
                           playScanBeep(true);
                           notice(`✓ Added "${p.name}" to bill.`);
@@ -1549,9 +1654,13 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           <strong className="pos-manual-item-name">{p.name}</strong>
                           <div className="pos-manual-item-sub">
                             <code>{p.sku || 'No SKU'}</code>
-                            {p.barcode && p.barcode !== p.sku && (
+                            {p.matchedCode ? (
+                              <span style={{ color: '#800020', fontWeight: 700 }}>
+                                🏷️ Barcode: {p.matchedCode}
+                              </span>
+                            ) : p.barcode && p.barcode !== p.sku ? (
                               <span>Barcode: {p.barcode}</span>
-                            )}
+                            ) : null}
                             {p.category && <span>• {p.category}</span>}
                             {p.colour && <span>• {p.colour}</span>}
                             <span
@@ -1583,6 +1692,14 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                       </div>
                     );
                   })
+                ) : isSearchingBarcode ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#650019' }}>
+                    <div style={{ fontSize: '20px', marginBottom: '6px' }}>⏳</div>
+                    <p style={{ margin: 0, fontWeight: 600 }}>Searching barcode / piece code &ldquo;{barcodeInput}&rdquo;…</p>
+                    <small style={{ color: '#888', display: 'block', marginTop: 4 }}>
+                      Checking barcode scanner database…
+                    </small>
+                  </div>
                 ) : (
                   <div style={{ padding: '24px', textAlign: 'center', color: '#777' }}>
                     <p style={{ margin: 0, fontWeight: 600 }}>No sarees found matching &ldquo;{barcodeInput}&rdquo;</p>
