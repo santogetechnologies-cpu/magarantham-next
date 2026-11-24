@@ -57,6 +57,9 @@ export function FestivalOffersManager({
   const [deletingOffer, setDeletingOffer] = useState<EnhancedOffer | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Toggle State
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -357,21 +360,57 @@ export function FestivalOffersManager({
     }
   }
 
-  // Toggle Active directly from table
+  // Toggle Active directly from table via On/Off button
   async function handleToggleActive(offer: EnhancedOffer) {
+    if (togglingId) return;
+    const willBeActive = !offer.active;
+    let newEndsAt = offer.ends_at;
+
+    // If turning ON an offer whose expiry date has already passed, offer to clear expiry so it goes live!
+    if (willBeActive && offer.ends_at && new Date(offer.ends_at).getTime() <= Date.now()) {
+      const renew = window.confirm(
+        `"${offer.title}" expired on ${new Date(offer.ends_at).toLocaleDateString("en-IN")}.\n\nDo you want to clear the expiry date so this offer goes live immediately?`
+      );
+      if (renew) {
+        newEndsAt = null;
+      }
+    }
+
+    setTogglingId(offer.id);
+
+    // Optimistic state update for instant UI feedback
+    setOffers((prev) =>
+      prev.map((o) =>
+        o.id === offer.id
+          ? { ...o, active: willBeActive, ends_at: newEndsAt }
+          : o
+      )
+    );
+
     try {
       await api("/api/admin/offers", {
         id: offer.id,
         data: {
           ...offer,
-          active: !offer.active,
+          active: willBeActive,
+          ends_at: newEndsAt,
         },
         targets: offer.targets || [],
       });
       await loadData();
       if (onRefresh) onRefresh();
     } catch (e) {
+      // Revert optimistic update on error
+      setOffers((prev) =>
+        prev.map((o) =>
+          o.id === offer.id
+            ? { ...o, active: offer.active, ends_at: offer.ends_at }
+            : o
+        )
+      );
       alert(`Could not toggle status: ${(e as Error).message}`);
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -543,67 +582,187 @@ export function FestivalOffersManager({
           justifyContent: "space-between",
           background: "#FFFDF9",
           border: "1px solid #EAD5C0",
-          padding: "12px 18px",
-          borderRadius: 8,
+          padding: "10px 16px",
+          borderRadius: 10,
           marginBottom: 20,
         }}
       >
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flex: "1 1 320px" }}>
-          <input
-            type="text"
-            placeholder="Search by offer title or coupon code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="ap-input"
-            style={{ maxWidth: 360, height: 38 }}
-          />
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flex: "1 1 540px",
+            minWidth: 0,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Search Box */}
+          <div style={{ position: "relative", flex: "1 1 220px", minWidth: 200, maxWidth: 360 }}>
+            <span
+              style={{
+                position: "absolute",
+                left: 11,
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: 13,
+                color: "#94A3B8",
+                pointerEvents: "none",
+              }}
+              aria-hidden="true"
+            >
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="Search offer title or coupon code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="ap-input"
+              style={{
+                width: "100%",
+                height: 38,
+                paddingLeft: 32,
+                paddingRight: searchQuery ? 28 : 10,
+                borderRadius: 7,
+                border: "1px solid #D4B99F",
+                background: "#FFFFFF",
+                fontSize: 13,
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#94A3B8",
+                  fontSize: 14,
+                  padding: 2,
+                }}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
+          {/* Target Type Filter */}
           <select
             value={targetFilter}
             onChange={(e) => setTargetFilter(e.target.value as any)}
             className="ap-select"
-            style={{ width: "auto", height: 38 }}
+            style={{
+              width: "auto",
+              minWidth: 150,
+              height: 38,
+              borderRadius: 7,
+              border: "1px solid #D4B99F",
+              background: "#FFFFFF",
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#333",
+            }}
           >
             <option value="all">All Target Types</option>
-            <option value="category">Category-wise</option>
-            <option value="subcategory">Subcategory-wise</option>
-            <option value="product">Product-wise</option>
-            <option value="all">Storewide (All Sarees)</option>
+            <option value="category">🏷️ Category-wise</option>
+            <option value="subcategory">📂 Subcategory-wise</option>
+            <option value="product">🎯 Product-wise</option>
+            <option value="all">🌐 Storewide (All Sarees)</option>
           </select>
 
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="ap-select"
-            style={{ width: "auto", height: 38 }}
+            style={{
+              width: "auto",
+              minWidth: 130,
+              height: 38,
+              borderRadius: 7,
+              border: "1px solid #D4B99F",
+              background: "#FFFFFF",
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#333",
+            }}
           >
             <option value="all">All Statuses</option>
             <option value="active">Active Now</option>
             <option value="scheduled">Scheduled</option>
             <option value="expired">Expired</option>
           </select>
+
+          {/* Clear Filters Button */}
+          {(searchQuery || statusFilter !== "all" || targetFilter !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setTargetFilter("all");
+              }}
+              style={{
+                background: "none",
+                border: "1px dashed #D4B99F",
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#800020",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Reset filters
+            </button>
+          )}
         </div>
 
-        <span style={{ fontSize: 13, color: "#800020", fontWeight: 600 }}>
-          Showing {filteredOffers.length} of {offers.length} offers
-        </span>
+        {/* Counter Badge */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: "#FBF7F0",
+            border: "1px solid #EAD5C0",
+            padding: "6px 12px",
+            borderRadius: 6,
+            fontSize: 13,
+            color: "#800020",
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span>Showing</span>
+          <span style={{ color: "#166534" }}>{filteredOffers.length}</span>
+          <span>of {offers.length} offers</span>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
       {/* OFFERS DATA TABLE                                             */}
       {/* ------------------------------------------------------------- */}
       <div className="cat-table-wrap">
-        <table className="cat-table">
+        <table className="cat-table" style={{ width: "100%", minWidth: 1160, borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ width: 220 }}>Offer Campaign</th>
-              <th style={{ width: 140 }}>Target Level</th>
-              <th style={{ width: 140 }}>Discount Value</th>
-              <th style={{ width: 130 }}>Eligibility</th>
-              <th style={{ width: 160 }}>Timeline</th>
-              <th style={{ width: 100 }}>Priority</th>
-              <th style={{ width: 110 }}>Status</th>
-              <th style={{ width: 120 }}>Actions</th>
+              <th style={{ width: "20%", minWidth: 200, whiteSpace: "nowrap" }}>Offer Campaign</th>
+              <th style={{ width: "13%", minWidth: 140, whiteSpace: "nowrap" }}>Target Level</th>
+              <th style={{ width: "12%", minWidth: 125, whiteSpace: "nowrap" }}>Discount Value</th>
+              <th style={{ width: "12%", minWidth: 130, whiteSpace: "nowrap" }}>Eligibility</th>
+              <th style={{ width: "13%", minWidth: 145, whiteSpace: "nowrap" }}>Timeline</th>
+              <th style={{ width: "10%", minWidth: 120, whiteSpace: "nowrap" }}>Priority</th>
+              <th style={{ width: "10%", minWidth: 130, whiteSpace: "nowrap" }}>Status</th>
+              <th style={{ width: "10%", minWidth: 150, whiteSpace: "nowrap" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -784,63 +943,187 @@ export function FestivalOffersManager({
                       </span>
                     </td>
 
-                    {/* Status Pill */}
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(o)}
-                        title="Click to toggle offer active/inactive"
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                      >
+                    {/* Status & On/Off Toggle Button */}
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                        {/* On / Off Toggle Switch Button */}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={Boolean(o.active)}
+                          disabled={togglingId === o.id}
+                          onClick={() => void handleToggleActive(o)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: "transparent",
+                            border: "none",
+                            cursor: togglingId === o.id ? "wait" : "pointer",
+                            padding: "2px 0",
+                            outline: "none",
+                            userSelect: "none",
+                          }}
+                          title={o.active ? "Click to turn OFF" : "Click to turn ON"}
+                        >
+                          {/* Switch Track */}
+                          <span
+                            style={{
+                              position: "relative",
+                              display: "inline-block",
+                              width: 44,
+                              height: 24,
+                              borderRadius: 12,
+                              backgroundColor: o.active ? "#166534" : "#94A3B8",
+                              transition: "background-color 0.2s ease",
+                              boxShadow: "inset 0 1px 3px rgba(0,0,0,0.18)",
+                              opacity: togglingId === o.id ? 0.6 : 1,
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            {/* Switch Knob */}
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: 2,
+                                left: 2,
+                                width: 20,
+                                height: 20,
+                                borderRadius: "50%",
+                                backgroundColor: "#FFFFFF",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                                transform: o.active ? "translateX(20px)" : "translateX(0)",
+                                transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                              }}
+                            />
+                          </span>
+                          {/* ON / OFF Text Label */}
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 800,
+                              letterSpacing: "0.05em",
+                              color: o.active ? "#166534" : "#64748B",
+                              minWidth: 28,
+                              textAlign: "left",
+                            }}
+                          >
+                            {togglingId === o.id ? "..." : o.active ? "ON" : "OFF"}
+                          </span>
+                        </button>
+
+                        {/* Status Badge */}
                         <span
                           className="cat-status-pill"
                           style={{
-                            background: isLive
-                              ? "#DCFCE7"
-                              : isScheduled
-                                ? "#EFF6FF"
-                                : isExpired
-                                  ? "#F1F5F9"
-                                  : "#FEE2E2",
-                            color: isLive
-                              ? "#166534"
-                              : isScheduled
-                                ? "#1E40AF"
-                                : isExpired
-                                  ? "#475569"
-                                  : "#991B1B",
-                            cursor: "pointer",
+                            background: !o.active
+                              ? "#FEE2E2"
+                              : isLive
+                                ? "#DCFCE7"
+                                : isScheduled
+                                  ? "#EFF6FF"
+                                  : "#F1F5F9",
+                            color: !o.active
+                              ? "#991B1B"
+                              : isLive
+                                ? "#166534"
+                                : isScheduled
+                                  ? "#1E40AF"
+                                  : "#475569",
+                            fontSize: 10,
+                            padding: "2px 8px",
+                            borderRadius: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.03em",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {isLive
-                            ? "Active"
-                            : isScheduled
-                              ? "Scheduled"
-                              : isExpired
-                                ? "Expired"
-                                : "Inactive"}
+                          {!o.active ? (
+                            <>✕ Inactive</>
+                          ) : isLive ? (
+                            <>● Live</>
+                          ) : isScheduled ? (
+                            <>⏱ Scheduled</>
+                          ) : (
+                            <>⌛ Expired</>
+                          )}
                         </span>
-                      </button>
+                      </div>
                     </td>
 
                     {/* Actions */}
-                    <td>
-                      <div style={{ display: "flex", gap: 10 }}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         <button
                           type="button"
-                          className="text-link"
                           onClick={() => handleOpenEdit(o)}
-                          style={{ fontWeight: 600, color: "#800020" }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "5px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #D4B99F",
+                            background: "#FFFDF9",
+                            color: "#800020",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#800020";
+                            e.currentTarget.style.color = "#FFFFFF";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#FFFDF9";
+                            e.currentTarget.style.color = "#800020";
+                          }}
+                          title="Edit offer details and targets"
                         >
-                          Edit
+                          <span aria-hidden="true">✏️</span>
+                          <span>Edit</span>
                         </button>
                         <button
                           type="button"
-                          className="text-link"
-                          style={{ color: "#B91C1C", fontWeight: 600 }}
                           onClick={() => setDeletingOffer(o)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "5px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #FECACA",
+                            background: "#FEF2F2",
+                            color: "#B91C1C",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            transition: "all 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#DC2626";
+                            e.currentTarget.style.color = "#FFFFFF";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#FEF2F2";
+                            e.currentTarget.style.color = "#B91C1C";
+                          }}
+                          title="Delete festival offer"
                         >
-                          Delete
+                          <span aria-hidden="true">🗑️</span>
+                          <span>Delete</span>
                         </button>
                       </div>
                     </td>
@@ -1288,15 +1571,65 @@ export function FestivalOffersManager({
                       />
                     </label>
 
-                    {/* Active Checkbox */}
-                    <label className="checkbox-item" style={{ marginTop: 28 }}>
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={(e) => setActive(e.target.checked)}
-                      />
-                      <span style={{ fontWeight: 700, color: "#800020" }}>Active &amp; Published</span>
-                    </label>
+                    {/* Active On/Off Switch */}
+                    <div style={{ flex: "1 1 200px", marginTop: 4 }}>
+                      <span className="ap-label" style={{ marginBottom: 6, display: "block" }}>
+                        Campaign On/Off Switch
+                      </span>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 10,
+                          cursor: "pointer",
+                          userSelect: "none",
+                          padding: "6px 12px",
+                          background: "#FFFDF9",
+                          border: "1px solid #EAD5C0",
+                          borderRadius: 8,
+                          height: 38,
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "relative",
+                            display: "inline-block",
+                            width: 44,
+                            height: 22,
+                            borderRadius: 11,
+                            backgroundColor: active ? "#166534" : "#94A3B8",
+                            transition: "background-color 0.2s ease",
+                            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.18)",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 2,
+                              left: 2,
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              backgroundColor: "#FFFFFF",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                              transform: active ? "translateX(22px)" : "translateX(0)",
+                              transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                            }}
+                          />
+                        </span>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: active ? "#166534" : "#64748B" }}>
+                          {active ? "ON (Active)" : "OFF (Disabled)"}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={(e) => setActive(e.target.checked)}
+                          style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </fieldset>
 
