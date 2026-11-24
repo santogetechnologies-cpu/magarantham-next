@@ -19,7 +19,9 @@ export function Expenses({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
   const [selectedMethod, setSelectedMethod] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'posted' | 'void'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'posted' | 'rejected' | 'void'>('all');
+  const [rejecting, setRejecting] = useState<Row | null>(null);
+  const isOwner = profile?.role === 'superadmin';
   const [showLogForm, setShowLogForm] = useState(false);
 
   const { busy, send, notice } = useERP();
@@ -422,6 +424,82 @@ export function Expenses({
         </form>
       )}
 
+      {/* Approval queue: staff expenses wait here until the owner approves them */}
+      {(() => {
+        const pending = rows.filter((r) => r.status === 'pending');
+        if (!pending.length) return null;
+        const total = pending.reduce((t, r) => t + Number(r.amount_paise || 0), 0);
+        if (!isOwner)
+          return (
+            <div className="ms-callout" style={{ marginBottom: 16 }}>
+              <span className="ms-callout-icon" aria-hidden="true">⏳</span>
+              <div>
+                <strong>{pending.length} expense{pending.length === 1 ? '' : 's'} waiting for approval</strong> ({money(total)}). They count in
+                reports once the owner approves them.
+              </div>
+            </div>
+          );
+        return (
+          <section className="ms-card ex-approvals" style={{ marginBottom: 16 }}>
+            <div className="ms-card-head">
+              <div>
+                <h2>Waiting for your approval</h2>
+                <p>{pending.length} staff expense{pending.length === 1 ? '' : 's'} · {money(total)}. Approved expenses count in reports; rejected ones never do.</p>
+              </div>
+              <button
+                type="button"
+                className="ms-btn ms-btn-primary ms-btn-sm"
+                disabled={busy}
+                onClick={async () => {
+                  if (!window.confirm(`Approve all ${pending.length} expenses (${money(total)})?`)) return;
+                  for (const r of pending) await send('expense_review', { id: r.id, action: 'approve', note: '' });
+                  await load();
+                }}
+              >
+                Approve all
+              </button>
+            </div>
+            <div className="ex-approval-list">
+              {pending.map((r) => (
+                <div key={r.id} className="ex-approval">
+                  <div>
+                    <strong>{r.description}</strong>
+                    <small>
+                      {refs.expense_categories?.find((c) => c.id === r.category_id)?.name || 'General'} · {r.expense_on} · {String(r.method).toUpperCase()}
+                      {r.reference ? ` · Ref ${r.reference}` : ''}{r.payee ? ` · Paid to ${r.payee}` : ''} · by {r.created_by_name || 'staff'}
+                    </small>
+                  </div>
+                  <b>{money(r.amount_paise)}</b>
+                  <div className="ex-approval-actions">
+                    <button type="button" className="ms-btn ms-btn-primary ms-btn-sm" disabled={busy} onClick={() => send('expense_review', { id: r.id, action: 'approve', note: '' }, load)}>Approve</button>
+                    <button type="button" className="ms-btn ms-btn-danger-ghost ms-btn-sm" disabled={busy} onClick={() => setRejecting(r)}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {rejecting && (
+              <form
+                className="ex-reject"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const note = String(new FormData(e.currentTarget).get('note') || '');
+                  if (await send('expense_review', { id: rejecting.id, action: 'reject', note }, load)) setRejecting(null);
+                }}
+              >
+                <label className="ms-field">
+                  <span>Why reject “{rejecting.description}” ({money(rejecting.amount_paise)})?</span>
+                  <input name="note" required minLength={3} maxLength={300} placeholder="e.g. No bill attached" autoFocus />
+                </label>
+                <div className="ex-approval-actions">
+                  <button className="ms-btn ms-btn-danger-ghost ms-btn-sm" disabled={busy}>Reject expense</button>
+                  <button type="button" className="ms-btn ms-btn-ghost ms-btn-sm" onClick={() => setRejecting(null)}>Cancel</button>
+                </div>
+              </form>
+            )}
+          </section>
+        );
+      })()}
+
       {/* Filter and Search Toolbar */}
       <div
         className="sp-toolbar"
@@ -507,7 +585,9 @@ export function Expenses({
             }}
           >
             <option value="all">All Statuses</option>
+            <option value="pending">Waiting approval</option>
             <option value="posted">Posted</option>
+            <option value="rejected">Rejected</option>
             <option value="void">Void</option>
           </select>
         </div>
@@ -722,6 +802,13 @@ export function Expenses({
 
                     {/* STATUS - Easy & Simple */}
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      {r.status === 'pending' || r.status === 'rejected' ? (
+                        <span className={`ms-badge ${r.status === 'pending' ? 'ms-badge-warn' : 'ms-badge-off'}`} title={r.review_note || undefined}>
+                          {r.status === 'pending' ? 'Waiting approval' : 'Rejected'}
+                        </span>
+                      ) : null}
+                      {r.status === 'rejected' && r.review_note && <small className="ex-note">{r.review_note}</small>}
+                      {(r.status === 'pending' || r.status === 'rejected') ? null : (<>
                       {isVoid ? (
                         <div>
                           <span
@@ -766,11 +853,12 @@ export function Expenses({
                           Posted
                         </span>
                       )}
+                      </>)}
                     </td>
 
                     {/* Action */}
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
-                      {r.source === 'manual' && r.status === 'posted' && (
+                      {r.source === 'manual' && (r.status === 'posted' || r.status === 'pending') && (
                         <button
                           type="button"
                           className="button button-outline"

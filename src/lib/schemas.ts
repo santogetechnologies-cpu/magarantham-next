@@ -72,6 +72,7 @@ export const productSchema = z
     purchase_price_paise: integer().optional().default(0),
     min_stock_level: integer(10000).optional().default(0),
     compare_at_price_paise: integer().optional().default(0),
+    sale_unit: z.enum(["piece", "set", "pair", "metre", "pack", "dozen", "box"]).optional(),
   })
   .strict();
 export const bannerSchema = z

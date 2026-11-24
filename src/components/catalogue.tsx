@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CategoryItem, Product, money, unitPrice } from "@/lib/core";
+import { CategoryItem, Product, money, unitPrice, unitSuffix } from "@/lib/core";
 import { useShop } from "./shop-context";
 import { api } from "./api";
 
@@ -65,7 +65,7 @@ export function ProductCard({
         <div className="product-bottom">
           <div>
             <span>
-              <strong style={{ color: "#800020", fontSize: 16 }}>{money(unitPrice(p))}</strong>
+              <strong style={{ color: "#800020", fontSize: 16 }}>{money(unitPrice(p))}</strong>{unitSuffix(p.sale_unit) && <small className="price-unit"> {unitSuffix(p.sale_unit)}</small>}
               {(p.offer_badge || p.discount_percent > 0 || p.price_paise > unitPrice(p)) && (
                 <del style={{ marginLeft: 6, color: "#888", fontSize: "0.85em" }}>
                   {money(p.price_paise)}

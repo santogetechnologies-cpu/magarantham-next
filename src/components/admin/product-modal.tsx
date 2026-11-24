@@ -20,6 +20,7 @@ export type ProductFormData = {
   purchase_price_paise: number;
   price_paise: number;
   compare_at_price_paise: number;
+  sale_unit?: string;
   discount_percent: number;
   stock_on_hand?: number;
   min_stock_level: number;
@@ -158,7 +159,8 @@ export function ProductModal({
   const [subcategoryId, setSubcategoryId] = useState<string>(product?.subcategory_id || "");
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [showNewSubcategoryInput, setShowNewSubcategoryInput] = useState(false);
-  const [fabric, setFabric] = useState(product?.fabric || "Pure Mulberry Silk");
+  const [fabric, setFabric] = useState(product?.fabric || "");
+  const [saleUnit, setSaleUnit] = useState(product?.sale_unit || "piece");
   const [design, setDesign] = useState(product?.design || "Traditional Zari Border");
   const [basePriceRupees, setBasePriceRupees] = useState(
     product?.price_paise ? String(product.price_paise / 100) : "",
@@ -184,6 +186,7 @@ export function ProductModal({
       else if (product.category) setProductName(`${product.category} Silk Saree`);
       if (product.description !== undefined) setDescription(product.description);
       if (product.fabric) setFabric(product.fabric);
+      setSaleUnit(product.sale_unit || "piece");
       if (product.design) setDesign(product.design);
       if (product.price_paise) setBasePriceRupees(String(product.price_paise / 100));
       if (product.purchase_price_paise) setPurchasePriceRupees(String(product.purchase_price_paise / 100));
@@ -667,15 +670,17 @@ export function ProductModal({
           slug: baseSlug,
           category: finalCatName,
           subcategory_id: validSubId,
-          saree_type: `${finalCatName} Silk`,
-          fabric: fabric.trim() || "Pure Mulberry Silk",
+          saree_type: product?.saree_type || finalCatName,
+          fabric: fabric.trim(),
           colour: (pieces[0]?.colour || product?.colour || "Purple").trim(),
-          design: design.trim() || "Traditional Zari Border",
+          design: design.trim(),
           description: description.trim(),
           image_path: finalImagePath,
           purchase_price_paise: purchasePricePaise,
           price_paise: pricePaise,
           compare_at_price_paise: product?.compare_at_price_paise || 0,
+          // Only sent when not the default so saving works before migration 016 is applied.
+          ...(saleUnit !== "piece" || (product?.sale_unit && product.sale_unit !== "piece") ? { sale_unit: saleUnit } : {}),
           discount_percent: product?.discount_percent || 0,
           min_stock_level: finalMinStock,
           published: Boolean(published),
@@ -988,6 +993,14 @@ export function ProductModal({
             )}
 
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+              <label className="ap-field" style={{ flex: "1 1 140px" }}>
+                <span className="ap-label">Sold per</span>
+                <select value={saleUnit} onChange={(e) => setSaleUnit(e.target.value)} className="ap-input">
+                  {["piece", "set", "pair", "metre", "pack", "dozen", "box"].map((u) => (
+                    <option key={u} value={u}>{u[0].toUpperCase() + u.slice(1)}</option>
+                  ))}
+                </select>
+              </label>
               <label className="ap-field" style={{ flex: "1 1 180px" }}>
                 <span className="ap-label">Fabric</span>
                 <input

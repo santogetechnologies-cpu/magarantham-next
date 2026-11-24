@@ -61,6 +61,7 @@ before(async () => {
     "202611230013_discounts_banners.sql",
     "202611230014_pos_festival_offers.sql",
     "202611240015_pos_customisation.sql",
+    "202611240016_expense_approval_units.sql",
   ]) {
     await db.exec(
       await readFile(

@@ -86,6 +86,8 @@ export type Product = {
   saree_type?: string;
   barcode?: string;
   compare_at_price_paise?: number;
+  /** How the item is sold: piece, set, pair, metre, pack, dozen or box. */
+  sale_unit?: string;
   stock_on_hand?: number;
   pieces?: IndividualPiece[];
   total_pieces?: number;
@@ -191,9 +193,14 @@ export const publicProduct = (p: Record<string, unknown>): Product => {
     saree_type: p.saree_type ? String(p.saree_type) : undefined,
     barcode: p.barcode ? String(p.barcode) : undefined,
     compare_at_price_paise: p.compare_at_price_paise != null ? Number(p.compare_at_price_paise) : undefined,
+    sale_unit: p.sale_unit ? String(p.sale_unit) : "piece",
     pieces: publicPieces,
     total_pieces: totalPieces,
     available_pieces: availPieces,
     sold_pieces: soldPieces,
   };
 };
+
+/** Short label for prices, e.g. "per set". Empty for single pieces. */
+export const unitSuffix = (unit?: string) =>
+  !unit || unit === "piece" ? "" : `per ${unit}`;

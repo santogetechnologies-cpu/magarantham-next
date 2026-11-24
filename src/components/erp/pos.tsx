@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Profile, money, unitPrice } from '@/lib/core';
+import { Profile, money, unitPrice, unitSuffix } from '@/lib/core';
 import { api } from '../api';
 import { Row, useERP } from './shared';
+import { buildCategoryMap, EnhancedOffer, resolveProductOffer } from '@/lib/offers';
 
 type CartLine = {
   product_id: string;
@@ -19,6 +20,7 @@ type LastScanned = {
   code: string;
   price_paise: number;
   isUnit: boolean;
+  offer?: string;
 };
 
 function playScanBeep(success = true) {
@@ -50,6 +52,9 @@ function playScanBeep(success = true) {
 export function POS({ profile }: { profile: Profile }) {
   const [catalog, setCatalog] = useState<Row[]>([]);
   const [settings, setSettings] = useState<Row>({});
+  // Automatic festival offers switched on for POS (shown on cards, scans and bill lines).
+  const [posOffers, setPosOffers] = useState<EnhancedOffer[]>([]);
+  const [posCategories, setPosCategories] = useState<Row[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -98,6 +103,8 @@ export function POS({ profile }: { profile: Profile }) {
     try {
       const data = await api<Row>('/api/erp/pos');
       setCatalog(data.products || []);
+      setPosOffers(Array.isArray(data.offers) ? data.offers : []);
+      setPosCategories(data.references?.categories || []);
       const nextSettings = data.settings || {};
       setSettings(nextSettings);
       if (!prefsApplied.current) {
@@ -407,6 +414,31 @@ export function POS({ profile }: { profile: Profile }) {
     }
   }, [total, payMode]);
 
+  // Instant scan lookup: every barcode, SKU and piece code -> product, built once per catalogue refresh.
+  const codeIndex = useMemo(() => {
+    const map = new Map<string, { product: Row; piece: boolean }>();
+    for (const p of catalog) {
+      if (p.barcode) map.set(String(p.barcode).toLowerCase(), { product: p, piece: false });
+      if (p.sku) map.set(String(p.sku).toLowerCase(), { product: p, piece: false });
+      for (const pc of Array.isArray(p.pieces) ? p.pieces : []) {
+        for (const k of [pc.piece_code, pc.barcode, pc.id]) if (k) map.set(String(k).toLowerCase(), { product: p, piece: true });
+      }
+    }
+    return map;
+  }, [catalog]);
+
+  // Best POS festival offer per saree, matching how the server prices the bill.
+  const categoryMap = useMemo(() => buildCategoryMap(posCategories as any), [posCategories]);
+  function offerFor(p: Row | undefined) {
+    if (!p || !posOffers.length) return null;
+    const r = resolveProductOffer(
+      { id: p.id, price_paise: Number(p.price_paise || 0), effective_price_paise: unitPrice(p as any), category: p.category, category_id: p.category_id, subcategory_id: p.subcategory_id },
+      posOffers,
+      categoryMap,
+    );
+    return r.appliedOffer ? { price: r.effectivePricePaise, title: r.appliedOffer.title, badge: r.badgeText } : null;
+  }
+
   function add(product: Row, unit?: Row, scannedCode?: string) {
     setCatalog((old) => (old.some((p) => p.id === product.id) ? old : [product, ...old]));
     let added = false;
@@ -459,13 +491,15 @@ export function POS({ profile }: { profile: Profile }) {
     });
 
     if (added || scannedCode) {
-      const price = unitPrice(product as any);
+      const offer = offerFor(product);
+      const price = offer ? offer.price : unitPrice(product as any);
       setLastScanned({
         name: product.name,
         sku: product.sku || '',
         code: scannedCode || unit?.barcode || product.barcode || product.sku || '',
         price_paise: price,
         isUnit: Boolean(unit),
+        offer: offer ? `${offer.title} · ${offer.badge}` : undefined,
       });
       if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
       scanTimerRef.current = setTimeout(() => setLastScanned(null), 5000);
@@ -480,36 +514,18 @@ export function POS({ profile }: { profile: Profile }) {
   }
 
   async function scan(code: string) {
-    const trimmed = code.trim();
+    // Strip scanner suffixes/prefixes (Tab, CR, control characters)
+    const trimmed = code.replace(/[\x00-\x1f\x7f]/g, '').trim();
     if (!trimmed) return;
     setScanning(true);
 
-    // 1. Instant local catalog match for zero-latency scanning
+    // 1. Instant local match from the prebuilt code index (no per-scan search)
     const lower = trimmed.toLowerCase();
-    const localProd = catalog.find((p) => {
-      if (p.barcode && p.barcode.toLowerCase() === lower) return true;
-      if (p.sku && p.sku.toLowerCase() === lower) return true;
-      if (Array.isArray(p.pieces)) {
-        return p.pieces.some(
-          (pc: any) =>
-            (pc.piece_code && pc.piece_code.toLowerCase() === lower) ||
-            (pc.barcode && pc.barcode.toLowerCase() === lower) ||
-            (pc.id && pc.id.toLowerCase() === lower),
-        );
-      }
-      return false;
-    });
-
+    const hit = codeIndex.get(lower);
+    const localProd = hit?.product;
     if (localProd) {
       playScanBeep(true);
-      const isPieceCode =
-        Array.isArray(localProd.pieces) &&
-        localProd.pieces.some(
-          (pc: any) =>
-            (pc.piece_code && pc.piece_code.toLowerCase() === lower) ||
-            (pc.barcode && pc.barcode.toLowerCase() === lower) ||
-            (pc.id && pc.id.toLowerCase() === lower),
-        );
+      const isPieceCode = Boolean(hit?.piece);
       if (isPieceCode) rememberPiece(localProd.id, trimmed);
       add(localProd, undefined, trimmed);
       setBarcodeInput('');
@@ -891,6 +907,7 @@ export function POS({ profile }: { profile: Profile }) {
           <span className="pos-scan-toast-price">
             +{money(lastScanned.price_paise)}
           </span>
+          {lastScanned.offer && <span className="pos-scan-toast-offer">🎉 {lastScanned.offer}</span>}
         </div>
       )}
 
@@ -948,7 +965,8 @@ export function POS({ profile }: { profile: Profile }) {
           {filtered.length > 0 ? (
             <div className="pos-catalogue-grid">
               {filtered.map((p) => {
-                const sellPaise = unitPrice(p as any);
+                const cardOffer = offerFor(p);
+                const sellPaise = cardOffer ? cardOffer.price : unitPrice(p as any);
                 const origPaise = Number(p.price_paise || 0);
                 const hasDiscount = sellPaise < origPaise;
                 const outOfStock = Number(p.available || 0) < 1 || origPaise <= 0;
@@ -994,12 +1012,14 @@ export function POS({ profile }: { profile: Profile }) {
                       <div className="pos-saree-price-row">
                         <strong className="pos-saree-price">
                           {money(sellPaise)}
+                          {unitSuffix(p.sale_unit) && <small className="price-unit"> {unitSuffix(p.sale_unit)}</small>}
                         </strong>
                         {hasDiscount && (
                           <span className="pos-saree-mrp">
                             {money(origPaise)}
                           </span>
                         )}
+                        {cardOffer && <span className="pos-offer-chip" title={cardOffer.title}>{cardOffer.badge}</span>}
                         <span className="pos-add-chip">+ Add</span>
                       </div>
                     </div>
@@ -1072,7 +1092,8 @@ export function POS({ profile }: { profile: Profile }) {
                         {p?.name || line.product_id}
                       </strong>
                       <div className="pos-bill-item-sub">
-                        <span>{money(eachPaise)} each</span>
+                        <span>{money(eachPaise)} {unitSuffix(p?.sale_unit) || 'each'}</span>
+                        {offerFor(p) && <span className="pos-offer-chip" title="Festival offer applied in the bill total">{offerFor(p)!.badge}</span>}
                         <span>·</span>
                         <span>
                           {isSerialized

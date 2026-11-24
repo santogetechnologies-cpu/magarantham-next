@@ -63,7 +63,7 @@ before(async () => {
     "202611160001_store.sql", "202611160002_operations.sql", "202611170003_pos_payroll.sql", "202611170004_erp_schema.sql",
     "202611170005_erp_operations.sql", "202611170006_shared_checkout.sql", "202611170007_attendance_payroll.sql", "202611170008_erp_queries.sql",
     "202611170009_admin_erp_system.sql", "202611180010_subcategory_images.sql", "202611200012_offer_targets.sql",
-    "202611230013_discounts_banners.sql", "202611230014_pos_festival_offers.sql", "202611240015_pos_customisation.sql",
+    "202611230013_discounts_banners.sql", "202611230014_pos_festival_offers.sql", "202611240015_pos_customisation.sql", "202611240016_expense_approval_units.sql",
   ])
     await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   // Same tax (0%) and no shipping on both channels so totals compare directly.
@@ -201,4 +201,39 @@ test("6. festival offers: same offer amount online and in POS when 'Apply in POS
   assert.equal(Number((await posQuote(p)).offer_discount_paise), 0);
   const o3 = await onlineOrder(await user(), p);
   assert.equal(Number((await one("select discount_paise from orders where id=$1", [o3])).discount_paise), 0);
+});
+
+test("7. catalogue view exposes every product field to the website and POS (fabric, cost, min stock, unit)", async () => {
+  const p = await saree(3, 70000);
+  await db.query("update products set fabric='Pure Mulberry Silk',design='Temple border',purchase_price_paise=42000,min_stock_level=2,compare_at_price_paise=90000,sale_unit='set' where id=$1", [p]);
+  const row = await one("select fabric,design,purchase_price_paise,min_stock_level,compare_at_price_paise,sale_unit from store_catalogue where id=$1", [p]);
+  assert.equal(row.fabric, "Pure Mulberry Silk");
+  assert.equal(row.design, "Temple border");
+  assert.equal(Number(row.purchase_price_paise), 42000);
+  assert.equal(Number(row.min_stock_level), 2);
+  assert.equal(Number(row.compare_at_price_paise), 90000);
+  assert.equal(row.sale_unit, "set");
+  await assert.rejects(() => db.query("update products set sale_unit='litre' where id=$1", [p]));
+});
+
+test("8. expenses: staff entries wait for admin approval before they count in reports", async () => {
+  const manager = cashier, cat = uid();
+  await db.query("insert into expense_categories(id,name) values($1,'Tea')", [cat]);
+  const data = (amt: number) => JSON.stringify({ category_id: cat, expense_on: new Date().toISOString().slice(0, 10), description: "Tea for staff", amount_paise: amt, method: "cash", reference: "", payee: "" });
+  const staffExp = await scalar("select expense_post($1,$2,$3)", [manager, uid(), data(5000)]);
+  const adminExp = await scalar("select expense_post($1,$2,$3)", [admin, uid(), data(7000)]);
+  assert.equal((await one("select status from expenses where id=$1", [staffExp])).status, "pending");
+  assert.equal((await one("select status from expenses where id=$1", [adminExp])).status, "posted");
+  const today = new Date().toISOString().slice(0, 10);
+  const report = async () => Number((await scalar("select erp_report($1,$2,$3)", [admin, today, today])).expenses_paise);
+  assert.equal(await report(), 7000, "pending expense is not counted");
+  await assert.rejects(() => scalar("select expense_review($1,$2,'approve','')", [manager, staffExp]), /FORBIDDEN/, "staff cannot approve");
+  await assert.rejects(() => scalar("select expense_review($1,$2,'reject','')", [admin, staffExp]), /REVIEW_NOTE_REQUIRED/);
+  await scalar("select expense_review($1,$2,'approve','OK')", [admin, staffExp]);
+  assert.equal(await report(), 12000, "approved expense now counts");
+  await assert.rejects(() => scalar("select expense_review($1,$2,'approve','')", [admin, staffExp]), /EXPENSE_NOT_PENDING/);
+  const rejected = await scalar("select expense_post($1,$2,$3)", [manager, uid(), data(9000)]);
+  await scalar("select expense_review($1,$2,'reject','No bill attached')", [admin, rejected]);
+  assert.equal((await one("select status,review_note from expenses where id=$1", [rejected])).review_note, "No bill attached");
+  assert.equal(await report(), 12000, "rejected expense never counts");
 });

@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { code39Barcode, unitBarcode } from '@/lib/barcode';
+import { code128Barcode } from '@/lib/barcode';
 import { money } from '@/lib/core';
 import { api } from '../api';
 import { References, Row, useERP } from './shared';
@@ -291,7 +291,8 @@ export function Labels({ refs }: { refs: References }) {
             paper === 'roll' ? `${width}mm ${height}mm` : 'A4'
           };margin:${paper === 'roll' ? '0' : '10mm'};}}`}</style>
           {rows.map((r) => {
-            const b = r.isMsu ? unitBarcode(r.barcode) : code39Barcode(r.barcode);
+            // Code 128: standard retail symbology, compact enough for small thermal labels
+            const b = code128Barcode(r.barcode);
             return (
               <article
                 className="stock-sticker"
@@ -307,6 +308,7 @@ export function Labels({ refs }: { refs: References }) {
                   role="img"
                   aria-label={`Barcode ${r.barcode}`}
                   preserveAspectRatio="none"
+                  shapeRendering="crispEdges"
                 >
                   <rect width={b.width} height={46} fill="white" />
                   {b.bars.map((bar, i) => (

@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { CategoryItem, Product, Settings, money, unitPrice } from "@/lib/core";
+import { CategoryItem, Product, Settings, money, unitPrice, unitSuffix } from "@/lib/core";
 import { Catalogue, ProductCard } from "./catalogue";
 import { useShop, checkoutLines } from "./shop-context";
 import { api } from "./api";
@@ -453,7 +453,7 @@ export function ProductDetail({
 
         <h1>{p.name}</h1>
         <p className="price">
-          <span style={{ color: "#800020", fontWeight: 800 }}>{money(effectivePrice)}</span>{" "}
+          <span style={{ color: "#800020", fontWeight: 800 }}>{money(effectivePrice)}</span>{unitSuffix(p.sale_unit) && <small className="price-unit"> {unitSuffix(p.sale_unit)}</small>}{" "}
           {savings > 0 && (
             <>
               <del style={{ color: "#888", marginLeft: 8 }}>{money(rawPrice)}</del>

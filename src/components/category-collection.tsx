@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { CategoryItem, Product, Settings, money } from "@/lib/core";
+import { CategoryItem, Product, Settings, money, unitSuffix } from "@/lib/core";
 import { Wave } from "./storefront";
 
 export function isSareeInCategory(
@@ -551,6 +551,7 @@ export function CategoryCollectionPage({
                       <span className="cat-price-val">
                         {money(p.effective_price_paise ?? p.price_paise)}
                       </span>
+                      {unitSuffix(p.sale_unit) && <small className="price-unit"> {unitSuffix(p.sale_unit)}</small>}
                       {(p.offer_badge || p.discount_percent > 0 || (p.effective_price_paise && p.effective_price_paise < p.price_paise)) && (
                         <>
                           <del style={{ marginLeft: 6, color: "#888", fontSize: "0.85em" }}>
