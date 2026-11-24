@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Profile, money, unitPrice, unitSuffix } from '@/lib/core';
 import { api } from '../api';
@@ -117,6 +118,22 @@ export function POS({ profile }: { profile: Profile }) {
   const [holdPromptOpen, setHoldPromptOpen] = useState(false);
   const [holdNoteInput, setHoldNoteInput] = useState('');
   const [conflictHeldBill, setConflictHeldBill] = useState<HeldBill | null>(null);
+
+  // Client-side portal mounting & modal scroll lock
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (holdPromptOpen || heldModalOpen || Boolean(conflictHeldBill)) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [holdPromptOpen, heldModalOpen, conflictHeldBill]);
 
   const { busy, send, notice } = useERP();
   const scannerRef = useRef<HTMLInputElement>(null);
@@ -2496,11 +2513,27 @@ export function POS({ profile }: { profile: Profile }) {
       {/* ------------------------------------------------------------- */}
       {/* 1. HOLD BILL PROMPT MODAL                                     */}
       {/* ------------------------------------------------------------- */}
-      {holdPromptOpen && (
-        <div className="cat-modal-backdrop" onClick={() => setHoldPromptOpen(false)}>
+      {mounted && typeof document !== 'undefined' && holdPromptOpen && createPortal(
+        <div
+          className="cat-modal-backdrop"
+          onClick={() => setHoldPromptOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+          }}
+        >
           <div
             className="cat-modal-card"
-            style={{ maxWidth: 480 }}
+            style={{ maxWidth: 480, margin: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cat-modal-header">
@@ -2592,17 +2625,34 @@ export function POS({ profile }: { profile: Profile }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* 2. HELD BILLS LIST MODAL / DRAWER                             */}
       {/* ------------------------------------------------------------- */}
-      {heldModalOpen && (
-        <div className="cat-modal-backdrop" onClick={() => setHeldModalOpen(false)}>
+      {mounted && typeof document !== 'undefined' && heldModalOpen && createPortal(
+        <div
+          className="cat-modal-backdrop"
+          onClick={() => setHeldModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+          }}
+        >
           <div
             className="cat-modal-card"
-            style={{ maxWidth: 720, width: '95%' }}
+            style={{ maxWidth: 740, width: '95%', margin: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cat-modal-header">
@@ -2840,21 +2890,35 @@ export function POS({ profile }: { profile: Profile }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ------------------------------------------------------------- */}
       {/* 3. CONFLICT RECALL MODAL                                      */}
       {/* ------------------------------------------------------------- */}
-      {conflictHeldBill && (
+      {mounted && typeof document !== 'undefined' && conflictHeldBill && createPortal(
         <div
           className="cat-modal-backdrop"
           onClick={() => {
             setConflictHeldBill(null);
             setHeldModalOpen(true);
           }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+          }}
         >
-          <div className="cat-modal-card" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+          <div className="cat-modal-card" style={{ maxWidth: 480, margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="cat-modal-header">
               <h2 style={{ color: '#800020', margin: 0, fontSize: 18 }}>⚠️ Active Bill in Progress</h2>
               <button
@@ -2907,7 +2971,8 @@ export function POS({ profile }: { profile: Profile }) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
