@@ -2486,7 +2486,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               </div>
             </div>
 
-            {/* Bottom Full-Width Action Row */}
+            {/* Bottom Action Row (Complete Bill & Print Controls) */}
             <div className="pos-bottom-bar">
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button
@@ -2494,7 +2494,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                   className="button outline-btn pos-print-draft-btn"
                   disabled={cart.length === 0 || busy}
                   onClick={printDraftBill}
-                  style={{ minWidth: 120, padding: '12px 18px', fontSize: 13.5 }}
+                  style={{ minWidth: 110, height: 42, padding: '0 16px', fontSize: 13.5, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                   title="Print quotation or draft slip before completing"
                 >
                   🖨 Print Bill
@@ -2505,20 +2505,24 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                   disabled={cart.length === 0 || busy}
                   onClick={handleOpenHoldModal}
                   style={{
-                    minWidth: 120,
-                    padding: '12px 18px',
+                    minWidth: 110,
+                    height: 42,
+                    padding: '0 16px',
                     fontSize: 13.5,
                     background: '#FEF3C7',
                     borderColor: '#FCD34D',
                     color: '#92400E',
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   title="Park this bill temporarily to ring up another customer (Shortcut: F4)"
                 >
                   ⏸ Hold Bill (F4)
                 </button>
-                <label className="checkbox-item" style={{ fontSize: 12.5, color: '#555', cursor: 'pointer', marginLeft: 6 }}>
+                <label className="checkbox-item" style={{ fontSize: 12.5, color: '#555', cursor: 'pointer', marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <input
                     type="checkbox"
                     checked={autoPrint}
@@ -2538,7 +2542,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                   'Saving Bill & Updating Stock…'
                 ) : (
                   <>
-                    <span style={{ fontSize: 20 }}>✓</span>
+                    <span style={{ fontSize: 16 }}>✓</span>
                     <span>
                       {total > 0
                         ? autoPrint

@@ -6372,9 +6372,9 @@ body:has(.luxury-admin-shell) #main {
   }
 }
 
-/* Bottom Action Row (Full Width Complete Bill) */
+/* Bottom Action Row (Complete Bill & Print Controls) */
 .pos-bottom-bar {
-  padding: 16px 24px;
+  padding: 12px 24px;
   background: #FAF5EE;
   border-top: 1px solid var(--erp-border, #EAD5C0);
   display: flex;
@@ -6388,24 +6388,26 @@ body:has(.luxury-admin-shell) #main {
   background: linear-gradient(135deg, #C49A52 0%, #B3863E 100%);
   color: #FFFFFF;
   border: 1px solid #A3772C;
-  border-radius: 10px;
-  padding: 16px 28px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  border-radius: 8px;
+  height: 42px;
+  padding: 0 22px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  box-shadow: 0 4px 14px rgba(196, 154, 82, 0.35);
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(196, 154, 82, 0.3);
   transition: all 0.16s ease;
-  flex: 1 1 340px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .pos-complete-full-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #CF9F56 0%, #9F722B 100%);
-  box-shadow: 0 6px 20px rgba(196, 154, 82, 0.45);
+  box-shadow: 0 4px 14px rgba(196, 154, 82, 0.45);
   transform: translateY(-1px);
 }
 
