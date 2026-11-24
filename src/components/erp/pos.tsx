@@ -110,16 +110,12 @@ export function POS({ profile }: { profile: Profile }) {
   const [savingGst, setSavingGst] = useState(false);
   const [gstInput, setGstInput] = useState('0');
 
-  // Manual Product Search & Catalogue Picker
+  // Manual Product Search (Autocomplete)
   const [manualSearch, setManualSearch] = useState('');
   const [manualDropdownOpen, setManualDropdownOpen] = useState(false);
-  const [manualPickerOpen, setManualPickerOpen] = useState(false);
-  const [modalSearch, setModalSearch] = useState('');
-  const [modalCategory, setModalCategory] = useState('');
 
   const manualSearchRef = useRef<HTMLInputElement>(null);
   const manualDropdownRef = useRef<HTMLDivElement>(null);
-  const modalSearchRef = useRef<HTMLInputElement>(null);
 
   // Held / Parked Bills state
   const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
@@ -135,14 +131,14 @@ export function POS({ profile }: { profile: Profile }) {
   }, []);
 
   useEffect(() => {
-    if (holdPromptOpen || heldModalOpen || Boolean(conflictHeldBill) || manualPickerOpen) {
+    if (holdPromptOpen || heldModalOpen || Boolean(conflictHeldBill)) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = prev;
       };
     }
-  }, [holdPromptOpen, heldModalOpen, conflictHeldBill, manualPickerOpen]);
+  }, [holdPromptOpen, heldModalOpen, conflictHeldBill]);
 
   // Dismiss manual search dropdown on outside click
   useEffect(() => {
@@ -157,15 +153,6 @@ export function POS({ profile }: { profile: Profile }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Autofocus search inside manual picker modal when opened
-  useEffect(() => {
-    if (manualPickerOpen) {
-      setTimeout(() => {
-        modalSearchRef.current?.focus();
-      }, 60);
-    }
-  }, [manualPickerOpen]);
 
   const { busy, send, notice } = useERP();
   const formRef = useRef<HTMLFormElement>(null);
@@ -269,10 +256,6 @@ export function POS({ profile }: { profile: Profile }) {
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        if (manualPickerOpen) {
-          setManualPickerOpen(false);
-          return;
-        }
         if (manualDropdownOpen) {
           setManualDropdownOpen(false);
           return;
@@ -369,42 +352,6 @@ export function POS({ profile }: { profile: Profile }) {
       );
     });
   }, [catalog, manualSearch]);
-
-  const modalCategoryOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of catalog) {
-      if (p.category_id && p.category) {
-        map.set(String(p.category_id), String(p.category));
-      }
-    }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [catalog]);
-
-  const modalMatches = useMemo(() => {
-    return catalog.filter((p) => {
-      if (modalCategory && p.category_id !== modalCategory && p.subcategory_id !== modalCategory) {
-        return false;
-      }
-      if (!modalSearch.trim()) return true;
-      const q = modalSearch.trim().toLowerCase();
-      const name = String(p.name || '').toLowerCase();
-      const sku = String(p.sku || '').toLowerCase();
-      const barcode = String(p.barcode || '').toLowerCase();
-      const cat = String(p.category || '').toLowerCase();
-      const subcat = String(p.subcategory_name || '').toLowerCase();
-      const colour = String(p.colour || '').toLowerCase();
-      const fabric = String(p.fabric || '').toLowerCase();
-      return (
-        name.includes(q) ||
-        sku.includes(q) ||
-        barcode.includes(q) ||
-        cat.includes(q) ||
-        subcat.includes(q) ||
-        colour.includes(q) ||
-        fabric.includes(q)
-      );
-    });
-  }, [catalog, modalCategory, modalSearch]);
 
   const parsedGstPct = Math.min(100, Math.max(0, parseInt(gstInput || '0', 10) || 0));
 
@@ -1469,19 +1416,6 @@ export function POS({ profile }: { profile: Profile }) {
                 <span>⏸ Hold Bill</span>
               </button>
 
-              {/* Manual Add Saree button matching topbar design */}
-              <button
-                type="button"
-                className="ms-btn ms-btn-primary ms-btn-sm"
-                onClick={() => setManualPickerOpen(true)}
-                title="Search and pick saree from full catalogue (Shortcut: F3)"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                <span>Add saree</span>
-              </button>
-
               {cart.length > 0 && (
                 <button
                   type="button"
@@ -1629,8 +1563,7 @@ export function POS({ profile }: { profile: Profile }) {
                                 disabled={isOutOfStock}
                                 style={{ height: '28px', padding: '0 10px', fontSize: '11.5px' }}
                               >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                                <span>Add saree</span>
+                                + Add
                               </button>
                             </div>
                           </div>
@@ -1648,18 +1581,6 @@ export function POS({ profile }: { profile: Profile }) {
                 </div>
               )}
             </div>
-
-            {/* Direct modal trigger button from search bar */}
-            <button
-              type="button"
-              className="ms-btn ms-btn-soft ms-btn-sm"
-              onClick={() => setManualPickerOpen(true)}
-              style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              title="Browse complete saree catalogue in a full window"
-            >
-              <span>📖</span>
-              <span>Browse All ({catalog.length})</span>
-            </button>
           </div>
 
           {/* Product Billing Table */}
@@ -1856,33 +1777,10 @@ export function POS({ profile }: { profile: Profile }) {
                         <div className="pos-bill-empty-icon">🧾</div>
                         <p>No items in bill yet</p>
                         <small>
-                          Scan a barcode above or search &amp; manually select sarees to begin billing.
+                          Scan a barcode above or search manually above to begin billing.
                           <br />
                           Prices, discounts, and totals calculate automatically.
                         </small>
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
-                          <button
-                            type="button"
-                            className="ms-btn ms-btn-primary ms-btn-sm"
-                            onClick={() => setManualPickerOpen(true)}
-                            style={{ height: '36px', padding: '0 16px', fontSize: '13px' }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                            <span>Add saree</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="ms-btn ms-btn-soft ms-btn-sm"
-                            onClick={() => {
-                              manualSearchRef.current?.focus();
-                              setManualDropdownOpen(true);
-                            }}
-                            style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
-                          >
-                            <span>🔍</span>
-                            <span>Search saree (F3)</span>
-                          </button>
-                        </div>
                       </div>
                     </td>
                   </tr>
@@ -3242,254 +3140,6 @@ export function POS({ profile }: { profile: Profile }) {
                   Cancel
                 </button>
               </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* 4. MANUAL CATALOGUE PRODUCT PICKER MODAL                      */}
-      {/* ------------------------------------------------------------- */}
-      {mounted && typeof document !== 'undefined' && manualPickerOpen && createPortal(
-        <div
-          className="cat-modal-backdrop"
-          onClick={() => setManualPickerOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 99999,
-          }}
-        >
-          <div
-            className="cat-modal-card pos-picker-modal"
-            style={{ margin: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="cat-modal-header">
-              <div>
-                <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-                  <span>🛍️</span>
-                  <span>Add Product to Bill</span>
-                </h2>
-                <small style={{ color: '#777', fontSize: '12px', marginTop: 2, display: 'block' }}>
-                  Pick sarees manually from store catalogue to add to the current bill
-                </small>
-              </div>
-              <button
-                type="button"
-                className="cat-close-btn"
-                onClick={() => setManualPickerOpen(false)}
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="pos-picker-filter-bar">
-              <div className="pos-picker-search-wrap">
-                <span className="pos-picker-search-icon" aria-hidden="true">🔍</span>
-                <input
-                  ref={modalSearchRef}
-                  type="text"
-                  className="pos-picker-search-input"
-                  placeholder="Search by saree name, SKU, barcode, colour or fabric..."
-                  value={modalSearch}
-                  onChange={(e) => setModalSearch(e.target.value)}
-                />
-                {modalSearch && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalSearch('');
-                      modalSearchRef.current?.focus();
-                    }}
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      background: 'none',
-                      border: 'none',
-                      color: '#888',
-                      cursor: 'pointer',
-                      fontSize: '15px',
-                    }}
-                    title="Clear filter"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {modalCategoryOptions.length > 0 && (
-                <select
-                  className="pos-picker-select"
-                  value={modalCategory}
-                  onChange={(e) => setModalCategory(e.target.value)}
-                  aria-label="Filter by category"
-                >
-                  <option value="">All Categories ({catalog.length})</option>
-                  {modalCategoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Saree List */}
-            <div className="pos-picker-list">
-              {modalMatches.length > 0 ? (
-                modalMatches.map((p) => {
-                  const stockVal = p.available ?? p.stock_on_hand ?? 0;
-                  const stock = Number(stockVal || 0);
-                  const isOutOfStock = stock <= 0;
-                  const price = unitPrice(p as any);
-                  const offer = offerFor(p);
-                  const inCartLine = cart.find((l) => l.product_id === p.id);
-                  const inCartQty = inCartLine?.quantity ?? 0;
-                  const isMaxInCart = inCartQty >= stock && stock > 0;
-
-                  return (
-                    <div
-                      key={p.id}
-                      className={`pos-picker-card ${inCartQty > 0 ? 'is-in-bill' : ''}`}
-                    >
-                      <img
-                        src={p.image_path || '/assets/brand-logo.png'}
-                        alt={p.name || 'Saree'}
-                        className="pos-picker-thumb"
-                      />
-                      <div className="pos-picker-info">
-                        <strong className="pos-picker-name">{p.name}</strong>
-                        <div className="pos-picker-meta">
-                          <code style={{ fontSize: '11px', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '1px 5px', borderRadius: 4 }}>
-                            {p.sku || 'No SKU'}
-                          </code>
-                          {p.barcode && p.barcode !== p.sku && (
-                            <span>Barcode: {p.barcode}</span>
-                          )}
-                          {p.category && <span>• {p.category}</span>}
-                          {p.colour && <span>• {p.colour}</span>}
-                          <span
-                            style={{
-                              fontWeight: 700,
-                              color: isOutOfStock ? '#DC2626' : '#15803D',
-                            }}
-                          >
-                            • {isOutOfStock ? 'Out of stock' : `${stock} available`}
-                          </span>
-                          {inCartQty > 0 && (
-                            <span
-                              style={{
-                                background: '#FEF3C7',
-                                color: '#92400E',
-                                border: '1px solid #FCD34D',
-                                borderRadius: 4,
-                                padding: '1px 6px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                              }}
-                            >
-                              🛒 In Bill: {inCartQty}
-                            </span>
-                          )}
-                          {offer && (
-                            <span className="pos-offer-chip" style={{ fontSize: '11px' }}>
-                              🎉 {offer.badge}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pos-picker-action">
-                        <div>
-                          <span className="pos-picker-price">{money(price)}</span>
-                          {unitSuffix(p?.sale_unit) && (
-                            <small style={{ color: '#777', display: 'block', textAlign: 'right', fontSize: '11px' }}>
-                              /{unitSuffix(p?.sale_unit)}
-                            </small>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="ms-btn ms-btn-primary ms-btn-sm"
-                          disabled={isOutOfStock || isMaxInCart}
-                          onClick={() => {
-                            if (isOutOfStock) {
-                              notice(`"${p.name}" is currently out of stock.`);
-                              return;
-                            }
-                            if (isMaxInCart) {
-                              notice(`Maximum available stock (${stock}) of "${p.name}" already added.`);
-                              return;
-                            }
-                            add(p);
-                            playScanBeep(true);
-                            notice(`✓ Added "${p.name}" to bill (Qty: ${inCartQty + 1}).`);
-                          }}
-                          style={{ minWidth: 105, height: '32px' }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                          <span>
-                            {isOutOfStock
-                              ? 'Out of Stock'
-                              : isMaxInCart
-                                ? 'Max Added'
-                                : inCartQty > 0
-                                  ? 'Add More'
-                                  : 'Add saree'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{ padding: '36px 20px', textAlign: 'center', color: '#777' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#444' }}>
-                    No sarees match your search filter
-                  </p>
-                  <small style={{ color: '#888', display: 'block', marginTop: 4 }}>
-                    Try searching with different terms or selecting &ldquo;All Categories&rdquo;.
-                  </small>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: '12px 20px',
-                borderTop: '1px solid #EAD5C0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: '#FAF5EE',
-              }}
-            >
-              <span style={{ fontSize: '12.5px', color: '#666' }}>
-                Showing <strong>{modalMatches.length}</strong> of <strong>{catalog.length}</strong> sarees
-                {cart.length > 0 && ` · ${totalPieces} item${totalPieces === 1 ? '' : 's'} in current bill`}
-              </span>
-              <button
-                type="button"
-                className="ms-btn ms-btn-primary ms-btn-sm"
-                onClick={() => setManualPickerOpen(false)}
-                style={{ padding: '0 20px', height: '32px' }}
-              >
-                Done
-              </button>
             </div>
           </div>
         </div>,
