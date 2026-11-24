@@ -120,6 +120,7 @@ export function POS({ profile }: { profile: Profile }) {
 
   const { busy, send, notice } = useERP();
   const scannerRef = useRef<HTMLInputElement>(null);
+  const holdNoteInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
   const quoteVersion = useRef(0);
   const prefsApplied = useRef(false);
@@ -129,7 +130,7 @@ export function POS({ profile }: { profile: Profile }) {
 
   const HELD_STORAGE_KEY = 'ms_pos_held_bills';
 
-  // Load held bills from localStorage on mount
+  // Load held bills from localStorage on mount & listen to multi-tab storage sync
   useEffect(() => {
     try {
       const raw = localStorage.getItem(HELD_STORAGE_KEY);
@@ -140,7 +141,26 @@ export function POS({ profile }: { profile: Profile }) {
     } catch (e) {
       console.error('Failed to load held bills from storage:', e);
     }
+
+    function onStorage(e: StorageEvent) {
+      if (e.key === HELD_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setHeldBills(parsed);
+        } catch {}
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
+
+  // Autofocus the note input whenever the hold prompt opens
+  useEffect(() => {
+    if (holdPromptOpen) {
+      const t = setTimeout(() => holdNoteInputRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [holdPromptOpen]);
 
   function persistHeldBills(list: HeldBill[]) {
     setHeldBills(list);
@@ -198,6 +218,21 @@ export function POS({ profile }: { profile: Profile }) {
     let lastKeyTime = 0;
 
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (conflictHeldBill) {
+          setConflictHeldBill(null);
+          setHeldModalOpen(true);
+          return;
+        }
+        if (holdPromptOpen) {
+          setHoldPromptOpen(false);
+          return;
+        }
+        if (heldModalOpen) {
+          setHeldModalOpen(false);
+          return;
+        }
+      }
       if (e.key === 'F4' || (e.altKey && (e.key === 'h' || e.key === 'H'))) {
         e.preventDefault();
         handleOpenHoldModal();
@@ -744,9 +779,7 @@ export function POS({ profile }: { profile: Profile }) {
     if (cart.length === 0) return;
     const now = new Date();
     const nextHoldNumber =
-      (heldBills.length > 0
-        ? Math.max(...heldBills.map((b) => b.holdNumber || 0))
-        : 0) + 1;
+      heldBills.reduce((acc, b) => Math.max(acc, Number(b.holdNumber) || 0), 0) + 1;
 
     const summary = cart
       .map((l) => {
@@ -764,8 +797,12 @@ export function POS({ profile }: { profile: Profile }) {
       note: finalNote || (customerName.trim() ? `Customer: ${customerName.trim()}` : `Walk-in Hold #${nextHoldNumber}`),
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      cart: [...cart],
-      scannedPieces: { ...scannedPieces },
+      cart: cart.map((c) => ({
+        product_id: c.product_id,
+        quantity: c.quantity,
+        unit_ids: Array.isArray(c.unit_ids) ? [...c.unit_ids] : [],
+      })),
+      scannedPieces: JSON.parse(JSON.stringify(scannedPieces)),
       lineSpot: { ...lineSpot },
       discountType,
       discountInput,
@@ -790,6 +827,7 @@ export function POS({ profile }: { profile: Profile }) {
 
   function handleInitiateResume(bill: HeldBill) {
     if (cart.length > 0) {
+      setHeldModalOpen(false);
       setConflictHeldBill(bill);
       return;
     }
@@ -819,12 +857,58 @@ export function POS({ profile }: { profile: Profile }) {
     scannerRef.current?.focus();
   }
 
+  function printHoldSlip(b: HeldBill) {
+    const draftItems = b.cart.map((line) => {
+      const p = catalog.find((x) => x.id === line.product_id);
+      const eachPaise = p ? unitPrice(p as any) : 0;
+      return {
+        product_id: line.product_id,
+        name: p?.name || 'Saree',
+        sku: p?.sku || '',
+        quantity: line.quantity,
+        unit_paise: eachPaise,
+        line_paise: eachPaise * line.quantity,
+      };
+    });
+
+    setReceipt({
+      id: b.id,
+      invoice_no: `HOLD-#${b.holdNumber}`,
+      created_at: b.heldAt,
+      cashier_id: profile.id,
+      cashier_name: profile.display_name,
+      customer_name: b.customerName || 'Walk-in Customer',
+      customer_phone: b.customerPhone || '',
+      discount_reason: `PARKED HOLD BILL: ${b.note || `Hold #${b.holdNumber}`}`,
+      business: {
+        business_name: settings.business_name || 'மகரந்தம் சில்க்ஸ்',
+        business_english: settings.business_english || 'MAGARANTHAM SILKS',
+        address: settings.address || '',
+        phone: settings.phone || '',
+        gstin: settings.gstin || '',
+        paper_mm: Number(settings.paper_mm || 80),
+        receipt_footer: 'PARKED BILL SLIP. Please present this slip at the billing counter to resume checkout.',
+      },
+      items: draftItems,
+      tenders: [{ method: 'cash', amount_paise: b.estimatedTotalPaise }],
+      subtotal_paise: b.estimatedTotalPaise,
+      discount_paise: 0,
+      tax_paise: 0,
+      total_paise: b.estimatedTotalPaise,
+      cash_received_paise: 0,
+      change_paise: 0,
+    });
+    setHeldModalOpen(false);
+    setTimeout(() => {
+      receiptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.print();
+    }, 120);
+  }
+
   function handleHoldCurrentAndResume(billToResume: HeldBill) {
     const now = new Date();
     const nextHoldNumber =
-      (heldBills.length > 0
-        ? Math.max(...heldBills.map((b) => b.holdNumber || 0))
-        : 0) + 1;
+      heldBills.reduce((acc, b) => Math.max(acc, Number(b.holdNumber) || 0), 0) + 1;
 
     const summary = cart
       .map((l) => {
@@ -840,8 +924,12 @@ export function POS({ profile }: { profile: Profile }) {
       note: customerName.trim() ? `Customer: ${customerName.trim()}` : `Walk-in Hold #${nextHoldNumber}`,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      cart: [...cart],
-      scannedPieces: { ...scannedPieces },
+      cart: cart.map((c) => ({
+        product_id: c.product_id,
+        quantity: c.quantity,
+        unit_ids: Array.isArray(c.unit_ids) ? [...c.unit_ids] : [],
+      })),
+      scannedPieces: JSON.parse(JSON.stringify(scannedPieces)),
       lineSpot: { ...lineSpot },
       discountType,
       discountInput,
@@ -1334,37 +1422,64 @@ export function POS({ profile }: { profile: Profile }) {
                   : `${cart.length} ${cart.length === 1 ? 'style' : 'styles'} · ${totalPieces} ${totalPieces === 1 ? 'piece' : 'pieces'}`}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {heldBills.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Always visible: Held Bills button with live count */}
+              <button
+                type="button"
+                className="pos-held-btn"
+                onClick={() => setHeldModalOpen(true)}
+                style={{
+                  background: heldBills.length > 0 ? '#FEF3C7' : '#F8FAFC',
+                  borderColor: heldBills.length > 0 ? '#D97706' : '#CBD5E1',
+                  color: heldBills.length > 0 ? '#92400E' : '#475569',
+                  boxShadow: heldBills.length > 0 ? '0 1px 3px rgba(217, 119, 6, 0.2)' : 'none',
+                }}
+                title="View and resume parked / held bills (Shortcut: F2)"
+              >
+                <span>⏸ Held Bills</span>
+                <span
+                  style={{
+                    background: heldBills.length > 0 ? '#D97706' : '#94A3B8',
+                    color: '#FFF',
+                    borderRadius: '999px',
+                    padding: '1px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                  }}
+                >
+                  {heldBills.length}
+                </span>
+              </button>
+
+              {/* Always visible: Hold Current Bill button */}
+              <button
+                type="button"
+                className="pos-hold-btn"
+                disabled={cart.length === 0 || busy}
+                onClick={handleOpenHoldModal}
+                style={{
+                  opacity: cart.length === 0 ? 0.5 : 1,
+                  cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+                }}
+                title={
+                  cart.length === 0
+                    ? 'Scan or select sarees first to put current bill on hold'
+                    : 'Park / Hold current bill to serve next customer (Shortcut: F4)'
+                }
+              >
+                <span>⏸ Hold Bill</span>
+              </button>
+
+              {cart.length > 0 && (
                 <button
                   type="button"
-                  className="pos-held-btn"
-                  onClick={() => setHeldModalOpen(true)}
-                  title="View and resume held bills (Shortcut: F2)"
+                  className="pos-clear-btn"
+                  disabled={busy}
+                  onClick={clearBill}
+                  title="Clear all items from current bill"
                 >
-                  <span>⏸ Held ({heldBills.length})</span>
+                  Clear Bill
                 </button>
-              )}
-              {cart.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    className="pos-hold-btn"
-                    disabled={busy}
-                    onClick={handleOpenHoldModal}
-                    title="Park / Hold current bill to serve next customer (Shortcut: F4)"
-                  >
-                    <span>⏸ Hold Bill</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="pos-clear-btn"
-                    disabled={busy}
-                    onClick={clearBill}
-                  >
-                    Clear Bill
-                  </button>
-                </>
               )}
             </div>
           </div>
@@ -2395,7 +2510,7 @@ export function POS({ profile }: { profile: Profile }) {
               </h2>
               <button
                 type="button"
-                className="close-btn"
+                className="cat-close-btn"
                 onClick={() => setHoldPromptOpen(false)}
                 aria-label="Close"
               >
@@ -2444,8 +2559,8 @@ export function POS({ profile }: { profile: Profile }) {
                   Hold Note / Customer Label <small style={{ fontWeight: 400, color: '#888' }}>(Optional)</small>
                 </span>
                 <input
+                  ref={holdNoteInputRef}
                   type="text"
-                  autoFocus
                   value={holdNoteInput}
                   onChange={(e) => setHoldNoteInput(e.target.value)}
                   placeholder="e.g. Went to ATM, Choosing matching blouse, Saree table 3..."
@@ -2487,7 +2602,7 @@ export function POS({ profile }: { profile: Profile }) {
         <div className="cat-modal-backdrop" onClick={() => setHeldModalOpen(false)}>
           <div
             className="cat-modal-card"
-            style={{ maxWidth: 680, width: '95%' }}
+            style={{ maxWidth: 720, width: '95%' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="cat-modal-header">
@@ -2504,7 +2619,7 @@ export function POS({ profile }: { profile: Profile }) {
               </div>
               <button
                 type="button"
-                className="close-btn"
+                className="cat-close-btn"
                 onClick={() => setHeldModalOpen(false)}
                 aria-label="Close"
               >
@@ -2564,18 +2679,14 @@ export function POS({ profile }: { profile: Profile }) {
                         </span>
                       </div>
 
-                      {/* Middle line: Customer details & Items preview */}
+                      {/* Middle line: Customer details & Items count */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                         <div style={{ flex: '1 1 300px' }}>
-                          <div style={{ fontSize: 12.5, color: '#333', marginBottom: 4 }}>
+                          <div style={{ fontSize: 12.5, color: '#333', marginBottom: 2 }}>
                             👤 <strong>{b.customerName || 'Walk-in customer'}</strong>
                             {b.customerPhone && (
                               <span style={{ color: '#666', marginLeft: 8 }}>· 📞 {b.customerPhone}</span>
                             )}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#666', lineHeight: 1.4 }}>
-                            🛍️ <strong>{b.totalPieces} {b.totalPieces === 1 ? 'piece' : 'pieces'}:</strong>{' '}
-                            <span style={{ color: '#555' }}>{b.itemSummary}</span>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -2588,8 +2699,89 @@ export function POS({ profile }: { profile: Profile }) {
                         </div>
                       </div>
 
+                      {/* Itemized List of Sarees in this Held Bill */}
+                      <div style={{ background: '#FAF5EE', borderRadius: 8, padding: '8px 12px', border: '1px solid #F1E5D8' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#800020', marginBottom: 6, textTransform: 'uppercase' }}>
+                          🛍️ Parked Items ({b.totalPieces} {b.totalPieces === 1 ? 'piece' : 'pieces'}):
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {b.cart.map((line) => {
+                            const p = catalog.find((x) => x.id === line.product_id);
+                            const eachPaise = p ? unitPrice(p as any) : 0;
+                            const linePieces = b.scannedPieces?.[line.product_id] || [];
+                            return (
+                              <div
+                                key={line.product_id}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  fontSize: 12,
+                                  gap: 8,
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                                  {p?.image_path ? (
+                                    <img
+                                      src={p.image_path}
+                                      alt=""
+                                      style={{ width: 26, height: 26, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+                                    />
+                                  ) : (
+                                    <span style={{ fontSize: 14 }}>🥻</span>
+                                  )}
+                                  <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <strong style={{ color: '#333' }}>{p?.name || 'Saree'}</strong>
+                                    <small style={{ color: '#888', marginLeft: 6 }}>{p?.sku || ''}</small>
+                                    {linePieces.length > 0 && (
+                                      <span
+                                        style={{
+                                          marginLeft: 6,
+                                          background: '#EFF6FF',
+                                          color: '#1E40AF',
+                                          border: '1px solid #BFDBFE',
+                                          borderRadius: 4,
+                                          padding: '1px 5px',
+                                          fontSize: 10.5,
+                                        }}
+                                      >
+                                        {linePieces.join(', ')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div style={{ fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>
+                                  {line.quantity} × {money(eachPaise)} = <span style={{ color: '#800020', fontWeight: 700 }}>{money(eachPaise * line.quantity)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {/* Bottom line: Actions */}
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 8, borderTop: '1px dashed #EAD5C0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8, borderTop: '1px dashed #EAD5C0', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => printHoldSlip(b)}
+                          style={{
+                            background: '#FAF5EE',
+                            border: '1px solid #EAD5C0',
+                            color: '#800020',
+                            borderRadius: 6,
+                            padding: '6px 12px',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                          title="Print customer hold slip"
+                        >
+                          <span>🖨️</span>
+                          <span>Print Slip</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteHeldBill(b.id, b.holdNumber)}
@@ -2655,14 +2847,23 @@ export function POS({ profile }: { profile: Profile }) {
       {/* 3. CONFLICT RECALL MODAL                                      */}
       {/* ------------------------------------------------------------- */}
       {conflictHeldBill && (
-        <div className="cat-modal-backdrop" onClick={() => setConflictHeldBill(null)}>
-          <div className="cat-modal-card" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        <div
+          className="cat-modal-backdrop"
+          onClick={() => {
+            setConflictHeldBill(null);
+            setHeldModalOpen(true);
+          }}
+        >
+          <div className="cat-modal-card" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="cat-modal-header">
               <h2 style={{ color: '#800020', margin: 0, fontSize: 18 }}>⚠️ Active Bill in Progress</h2>
               <button
                 type="button"
-                className="close-btn"
-                onClick={() => setConflictHeldBill(null)}
+                className="cat-close-btn"
+                onClick={() => {
+                  setConflictHeldBill(null);
+                  setHeldModalOpen(true);
+                }}
                 aria-label="Close"
               >
                 ✕
@@ -2670,7 +2871,7 @@ export function POS({ profile }: { profile: Profile }) {
             </div>
             <div style={{ padding: '20px 24px' }}>
               <p style={{ margin: '0 0 12px', color: '#333', fontSize: 13.5, lineHeight: 1.5 }}>
-                The register already contains <strong>{cart.length} item(s)</strong> ({money(total)}) for the current customer.
+                The register currently has <strong>{cart.length} item(s)</strong> ({money(total)}) for an active customer.
               </p>
               <p style={{ margin: '0 0 20px', color: '#666', fontSize: 13 }}>
                 What would you like to do before recalling <strong>Hold #{conflictHeldBill.holdNumber}</strong>?
@@ -2682,7 +2883,7 @@ export function POS({ profile }: { profile: Profile }) {
                   style={{ fontWeight: 700, padding: '10px 16px' }}
                   onClick={() => handleHoldCurrentAndResume(conflictHeldBill)}
                 >
-                  ⏸ Hold Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
+                  ⏸ Park Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
                 </button>
                 <button
                   type="button"
@@ -2696,7 +2897,10 @@ export function POS({ profile }: { profile: Profile }) {
                   type="button"
                   className="button outline-btn"
                   style={{ padding: '8px 16px' }}
-                  onClick={() => setConflictHeldBill(null)}
+                  onClick={() => {
+                    setConflictHeldBill(null);
+                    setHeldModalOpen(true);
+                  }}
                 >
                   Cancel
                 </button>
