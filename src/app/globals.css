@@ -8983,34 +8983,41 @@ body:has(.luxury-admin-shell) #main {
   padding: 8px 10px;
 }
 
-.ap-th-photo, .ap-td-photo {
+.ap-th-photo,
+.ap-td-photo {
   width: 44px;
   text-align: center;
 }
 
-.ap-th-type, .ap-td-type {
+.ap-th-type,
+.ap-td-type {
   min-width: 0;
 }
 
-.ap-th-colour, .ap-td-colour {
+.ap-th-colour,
+.ap-td-colour {
   width: 120px;
 }
 
-.ap-th-price, .ap-td-price {
+.ap-th-price,
+.ap-td-price {
   width: 105px;
 }
 
-.ap-th-stock, .ap-td-stock {
+.ap-th-stock,
+.ap-td-stock {
   width: 65px;
   text-align: center;
 }
 
-.ap-th-minstock, .ap-td-minstock {
+.ap-th-minstock,
+.ap-td-minstock {
   width: 65px;
   text-align: center;
 }
 
-.ap-th-action, .ap-td-action {
+.ap-th-action,
+.ap-td-action {
   width: 36px;
   text-align: center;
 }
@@ -10413,13 +10420,34 @@ select.ap-variant-colour-select:focus-visible {
   color: #FFFFFF;
 }
 
-.sp-matrix-day-pill.p { background: #166534; }
-.sp-matrix-day-pill.a { background: #991B1B; }
-.sp-matrix-day-pill.l { background: #C2410C; }
-.sp-matrix-day-pill.hd { background: #CA8A04; }
-.sp-matrix-day-pill.h { background: #2563EB; }
-.sp-matrix-day-pill.wo { background: #64748B; }
-.sp-matrix-day-pill.none { background: #E2E8F0; color: #94A3B8; }
+.sp-matrix-day-pill.p {
+  background: #166534;
+}
+
+.sp-matrix-day-pill.a {
+  background: #991B1B;
+}
+
+.sp-matrix-day-pill.l {
+  background: #C2410C;
+}
+
+.sp-matrix-day-pill.hd {
+  background: #CA8A04;
+}
+
+.sp-matrix-day-pill.h {
+  background: #2563EB;
+}
+
+.sp-matrix-day-pill.wo {
+  background: #64748B;
+}
+
+.sp-matrix-day-pill.none {
+  background: #E2E8F0;
+  color: #94A3B8;
+}
 
 /* 6-Tab Profile Header */
 .sp-profile-tabs-bar {
@@ -10815,12 +10843,10 @@ select.ap-variant-colour-select:focus-visible {
 .cat-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(45, 5, 16, 0.3) 0%,
-    rgba(45, 5, 16, 0.82) 75%,
-    rgba(45, 5, 16, 0.96) 100%
-  );
+  background: linear-gradient(180deg,
+      rgba(45, 5, 16, 0.3) 0%,
+      rgba(45, 5, 16, 0.82) 75%,
+      rgba(45, 5, 16, 0.96) 100%);
 }
 
 .cat-hero-content {
@@ -11869,7 +11895,7 @@ select.ap-variant-colour-select:focus-visible {
 .cat-card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(30,5,10,0.65) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 50%, rgba(30, 5, 10, 0.65) 100%);
 }
 
 .cat-card-count-badge {
@@ -12003,6 +12029,7 @@ select.ap-variant-colour-select:focus-visible {
     opacity: 0;
     transform: scale(0.96) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -12125,7 +12152,7 @@ select.ap-variant-colour-select:focus-visible {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.15);
+  border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
 .piece-chip-code {
