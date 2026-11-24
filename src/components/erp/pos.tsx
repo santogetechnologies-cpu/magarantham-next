@@ -78,8 +78,6 @@ export function POS({ profile }: { profile: Profile }) {
   const [posOffers, setPosOffers] = useState<EnhancedOffer[]>([]);
   const [posCategories, setPosCategories] = useState<Row[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   const [scanning, setScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<LastScanned | null>(null);
@@ -136,6 +134,7 @@ export function POS({ profile }: { profile: Profile }) {
   }, [holdPromptOpen, heldModalOpen, conflictHeldBill]);
 
   const { busy, send, notice } = useERP();
+  const formRef = useRef<HTMLFormElement>(null);
   const scannerRef = useRef<HTMLInputElement>(null);
   const holdNoteInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
@@ -258,6 +257,23 @@ export function POS({ profile }: { profile: Profile }) {
       if (e.key === 'F2' || (e.altKey && (e.key === 'r' || e.key === 'R'))) {
         e.preventDefault();
         setHeldModalOpen(true);
+        return;
+      }
+      if (e.key === 'F10') {
+        e.preventDefault();
+        if (!canComplete) {
+          if (cart.length === 0) {
+            notice('Scan or add sarees to the bill before completing.');
+          } else if (!settings.enabled) {
+            notice('POS Billing is disabled in Store Settings.');
+          } else if (discountError) {
+            notice(discountError);
+          } else if (hasNonCash) {
+            notice('Please verify the non-cash payment checkbox and references.');
+          }
+          return;
+        }
+        formRef.current?.requestSubmit();
         return;
       }
 
@@ -749,7 +765,7 @@ export function POS({ profile }: { profile: Profile }) {
 
   function updateQty(productId: string, nextQty: number) {
     if (nextQty <= 0) {
-      setCart((old) => old.filter((l) => l.product_id !== productId));
+      removeItem(productId);
       return;
     }
     const prod = catalog.find((p) => p.id === productId);
@@ -764,6 +780,20 @@ export function POS({ profile }: { profile: Profile }) {
           : l,
       ),
     );
+  }
+
+  function removeItem(productId: string) {
+    setCart((old) => old.filter((l) => l.product_id !== productId));
+    setScannedPieces((old) => {
+      const next = { ...old };
+      delete next[productId];
+      return next;
+    });
+    setLineSpot((old) => {
+      const next = { ...old };
+      delete next[productId];
+      return next;
+    });
   }
 
   function clearBill() {
@@ -1029,30 +1059,6 @@ export function POS({ profile }: { profile: Profile }) {
     }
   }
 
-  const filtered = catalog.filter((p) => {
-    const catMatch = !category || p.category_id === category || p.subcategory_id === category;
-    if (!catMatch) return false;
-    if (!search.trim()) return true;
-    const q = search.trim().toLowerCase();
-    const piecesText = Array.isArray(p.pieces)
-      ? p.pieces.map((pc: any) => `${pc.piece_code || ''} ${pc.barcode || ''} ${pc.colour || ''}`).join(' ')
-      : '';
-    const searchable = `${p.name || ''} ${p.sku || ''} ${p.barcode || ''} ${p.category || ''} ${p.subcategory_name || ''} ${p.colour || ''} ${p.fabric || ''} ${piecesText}`.toLowerCase();
-    return searchable.includes(q);
-  });
-
-  const categories = [
-    ...new Map(
-      catalog
-        .flatMap((p) => [
-          { id: p.category_id, name: p.category },
-          { id: p.subcategory_id, name: `${p.category} / ${p.subcategory_name}` },
-        ])
-        .filter((c) => c.id)
-        .map((c) => [c.id, c]),
-    ).values(),
-  ];
-
   const totalPieces = cart.reduce((s, l) => s + l.quantity, 0);
   const splitTotal = Number(tenders.cash) + Number(tenders.upi) + Number(tenders.card);
   const remainingPaise = total - splitTotal;
@@ -1293,149 +1299,17 @@ export function POS({ profile }: { profile: Profile }) {
         </div>
       )}
 
-      {/* Main 2-Column POS Workspace */}
-      <div className="pos-workspace-grid">
-        {/* LEFT COLUMN: Saree Catalogue */}
-        <section className="pos-catalogue-panel">
-          <div className="pos-panel-header">
-            <div>
-              <h2 className="pos-panel-title">Saree Catalogue</h2>
-              <p className="pos-panel-subtitle">
-                Tap any saree to add it to the bill with live pricing
-              </p>
-            </div>
-            <span className="pos-count-pill">{filtered.length} styles</span>
-          </div>
-
-          <div className="pos-filter-bar">
-            <div className="pos-search-box">
-              <span className="pos-search-icon">🔍</span>
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search saree, SKU, or code..."
-                className="pos-search-input"
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="pos-search-clear-btn"
-                  onClick={() => setSearch("")}
-                  title="Clear search"
-                  aria-label="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="pos-category-select"
-              aria-label="Filter by category"
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {filtered.length > 0 ? (
-            <div className="pos-catalogue-grid">
-              {filtered.map((p) => {
-                const cardOffer = offerFor(p);
-                const sellPaise = cardOffer ? cardOffer.price : unitPrice(p as any);
-                const origPaise = Number(p.price_paise || 0);
-                const hasDiscount = sellPaise < origPaise;
-                const outOfStock = Number(p.available || 0) < 1 || origPaise <= 0;
-                const inCartQty =
-                  cart.find((l) => l.product_id === p.id)?.quantity || 0;
-
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`pos-saree-card ${inCartQty > 0 ? 'in-bill' : ''} ${outOfStock ? 'is-disabled' : ''
-                      }`}
-                    disabled={outOfStock}
-                    onClick={() => add(p)}
-                  >
-                    <div className="pos-saree-thumb-wrap">
-                      <img
-                        src={p.image_path || '/assets/brand-logo.png'}
-                        alt={p.name}
-                        className="pos-saree-thumb"
-                      />
-                      {inCartQty > 0 && (
-                        <span className="pos-in-bill-pill">{inCartQty} in bill</span>
-                      )}
-                      <span
-                        className={`pos-stock-tag ${outOfStock
-                          ? 'out'
-                          : Number(p.available) <= 3
-                            ? 'low'
-                            : 'ok'
-                          }`}
-                      >
-                        {outOfStock ? 'Out of stock' : `${p.available} left`}
-                      </span>
-                    </div>
-
-                    <div className="pos-saree-info">
-                      <span className="pos-saree-name">{p.name}</span>
-                      <span className="pos-saree-sku">
-                        {p.sku}
-                        {p.barcode ? ` · ${p.barcode}` : ''}
-                      </span>
-                      <div className="pos-saree-price-row">
-                        <strong className="pos-saree-price">
-                          {money(sellPaise)}
-                          {unitSuffix(p.sale_unit) && <small className="price-unit"> {unitSuffix(p.sale_unit)}</small>}
-                        </strong>
-                        {hasDiscount && (
-                          <span className="pos-saree-mrp">
-                            {money(origPaise)}
-                          </span>
-                        )}
-                        {cardOffer && <span className="pos-offer-chip" title={cardOffer.title}>{cardOffer.badge}</span>}
-                        <span className="pos-add-chip">+ Add</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="pos-empty-catalogue">
-              <p>
-                {catalog.length === 0
-                  ? 'No published sarees with stock found in catalogue yet.'
-                  : 'No sarees match your search or category filter.'}
-              </p>
-              {catalog.length === 0 &&
-                (profile.role === 'superadmin' ||
-                  (profile.role === 'manager' &&
-                    profile.permissions.includes('catalogue'))) && (
-                  <Link href="/admin/products?action=new" className="button mini-btn">
-                    + Add Saree in Catalogue
-                  </Link>
-                )}
-            </div>
-          )}
-        </section>
-
-        {/* RIGHT COLUMN: Current Bill & Checkout Counter */}
-        <section className="pos-bill-panel">
+      {/* Full-Width POS Workspace */}
+      <div className="pos-workspace-full">
+        {/* Full-Width Current Bill Section */}
+        <section className="pos-bill-panel-full">
+          {/* Header */}
           <div className="pos-bill-header">
             <div>
               <h2 className="pos-panel-title">Current Bill</h2>
               <p className="pos-panel-subtitle">
                 {totalPieces === 0
-                  ? 'Scan a barcode or tap a saree to begin'
+                  ? 'Scan a barcode or enter SKU above to begin'
                   : `${cart.length} ${cart.length === 1 ? 'style' : 'styles'} · ${totalPieces} ${totalPieces === 1 ? 'piece' : 'pieces'}`}
               </p>
             </div>
@@ -1480,7 +1354,7 @@ export function POS({ profile }: { profile: Profile }) {
                 }}
                 title={
                   cart.length === 0
-                    ? 'Scan or select sarees first to put current bill on hold'
+                    ? 'Scan or enter sarees first to put current bill on hold'
                     : 'Park / Hold current bill to serve next customer (Shortcut: F4)'
                 }
               >
@@ -1501,159 +1375,215 @@ export function POS({ profile }: { profile: Profile }) {
             </div>
           </div>
 
-          {/* Itemized Bill Lines WITH Live Unit Price & Line Total */}
-          <div className="pos-bill-items">
-            {cart.length > 0 ? (
-              cart.map((line) => {
-                const p = catalog.find((item) => item.id === line.product_id);
-                const eachPaise = p ? unitPrice(p as any) : 0;
-                const lineTotalPaise = eachPaise * line.quantity;
-                const isSerialized = line.unit_ids.length > 0;
-                const spotPct = Number(lineSpot[line.product_id] || 0);
-                const spotPaise = Math.round((lineTotalPaise * spotPct) / 100);
+          {/* Product Billing Table */}
+          <div className="pos-billing-table-wrapper">
+            <table className="pos-billing-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 60, textAlign: 'center' }}>S.No</th>
+                  <th>Product Name</th>
+                  <th style={{ width: 180 }}>SKU / Barcode</th>
+                  <th style={{ width: 140, textAlign: 'center' }}>Quantity</th>
+                  <th style={{ width: 140, textAlign: 'right' }}>Rate</th>
+                  <th style={{ width: 140, textAlign: 'right' }}>Amount</th>
+                  <th style={{ width: 100, textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cart.length > 0 ? (
+                  cart.map((line, index) => {
+                    const p = catalog.find((item) => item.id === line.product_id);
+                    const eachPaise = p ? unitPrice(p as any) : 0;
+                    const lineTotalPaise = eachPaise * line.quantity;
+                    const isSerialized = line.unit_ids.length > 0;
+                    const spotPct = Number(lineSpot[line.product_id] || 0);
+                    const spotPaise = Math.round((lineTotalPaise * spotPct) / 100);
+                    const finalLineTotalPaise = lineTotalPaise - spotPaise;
+                    const cardOffer = p ? offerFor(p) : null;
+                    const linePieces = scannedPieces[line.product_id] || [];
 
-                return (
-                  <div className="pos-bill-item-row" key={line.product_id}>
-                    <img
-                      src={p?.image_path || '/assets/brand-logo.png'}
-                      alt={p?.name || 'Saree'}
-                      className="pos-bill-item-thumb"
-                    />
-                    <div className="pos-bill-item-meta">
-                      <strong className="pos-bill-item-name">
-                        {p?.name || line.product_id}
-                      </strong>
-                      <div className="pos-bill-item-sub">
-                        <span>{money(eachPaise)} {unitSuffix(p?.sale_unit) || 'each'}</span>
-                        {offerFor(p) && <span className="pos-offer-chip" title="Festival offer applied in the bill total">{offerFor(p)!.badge}</span>}
-                        <span>·</span>
-                        <span>
-                          {isSerialized
-                            ? `${line.unit_ids.length} scanned sticker${line.unit_ids.length > 1 ? 's' : ''}`
-                            : p?.sku || 'Qty'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pos-spot-wrap">
-                      <button
-                        type="button"
-                        className={`pos-spot-btn ${spotPct > 0 ? 'on' : ''}`}
-                        onClick={() => setSpotOpen(spotOpen === line.product_id ? null : line.product_id)}
-                        title="Give a spot discount on this saree"
-                      >
-                        {spotPct > 0 ? `−${spotPct}%` : 'Spot %'}
-                      </button>
-                      {spotOpen === line.product_id && (
-                        <div className="pos-spot-pop" role="dialog" aria-label="Spot discount">
-                          <span>Spot discount on this saree</span>
-                          <div className="ms-chips">
-                            {[0, ...(Array.isArray(settings.spot_discount_options) ? settings.spot_discount_options : [5, 10, 15, 20, 25])].map((v: number) => (
-                              <button
-                                type="button"
-                                key={v}
-                                className={`ms-chip ${spotPct === v ? 'on' : ''}`}
-                                onClick={() => {
-                                  setLineSpot((o) => ({ ...o, [line.product_id]: v }));
-                                  setSpotOpen(null);
-                                }}
-                              >
-                                {v === 0 ? 'None' : `${v}%`}
-                              </button>
-                            ))}
+                    return (
+                      <tr key={line.product_id} className="pos-table-row">
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: '#666' }}>
+                          {index + 1}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <img
+                              src={p?.image_path || '/assets/brand-logo.png'}
+                              alt={p?.name || 'Saree'}
+                              className="pos-bill-item-thumb"
+                            />
+                            <div>
+                              <strong className="pos-table-item-name">
+                                {p?.name || line.product_id}
+                              </strong>
+                              {linePieces.length > 0 && (
+                                <div className="pos-table-piece-chips">
+                                  {linePieces.map((code) => (
+                                    <span key={code} className="pos-table-piece-chip" title="Scanned Piece Code">
+                                      🏷️ {code}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {cardOffer && (
+                                <span className="pos-offer-chip" style={{ marginTop: 4, display: 'inline-block' }} title={cardOffer.title}>
+                                  🎉 {cardOffer.badge}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <label className="pos-spot-custom">
-                            Custom
+                        </td>
+                        <td>
+                          <div className="pos-table-sku-col">
+                            <code>{p?.sku || '—'}</code>
+                            {p?.barcode && p.barcode !== p.sku && (
+                              <span className="pos-table-barcode">{p.barcode}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div className="pos-qty-stepper">
+                            <button
+                              type="button"
+                              className="pos-qty-btn"
+                              disabled={isSerialized || line.quantity <= 1 || busy}
+                              onClick={() => updateQty(line.product_id, line.quantity - 1)}
+                              aria-label="Decrease quantity"
+                              title={isSerialized ? "Serialized piece quantity is managed by scanning stickers" : "Decrease quantity"}
+                            >
+                              −
+                            </button>
                             <input
                               type="number"
-                              min={0}
-                              max={90}
-                              step={0.5}
-                              value={spotPct || ''}
-                              placeholder="%"
+                              min={1}
+                              max={100}
+                              value={line.quantity}
+                              disabled={isSerialized || busy}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
                               onChange={(e) =>
-                                setLineSpot((o) => ({ ...o, [line.product_id]: Math.max(0, Math.min(90, Number(e.target.value) || 0)) }))
+                                updateQty(line.product_id, Number(e.target.value))
                               }
+                              className="pos-qty-input"
+                              aria-label="Quantity"
                             />
-                            %
-                          </label>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pos-qty-stepper">
-                      <button
-                        type="button"
-                        className="pos-qty-btn"
-                        disabled={isSerialized}
-                        onClick={() => updateQty(line.product_id, line.quantity - 1)}
-                        aria-label="Decrease quantity"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={line.quantity}
-                        disabled={isSerialized}
-                        onChange={(e) =>
-                          updateQty(line.product_id, Number(e.target.value))
-                        }
-                        className="pos-qty-input"
-                        aria-label="Quantity"
-                      />
-                      <button
-                        type="button"
-                        className="pos-qty-btn"
-                        disabled={isSerialized || line.quantity >= 100}
-                        onClick={() => updateQty(line.product_id, line.quantity + 1)}
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div className="pos-bill-item-total">
-                      {spotPaise > 0 ? (
-                        <span className="pos-line-price">
-                          <s>{money(lineTotalPaise)}</s>
-                          <strong>{money(lineTotalPaise - spotPaise)}</strong>
-                        </span>
-                      ) : (
-                        <strong>{money(lineTotalPaise)}</strong>
-                      )}
-                      <button
-                        type="button"
-                        className="pos-remove-item-btn"
-                        onClick={() =>
-                          setCart((old) =>
-                            old.filter((l) => l.product_id !== line.product_id),
-                          )
-                        }
-                        title="Remove item"
-                        aria-label={`Remove ${p?.name || 'item'}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="pos-bill-empty">
-                <div className="pos-bill-empty-icon">🧾</div>
-                <p>No items in bill yet</p>
-                <small>
-                  Scan a barcode above or select sarees from the catalogue on the left.
-                  Prices and totals calculate automatically.
-                </small>
-              </div>
-            )}
+                            <button
+                              type="button"
+                              className="pos-qty-btn"
+                              disabled={isSerialized || line.quantity >= 100 || busy}
+                              onClick={() => updateQty(line.product_id, line.quantity + 1)}
+                              aria-label="Increase quantity"
+                              title={isSerialized ? "Serialized piece quantity is managed by scanning stickers" : "Increase quantity"}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <strong className="pos-table-rate">{money(eachPaise)}</strong>
+                          {unitSuffix(p?.sale_unit) && (
+                            <small className="pos-table-unit"> /{unitSuffix(p?.sale_unit)}</small>
+                          )}
+                          <div className="pos-spot-wrap" style={{ marginTop: 4 }}>
+                            <button
+                              type="button"
+                              className={`pos-spot-btn ${spotPct > 0 ? 'on' : ''}`}
+                              onClick={() => setSpotOpen(spotOpen === line.product_id ? null : line.product_id)}
+                              title="Give a spot discount on this saree"
+                            >
+                              {spotPct > 0 ? `−${spotPct}% Spot` : 'Spot %'}
+                            </button>
+                            {spotOpen === line.product_id && (
+                              <div className="pos-spot-pop" role="dialog" aria-label="Spot discount">
+                                <span>Spot discount on this saree</span>
+                                <div className="ms-chips">
+                                  {[0, ...(Array.isArray(settings.spot_discount_options) ? settings.spot_discount_options : [5, 10, 15, 20, 25])].map((v: number) => (
+                                    <button
+                                      type="button"
+                                      key={v}
+                                      className={`ms-chip ${spotPct === v ? 'on' : ''}`}
+                                      onClick={() => {
+                                        setLineSpot((o) => ({ ...o, [line.product_id]: v }));
+                                        setSpotOpen(null);
+                                      }}
+                                    >
+                                      {v === 0 ? 'None' : `${v}%`}
+                                    </button>
+                                  ))}
+                                </div>
+                                <label className="pos-spot-custom">
+                                  Custom
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={90}
+                                    step={0.5}
+                                    value={spotPct || ''}
+                                    placeholder="%"
+                                    onChange={(e) =>
+                                      setLineSpot((o) => ({ ...o, [line.product_id]: Math.max(0, Math.min(90, Number(e.target.value) || 0)) }))
+                                    }
+                                  />
+                                  %
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {spotPaise > 0 ? (
+                            <div>
+                              <s style={{ fontSize: 11, color: '#888', display: 'block' }}>{money(lineTotalPaise)}</s>
+                              <strong style={{ color: '#800020', fontSize: 15 }}>{money(finalLineTotalPaise)}</strong>
+                              <span style={{ fontSize: 10, color: '#15803D', display: 'block', fontWeight: 600 }}>−{spotPct}% spot</span>
+                            </div>
+                          ) : (
+                            <strong style={{ color: '#800020', fontSize: 15 }}>{money(lineTotalPaise)}</strong>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="pos-table-del-btn"
+                            onClick={() => removeItem(line.product_id)}
+                            title={`Remove ${p?.name || 'saree'} from bill`}
+                            aria-label={`Remove ${p?.name || 'saree'}`}
+                          >
+                            <span>🗑️</span>
+                            <span>Delete</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="pos-table-empty">
+                      <div className="pos-bill-empty">
+                        <div className="pos-bill-empty-icon">🧾</div>
+                        <p>No items in bill yet</p>
+                        <small>
+                          Scan a barcode above or type a SKU / piece code and press Enter.
+                          <br />
+                          Prices, discounts, and totals calculate automatically.
+                        </small>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
           {/* Checkout Form */}
           <form
+            ref={formRef}
             className="pos-checkout-form"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -1713,495 +1643,530 @@ export function POS({ profile }: { profile: Profile }) {
               }
             }}
           >
-            {/* Customer Info (Compact 2-Column) */}
-            <div className="pos-section-block">
-              <span className="pos-block-title">Customer Details (Optional)</span>
-              <div className="row-inputs-2">
-                <label className="input-group">
-                  <span>Customer Name</span>
-                  <input
-                    name="customer_name"
-                    maxLength={80}
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Walk-in customer"
-                  />
-                </label>
-                <label className="input-group">
-                  <span>Mobile Number{settings.require_customer_phone ? ' *' : ''}</span>
-                  <input
-                    name="customer_phone"
-                    maxLength={25}
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    required={Boolean(settings.require_customer_phone)}
-                    pattern={settings.require_customer_phone ? '[0-9+ -]{10,25}' : undefined}
-                    title={settings.require_customer_phone ? 'Enter the customer mobile number (at least 10 digits)' : undefined}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Manual Discount Section */}
-            <div className="pos-section-block">
-              <div className="pos-discount-head">
-                <label htmlFor="pos-manual-discount-input" className="pos-block-title" style={{ margin: 0 }}>
-                  Discount
-                </label>
-                {discountInput !== '' && (
-                  <button
-                    type="button"
-                    className="pos-discount-reset-btn"
-                    onClick={() => setDiscountInput('')}
-                  >
-                    ✕ Reset Discount
-                  </button>
-                )}
-              </div>
-
-              <div className="pos-discount-controls">
-                <div className="pos-discount-input-wrap">
-                  <span className="pos-discount-prefix">
-                    {discountType === 'fixed' ? '₹' : '%'}
-                  </span>
-                  <input
-                    id="pos-manual-discount-input"
-                    type="number"
-                    min={0}
-                    max={discountType === 'percent' ? 100 : undefined}
-                    step="any"
-                    value={discountInput}
-                    placeholder={
-                      discountType === 'fixed'
-                        ? 'Enter Discount Amount'
-                        : 'Enter Discount %'
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                        e.preventDefault();
-                      }
-                    }}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        setDiscountInput('');
-                        return;
-                      }
-                      if (Number(val) < 0) return;
-                      setDiscountInput(val);
-                    }}
-                    className="pos-discount-input"
-                    aria-label="Manual discount value"
-                  />
-                </div>
-
-                <div className="pos-discount-type-toggle" role="group" aria-label="Discount type">
-                  <button
-                    type="button"
-                    className={`pos-dtype-btn ${discountType === 'fixed' ? 'active' : ''}`}
-                    onClick={() => {
-                      setDiscountType('fixed');
-                      setDiscountInput('');
-                    }}
-                  >
-                    ₹ Fixed
-                  </button>
-                  <button
-                    type="button"
-                    className={`pos-dtype-btn ${discountType === 'percent' ? 'active' : ''}`}
-                    onClick={() => {
-                      setDiscountType('percent');
-                      setDiscountInput('');
-                    }}
-                  >
-                    % Percent
-                  </button>
-                </div>
-              </div>
-
-              <div className="pos-quick-discount">
-                <span>Quick:</span>
-                {(Array.isArray(settings.bill_discount_options) ? settings.bill_discount_options : [5, 10, 15]).map((v: number) => (
-                  <button
-                    type="button"
-                    key={v}
-                    className={`ms-chip ${discountType === 'percent' && parsedDiscountNum === v ? 'on' : ''}`}
-                    onClick={() => {
-                      setDiscountType('percent');
-                      setDiscountInput(String(v));
-                    }}
-                  >
-                    {v}% off bill
-                  </button>
-                ))}
-                {(Array.isArray(settings.round_off_options) ? settings.round_off_options : [10, 100]).map((step: number) => {
-                  const afterSpot = rawSubtotalPaise - spotTotalPaise;
-                  const roundOff = afterSpot % (step * 100);
-                  return (
-                    <button
-                      type="button"
-                      key={step}
-                      className="ms-chip"
-                      disabled={afterSpot <= 0 || roundOff === 0}
-                      title={`Drop the extra so the bill (before GST) ends in a round ₹${step}`}
-                      onClick={() => {
-                        setDiscountType('fixed');
-                        setDiscountInput(String(roundOff / 100));
-                      }}
-                    >
-                      Round off ₹{step}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {spotTotalPaise > 0 && (
-                <div className="pos-spot-summary">
-                  {spotLines.map((l) => (
-                    <span key={l.product_id}>
-                      Spot {l.pct}% · {l.name} <b>−{money(l.paise)}</b>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {discountType === 'percent' && discount > 0 && !discountError && (
-                <span className="pos-discount-hint">
-                  {parsedDiscountNum}% of {money(rawSubtotalPaise)} = −{money(discount)}
-                </span>
-              )}
-
-              {discountError && (
-                <div role="alert" className="modal-error-banner" style={{ marginTop: 4 }}>
-                  {discountError}
-                </div>
-              )}
-            </div>
-
-            {quoteError && !discountError && (
-              <div role="alert" className="modal-error-banner">
-                {quoteError}
-              </div>
-            )}
-
-            {/* Manual Whole-Number GST (%) Input + Bill Summary Card */}
-            <div className="pos-gst-bar">
-              <label htmlFor="pos-gst-pct-input" className="pos-block-title" style={{ margin: 0 }}>
-                GST (%)
-              </label>
-              {profile.role === 'superadmin' ? (
-                <div className="pos-gst-input-wrap">
-                  <input
-                    id="pos-gst-pct-input"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={3}
-                    value={gstInput}
-                    placeholder="0"
-                    onFocus={() => {
-                      gstEditingRef.current = true;
-                    }}
-                    onBlur={() => {
-                      gstEditingRef.current = false;
-                      const normalized = Math.min(
-                        100,
-                        Math.max(0, parseInt(gstInput || '0', 10) || 0),
-                      );
-                      setGstInput(String(normalized));
-                      if (gstTimerRef.current) clearTimeout(gstTimerRef.current);
-                      void updateGstRate(normalized * 100, true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === '.' || e.key === ',' || e.key === '-' || e.key === 'e' || e.key === 'E') {
-                        e.preventDefault();
-                      }
-                    }}
-                    onChange={(e) => handleGstInputChange(e.target.value)}
-                    className="pos-gst-input"
-                    aria-label="GST percentage whole number"
-                  />
-                  <span className="pos-gst-suffix">%</span>
-                </div>
-              ) : (
-                <span className="pos-meta-chip">
-                  GST: <strong>{Math.round(Number(settings.tax_bps || 0) / 100)}%</strong>
-                </span>
-              )}
-            </div>
-
-            {activeTotals && (
-              <div className="pos-summary-card">
-                <span className="pos-summary-eyebrow">Bill Summary</span>
-                <div className="pos-summary-line">
-                  <span>Subtotal ({totalPieces} pcs)</span>
-                  <strong>{money(Number(activeTotals.subtotal_paise || 0))}</strong>
-                </div>
-                {Number(activeTotals.offer_discount_paise || 0) > 0 && (
-                  <div className="pos-summary-line discount pos-offer-line">
-                    <span>Festival offer{activeTotals.offer_title ? ` · ${activeTotals.offer_title}` : ''}</span>
-                    <strong>−{money(Number(activeTotals.offer_discount_paise))}</strong>
+            {/* Lower 2-Column Responsive Grid */}
+            <div className="pos-lower-grid">
+              {/* Left Column: Customer Details, Discount Section, Payment Mode */}
+              <div className="pos-lower-col">
+                {/* 1. Customer Details (Optional) */}
+                <div className="pos-card-box">
+                  <h3 className="pos-card-title">
+                    <span>👤 Customer Details (Optional)</span>
+                  </h3>
+                  <div className="row-inputs-2">
+                    <label className="input-group">
+                      <span>Customer Name</span>
+                      <input
+                        name="customer_name"
+                        maxLength={80}
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Walk-in customer"
+                      />
+                    </label>
+                    <label className="input-group">
+                      <span>Mobile Number{settings.require_customer_phone ? ' *' : ''}</span>
+                      <input
+                        name="customer_phone"
+                        maxLength={25}
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        required={Boolean(settings.require_customer_phone)}
+                        pattern={settings.require_customer_phone ? '[0-9+ -]{10,25}' : undefined}
+                        title={settings.require_customer_phone ? 'Enter the customer mobile number (at least 10 digits)' : undefined}
+                      />
+                    </label>
                   </div>
-                )}
-                <div className={`pos-summary-line ${Number(activeTotals.discount_paise || 0) > 0 ? 'discount' : ''}`}>
-                  <span>
-                    Counter discount{discountTypeLabel ? ` (${discountTypeLabel})` : ''}
-                  </span>
-                  <strong>
-                    {Number(activeTotals.discount_paise || 0) > 0
-                      ? `−${money(Number(activeTotals.discount_paise))}`
-                      : money(0)}
-                  </strong>
                 </div>
-                <div className="pos-summary-line">
-                  <span>GST ({parsedGstPct}%)</span>
-                  <strong>{money(Number(activeTotals.tax_paise || 0))}</strong>
-                </div>
-                <div className="pos-summary-grand">
-                  <span>Grand Total</span>
-                  <strong>{money(total)}</strong>
-                </div>
-              </div>
-            )}
 
-            {/* Payment Method Selector */}
-            <div className="pos-section-block">
-              <span className="pos-block-title">Payment Mode</span>
-              <div className="pos-paymode-grid">
-                {(
-                  [
-                    ['cash', '💵 Cash'],
-                    ['upi', '📱 UPI'],
-                    ['card', '💳 Card'],
-                    ['split', '⇄ Split'],
-                  ] as const
-                ).map(([mode, label]) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={`pos-paymode-btn ${payMode === mode ? 'active' : ''}`}
-                    onClick={() => selectPayMode(mode)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Split Payment Inputs */}
-              {payMode === 'split' && (
-                <div className="pos-split-box">
-                  {(['cash', 'upi', 'card'] as const).map((method) => (
-                    <div className="pos-split-row" key={method}>
-                      <label className="input-group">
-                        <span>{method.toUpperCase()} (₹)</span>
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={tenders[method] ? tenders[method] / 100 : ''}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const val = Math.max(
-                              0,
-                              Math.round(Number(e.target.value || 0) * 100),
-                            );
-                            setTenders((old) => ({ ...old, [method]: val }));
-                            if (method === 'cash' && !cashReceivedEdited) {
-                              setCashReceived(val);
-                            }
-                          }}
-                        />
-                      </label>
+                {/* 2. Discount Section */}
+                <div className="pos-card-box">
+                  <div className="pos-card-title">
+                    <span>🏷️ Discount Section</span>
+                    {discountInput !== '' && (
                       <button
                         type="button"
-                        className="button outline-btn mini-btn pos-fill-rem-btn"
-                        disabled={!total}
+                        className="pos-discount-reset-btn"
+                        onClick={() => setDiscountInput('')}
+                      >
+                        ✕ Reset Discount
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="pos-discount-controls">
+                    <div className="pos-discount-input-wrap">
+                      <span className="pos-discount-prefix">
+                        {discountType === 'fixed' ? '₹' : '%'}
+                      </span>
+                      <input
+                        id="pos-manual-discount-input"
+                        type="number"
+                        min={0}
+                        max={discountType === 'percent' ? 100 : undefined}
+                        step="any"
+                        value={discountInput}
+                        placeholder={
+                          discountType === 'fixed'
+                            ? 'Enter Discount Amount'
+                            : 'Enter Discount %'
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setDiscountInput('');
+                            return;
+                          }
+                          if (Number(val) < 0) return;
+                          setDiscountInput(val);
+                        }}
+                        className="pos-discount-input"
+                        aria-label="Manual discount value"
+                      />
+                    </div>
+
+                    <div className="pos-discount-type-toggle" role="group" aria-label="Discount type">
+                      <button
+                        type="button"
+                        className={`pos-dtype-btn ${discountType === 'fixed' ? 'active' : ''}`}
                         onClick={() => {
-                          const other = (['cash', 'upi', 'card'] as const)
-                            .filter((m) => m !== method)
-                            .reduce((s, m) => s + Number(tenders[m]), 0);
-                          const rem = Math.max(0, total - other);
-                          setTenders((old) => ({ ...old, [method]: rem }));
-                          if (method === 'cash') setCashReceived(rem);
+                          setDiscountType('fixed');
+                          setDiscountInput('');
                         }}
                       >
-                        Fill Remaining
+                        ₹ Fixed
+                      </button>
+                      <button
+                        type="button"
+                        className={`pos-dtype-btn ${discountType === 'percent' ? 'active' : ''}`}
+                        onClick={() => {
+                          setDiscountType('percent');
+                          setDiscountInput('');
+                        }}
+                      >
+                        % Percent
                       </button>
                     </div>
-                  ))}
-                  <div
-                    className={`pos-remaining-pill ${remainingPaise === 0 ? 'balanced' : 'unbalanced'
-                      }`}
-                  >
-                    <span>Remaining to allocate:</span>
-                    <strong>{money(remainingPaise)}</strong>
                   </div>
-                </div>
-              )}
 
-              {/* Cash Received & Change Return Calculator */}
-              {(payMode === 'cash' || (payMode === 'split' && cashDuePaise > 0)) && (
-                <div className="pos-cash-box">
-                  <label className="input-group">
-                    <span>Cash Received from Customer (₹)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={
-                        cashReceived === 0 && !cashReceivedEdited
-                          ? ''
-                          : cashReceived === 0
-                            ? ''
-                            : cashReceived / 100
-                      }
-                      placeholder={
-                        cashDuePaise > 0 ? String(cashDuePaise / 100) : 'Enter Amount'
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => {
-                        setCashReceivedEdited(true);
-                        const raw = e.target.value;
-                        setCashReceived(
-                          raw === ''
-                            ? 0
-                            : Math.max(0, Math.round(Number(raw) * 100)),
-                        );
-                      }}
-                    />
-                  </label>
+                  <div className="pos-quick-discount">
+                    <span>Quick:</span>
+                    {(Array.isArray(settings.bill_discount_options) ? settings.bill_discount_options : [5, 10, 15]).map((v: number) => (
+                      <button
+                        type="button"
+                        key={v}
+                        className={`ms-chip ${discountType === 'percent' && parsedDiscountNum === v ? 'on' : ''}`}
+                        onClick={() => {
+                          setDiscountType('percent');
+                          setDiscountInput(String(v));
+                        }}
+                      >
+                        {v}% off bill
+                      </button>
+                    ))}
+                    {(Array.isArray(settings.round_off_options) ? settings.round_off_options : [10, 100]).map((step: number) => {
+                      const afterSpot = rawSubtotalPaise - spotTotalPaise;
+                      const roundOff = afterSpot % (step * 100);
+                      return (
+                        <button
+                          type="button"
+                          key={step}
+                          className="ms-chip"
+                          disabled={afterSpot <= 0 || roundOff === 0}
+                          title={`Drop the extra so the bill (before GST) ends in a round ₹${step}`}
+                          onClick={() => {
+                            setDiscountType('fixed');
+                            setDiscountInput(String(roundOff / 100));
+                          }}
+                        >
+                          Round off ₹{step}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                  {/* Large Bold Change to Return / Balance Due Highlight Box */}
-                  <div
-                    className={`pos-change-banner ${cashShortfallPaise > 0 ? 'is-due' : 'is-change'
-                      }`}
-                    role={cashShortfallPaise > 0 ? 'alert' : 'status'}
-                  >
-                    <span className="pos-change-banner-label">
-                      {cashShortfallPaise > 0 ? 'BALANCE DUE' : 'CHANGE TO RETURN'}
+                  {spotTotalPaise > 0 && (
+                    <div className="pos-spot-summary">
+                      {spotLines.map((l) => (
+                        <span key={l.product_id}>
+                          Spot {l.pct}% · {l.name} <b>−{money(l.paise)}</b>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {discountType === 'percent' && discount > 0 && !discountError && (
+                    <span className="pos-discount-hint">
+                      {parsedDiscountNum}% of {money(rawSubtotalPaise)} = −{money(discount)}
                     </span>
-                    <strong className="pos-change-banner-amt">
-                      {cashShortfallPaise > 0
-                        ? money(cashShortfallPaise)
-                        : money(changePaise)}
-                    </strong>
-                  </div>
+                  )}
 
-                  {/* Live Cash Breakdown Summary */}
-                  {cashDuePaise > 0 && (
-                    <div className="pos-cash-summary">
-                      <div className="pos-cash-summary-row">
-                        <span>Cash Received</span>
-                        <strong>{money(cashReceived)}</strong>
-                      </div>
-                      <div className="pos-cash-summary-row">
-                        <span>{payMode === 'split' ? 'Cash Tender Due' : 'Grand Total'}</span>
-                        <strong>{money(cashDuePaise)}</strong>
-                      </div>
-                      {cashShortfallPaise > 0 ? (
-                        <div className="pos-cash-summary-row is-short">
-                          <span>Balance Due</span>
-                          <strong>{money(cashShortfallPaise)} short</strong>
-                        </div>
-                      ) : (
-                        <div className="pos-cash-summary-row is-change">
-                          <span>Change to Return</span>
-                          <strong>{money(changePaise)}</strong>
-                        </div>
-                      )}
+                  {discountError && (
+                    <div role="alert" className="modal-error-banner" style={{ marginTop: 4 }}>
+                      {discountError}
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* UPI & Card Reference Inputs */}
-              {Number(tenders.upi) > 0 && (
-                <label className="input-group">
-                  <span>UPI Transaction Reference / UTR *</span>
-                  <input
-                    name="upi_reference"
-                    required
-                    minLength={6}
-                    maxLength={100}
-                    placeholder="Enter UPI Ref / UTR number (min 6 chars)"
-                  />
-                </label>
-              )}
+                {/* 3. Payment Mode (Horizontal) */}
+                <div className="pos-card-box">
+                  <h3 className="pos-card-title">
+                    <span>💳 Payment Mode</span>
+                  </h3>
+                  <div className="pos-paymode-grid-horizontal">
+                    {(
+                      [
+                        ['cash', '💵 Cash'],
+                        ['upi', '📱 UPI'],
+                        ['card', '💳 Card'],
+                        ['split', '⇄ Other'],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`pos-paymode-btn ${payMode === mode ? 'active' : ''}`}
+                        onClick={() => selectPayMode(mode)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-              {Number(tenders.card) > 0 && (
-                <label className="input-group">
-                  <span>Card POS Slip / Auth Reference *</span>
-                  <input
-                    name="card_reference"
-                    required
-                    minLength={6}
-                    maxLength={100}
-                    placeholder="Enter Card approval / RRN number (min 6 chars)"
-                  />
-                </label>
-              )}
+                  {/* Split / Other Payment Inputs */}
+                  {payMode === 'split' && (
+                    <div className="pos-split-box" style={{ marginTop: 10 }}>
+                      {(['cash', 'upi', 'card'] as const).map((method) => (
+                        <div className="pos-split-row" key={method}>
+                          <label className="input-group">
+                            <span>{method.toUpperCase()} (₹)</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={tenders[method] ? tenders[method] / 100 : ''}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const val = Math.max(
+                                  0,
+                                  Math.round(Number(e.target.value || 0) * 100),
+                                );
+                                setTenders((old) => ({ ...old, [method]: val }));
+                                if (method === 'cash' && !cashReceivedEdited) {
+                                  setCashReceived(val);
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="button outline-btn mini-btn pos-fill-rem-btn"
+                            disabled={!total}
+                            onClick={() => {
+                              const other = (['cash', 'upi', 'card'] as const)
+                                .filter((m) => m !== method)
+                                .reduce((s, m) => s + Number(tenders[m]), 0);
+                              const rem = Math.max(0, total - other);
+                              setTenders((old) => ({ ...old, [method]: rem }));
+                              if (method === 'cash') setCashReceived(rem);
+                            }}
+                          >
+                            Fill Remaining
+                          </button>
+                        </div>
+                      ))}
+                      <div
+                        className={`pos-remaining-pill ${remainingPaise === 0 ? 'balanced' : 'unbalanced'}`}
+                      >
+                        <span>Remaining to allocate:</span>
+                        <strong>{money(remainingPaise)}</strong>
+                      </div>
+                    </div>
+                  )}
 
-              {hasNonCash && (
-                <label className="checkbox-item pos-verify-check">
-                  <input name="bank_checked" type="checkbox" required />
-                  <span>
-                    I verified the exact UPI/Card amount on the merchant terminal.
-                  </span>
-                </label>
-              )}
+                  {/* UPI Reference */}
+                  {Number(tenders.upi) > 0 && (
+                    <label className="input-group" style={{ marginTop: 10 }}>
+                      <span>UPI Transaction Reference / UTR *</span>
+                      <input
+                        name="upi_reference"
+                        required
+                        minLength={6}
+                        maxLength={100}
+                        placeholder="Enter UPI Ref / UTR number (min 6 chars)"
+                      />
+                    </label>
+                  )}
+
+                  {/* Card Reference */}
+                  {Number(tenders.card) > 0 && (
+                    <label className="input-group" style={{ marginTop: 10 }}>
+                      <span>Card POS Slip / Auth Reference *</span>
+                      <input
+                        name="card_reference"
+                        required
+                        minLength={6}
+                        maxLength={100}
+                        placeholder="Enter Card approval / RRN number (min 6 chars)"
+                      />
+                    </label>
+                  )}
+
+                  {hasNonCash && (
+                    <label className="checkbox-item pos-verify-check" style={{ marginTop: 8 }}>
+                      <input name="bank_checked" type="checkbox" required />
+                      <span>
+                        I verified the exact UPI/Card amount on the merchant terminal.
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Cash Tender & Change, GST Setting, Bill Summary */}
+              <div className="pos-lower-col">
+                {/* Cash Calculator Box (when Cash is active) */}
+                {(payMode === 'cash' || (payMode === 'split' && cashDuePaise > 0)) && (
+                  <div className="pos-card-box">
+                    <h3 className="pos-card-title">
+                      <span>💵 Cash Tender &amp; Change</span>
+                    </h3>
+                    <label className="input-group">
+                      <span>Cash Received from Customer (₹)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={
+                          cashReceived === 0 && !cashReceivedEdited
+                            ? ''
+                            : cashReceived === 0
+                              ? ''
+                              : cashReceived / 100
+                        }
+                        placeholder={
+                          cashDuePaise > 0 ? String(cashDuePaise / 100) : 'Enter Amount'
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => {
+                          setCashReceivedEdited(true);
+                          const raw = e.target.value;
+                          setCashReceived(
+                            raw === ''
+                              ? 0
+                              : Math.max(0, Math.round(Number(raw) * 100)),
+                          );
+                        }}
+                      />
+                    </label>
+
+                    {/* Change / Due Banner */}
+                    <div
+                      className={`pos-change-banner ${cashShortfallPaise > 0 ? 'is-due' : 'is-change'}`}
+                      role={cashShortfallPaise > 0 ? 'alert' : 'status'}
+                    >
+                      <span className="pos-change-banner-label">
+                        {cashShortfallPaise > 0 ? 'BALANCE DUE' : 'CHANGE TO RETURN'}
+                      </span>
+                      <strong className="pos-change-banner-amt">
+                        {cashShortfallPaise > 0
+                          ? money(cashShortfallPaise)
+                          : money(changePaise)}
+                      </strong>
+                    </div>
+
+                    {cashDuePaise > 0 && (
+                      <div className="pos-cash-summary">
+                        <div className="pos-cash-summary-row">
+                          <span>Cash Received</span>
+                          <strong>{money(cashReceived)}</strong>
+                        </div>
+                        <div className="pos-cash-summary-row">
+                          <span>{payMode === 'split' ? 'Cash Tender Due' : 'Grand Total'}</span>
+                          <strong>{money(cashDuePaise)}</strong>
+                        </div>
+                        {cashShortfallPaise > 0 ? (
+                          <div className="pos-cash-summary-row is-short">
+                            <span>Balance Due</span>
+                            <strong>{money(cashShortfallPaise)} short</strong>
+                          </div>
+                        ) : (
+                          <div className="pos-cash-summary-row is-change">
+                            <span>Change to Return</span>
+                            <strong>{money(changePaise)}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* GST Rate Setting Bar */}
+                <div className="pos-card-box" style={{ padding: '12px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label htmlFor="pos-gst-pct-input" className="pos-block-title" style={{ margin: 0 }}>
+                      GST Rate (%)
+                    </label>
+                    {profile.role === 'superadmin' ? (
+                      <div className="pos-gst-input-wrap">
+                        <input
+                          id="pos-gst-pct-input"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={3}
+                          value={gstInput}
+                          placeholder="0"
+                          onFocus={() => {
+                            gstEditingRef.current = true;
+                          }}
+                          onBlur={() => {
+                            gstEditingRef.current = false;
+                            const normalized = Math.min(
+                              100,
+                              Math.max(0, parseInt(gstInput || '0', 10) || 0),
+                            );
+                            setGstInput(String(normalized));
+                            if (gstTimerRef.current) clearTimeout(gstTimerRef.current);
+                            void updateGstRate(normalized * 100, true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === '.' || e.key === ',' || e.key === '-' || e.key === 'e' || e.key === 'E') {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => handleGstInputChange(e.target.value)}
+                          className="pos-gst-input"
+                          aria-label="GST percentage whole number"
+                        />
+                        <span className="pos-gst-suffix">%</span>
+                      </div>
+                    ) : (
+                      <span className="pos-meta-chip">
+                        GST: <strong>{Math.round(Number(settings.tax_bps || 0) / 100)}%</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Prominent Bill Summary Card */}
+                {activeTotals && (
+                  <div className="pos-summary-card" style={{ padding: '20px 22px', background: '#FAF5EE', border: '1px solid #EAD5C0' }}>
+                    <span className="pos-summary-eyebrow" style={{ color: '#800020', fontWeight: 800, letterSpacing: '0.08em' }}>
+                      ✦ BILL SUMMARY
+                    </span>
+                    <div className="pos-summary-line" style={{ fontSize: 14 }}>
+                      <span>Subtotal ({totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'})</span>
+                      <strong style={{ fontSize: 15 }}>{money(Number(activeTotals.subtotal_paise || 0))}</strong>
+                    </div>
+                    {Number(activeTotals.offer_discount_paise || 0) > 0 && (
+                      <div className="pos-summary-line discount pos-offer-line" style={{ fontSize: 13.5 }}>
+                        <span>Festival Offer{activeTotals.offer_title ? ` · ${activeTotals.offer_title}` : ''}</span>
+                        <strong style={{ color: '#15803D' }}>−{money(Number(activeTotals.offer_discount_paise))}</strong>
+                      </div>
+                    )}
+                    <div className={`pos-summary-line ${Number(activeTotals.discount_paise || 0) > 0 ? 'discount' : ''}`} style={{ fontSize: 13.5 }}>
+                      <span>
+                        Counter Discount{discountTypeLabel ? ` (${discountTypeLabel})` : ''}
+                      </span>
+                      <strong style={{ color: Number(activeTotals.discount_paise || 0) > 0 ? '#15803D' : undefined }}>
+                        {Number(activeTotals.discount_paise || 0) > 0
+                          ? `−${money(Number(activeTotals.discount_paise))}`
+                          : money(0)}
+                      </strong>
+                    </div>
+                    <div className="pos-summary-line" style={{ fontSize: 14 }}>
+                      <span>Tax / GST ({parsedGstPct}%)</span>
+                      <strong style={{ fontSize: 15 }}>{money(Number(activeTotals.tax_paise || 0))}</strong>
+                    </div>
+                    <div className="pos-summary-grand" style={{ marginTop: 10, paddingTop: 14, borderTop: '2px dashed #C49A52' }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: '#800020' }}>TOTAL AMOUNT</span>
+                      <strong style={{ fontSize: 32, color: '#800020', fontFamily: 'var(--serif, Georgia, serif)', lineHeight: 1.1 }}>
+                        {money(total)}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+
+                {quoteError && !discountError && (
+                  <div role="alert" className="modal-error-banner">
+                    {quoteError}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <label className="checkbox-item pos-autoprint-row">
-              <input
-                type="checkbox"
-                checked={autoPrint}
-                onChange={(e) => setAutoPrint(e.target.checked)}
-              />
-              <span>Auto-open print dialog after completing bill</span>
-            </label>
+            {/* Bottom Full-Width Action Row */}
+            <div className="pos-bottom-bar">
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="button outline-btn pos-print-draft-btn"
+                  disabled={cart.length === 0 || busy}
+                  onClick={printDraftBill}
+                  style={{ minWidth: 120, padding: '12px 18px', fontSize: 13.5 }}
+                  title="Print quotation or draft slip before completing"
+                >
+                  🖨 Print Bill
+                </button>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  disabled={cart.length === 0 || busy}
+                  onClick={handleOpenHoldModal}
+                  style={{
+                    minWidth: 120,
+                    padding: '12px 18px',
+                    fontSize: 13.5,
+                    background: '#FEF3C7',
+                    borderColor: '#FCD34D',
+                    color: '#92400E',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Park this bill temporarily to ring up another customer (Shortcut: F4)"
+                >
+                  ⏸ Hold Bill (F4)
+                </button>
+                <label className="checkbox-item" style={{ fontSize: 12.5, color: '#555', cursor: 'pointer', marginLeft: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={autoPrint}
+                    onChange={(e) => setAutoPrint(e.target.checked)}
+                  />
+                  <span>Auto-open print dialog</span>
+                </label>
+              </div>
 
-            <div className="pos-action-row">
-              <button
-                type="button"
-                className="button outline-btn pos-print-draft-btn"
-                disabled={cart.length === 0 || busy}
-                onClick={printDraftBill}
-              >
-                🖨 Print Bill
-              </button>
-              <button
-                type="button"
-                className="button outline-btn"
-                disabled={cart.length === 0 || busy}
-                onClick={handleOpenHoldModal}
-                style={{
-                  background: '#FEF3C7',
-                  borderColor: '#FCD34D',
-                  color: '#92400E',
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                }}
-                title="Park this bill temporarily to ring up another customer (Shortcut: F4)"
-              >
-                ⏸ Hold Bill
-              </button>
               <button
                 type="submit"
-                className="button gold-btn pos-complete-btn"
+                className="pos-complete-full-btn"
                 disabled={!canComplete}
+                title="Complete bill, generate invoice and update stock (Shortcut: F10)"
               >
-                {busy
-                  ? 'Saving Bill & Updating Stock…'
-                  : total > 0
-                    ? autoPrint
-                      ? `Complete & Print · ${money(total)}`
-                      : `Complete Bill · ${money(total)}`
-                    : 'Complete Bill & Save Stock'}
+                {busy ? (
+                  'Saving Bill & Updating Stock…'
+                ) : (
+                  <>
+                    <span style={{ fontSize: 20 }}>✓</span>
+                    <span>
+                      {total > 0
+                        ? autoPrint
+                          ? `Complete & Print Bill (F10) · ${money(total)}`
+                          : `Complete Bill (F10) · ${money(total)}`
+                        : 'Complete Bill (F10)'}
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           </form>
