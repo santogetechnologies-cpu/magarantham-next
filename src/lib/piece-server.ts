@@ -323,14 +323,18 @@ export async function syncOrderPieces(orderId: string): Promise<void> {
   try {
     const { data: o } = await service()
       .from("orders")
-      .select("stock_state,order_items(product_id,quantity)")
+      .select("stock_state,order_items(product_id,quantity,piece_id)")
       .eq("id", orderId)
       .maybeSingle();
     if (!o) return;
     const ref = `order:${orderId}`;
     if (o.stock_state === "consumed") {
       await markPiecesSold(
-        ((o.order_items || []) as { product_id: string; quantity: number }[]).map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
+        ((o.order_items || []) as { product_id: string; quantity: number; piece_id?: string }[]).map((l) => ({
+          product_id: l.product_id,
+          quantity: l.quantity,
+          piece_ids: l.piece_id ? [l.piece_id] : undefined,
+        })),
         ref,
       );
     } else if (o.stock_state === "released") {

@@ -146,9 +146,9 @@ export default async function Page({
             </p>
           </section>
         );
-      redirect("/login");
+      redirect(route === "checkout" ? "/login?returnTo=/checkout" : "/login");
     }
-    if (route === "checkout") return <Checkout {...store} />;
+    if (route === "checkout") return <Checkout {...store} profile={session.profile} />;
     if (route === "mfa") return <Mfa />;
     if (route === "reset-password") return <AuthForm mode={route} />;
     if (route === "account")

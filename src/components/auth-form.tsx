@@ -60,6 +60,14 @@ function EyeOffIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function getReturnTo(): string | null {
+  if (typeof window === "undefined") return null;
+  const p = new URLSearchParams(window.location.search).get("returnTo");
+  if (!p) return null;
+  if (p.startsWith("/") && !p.startsWith("//")) return p;
+  return null;
+}
+
 export function AuthForm({ mode }: { mode: string }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
@@ -144,7 +152,8 @@ export function AuthForm({ mode }: { mode: string }) {
         token: code,
         name: customerName,
       });
-      window.location.assign(res.redirect || "/account");
+      const target = getReturnTo() || res.redirect || "/account";
+      window.location.assign(target);
     } catch (err) {
       setMessage((err as Error).message);
     } finally {
@@ -235,8 +244,10 @@ export function AuthForm({ mode }: { mode: string }) {
         message?: string;
         redirect?: string;
       }>(`/api/auth/${action}`, payload);
-      if (r.redirect) window.location.assign(r.redirect);
-      else setMessage(r.message || "Done.");
+      if (r.redirect) {
+        const target = getReturnTo() || r.redirect;
+        window.location.assign(target);
+      } else setMessage(r.message || "Done.");
     } catch (error) {
       setMessage((error as Error).message);
     } finally {

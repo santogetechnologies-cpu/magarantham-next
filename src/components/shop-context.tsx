@@ -47,16 +47,46 @@ function readCart(): Line[] {
 }
 
 /**
- * Lines the server checkout accepts: one line per saree, pieces of the same
- * saree merged, piece-only fields removed (checkout prices by saree).
+ * Lines the server checkout accepts: one line per saree, preserving
+ * physical piece selections where chosen.
  */
 export function checkoutLines(cart: Line[], availableIds?: Set<string>) {
-  const qty = new Map<string, number>();
+  const items: {
+    product_id: string;
+    quantity: number;
+    piece_id?: string;
+    piece_code?: string;
+  }[] = [];
+  const map = new Map<
+    string,
+    {
+      product_id: string;
+      quantity: number;
+      piece_id?: string;
+      piece_code?: string;
+    }
+  >();
   for (const l of cart) {
     if (availableIds && !availableIds.has(l.product_id)) continue;
-    qty.set(l.product_id, Math.min(20, (qty.get(l.product_id) || 0) + l.quantity));
+    if (map.has(l.product_id)) {
+      const existing = map.get(l.product_id)!;
+      existing.quantity = Math.min(20, existing.quantity + l.quantity);
+      if (!existing.piece_id && l.piece_id) {
+        existing.piece_id = l.piece_id;
+        existing.piece_code = l.piece_code;
+      }
+    } else {
+      const entry = {
+        product_id: l.product_id,
+        quantity: Math.min(20, l.quantity),
+        piece_id: l.piece_id,
+        piece_code: l.piece_code,
+      };
+      map.set(l.product_id, entry);
+      items.push(entry);
+    }
   }
-  return [...qty].map(([product_id, quantity]) => ({ product_id, quantity })).slice(0, 20);
+  return items.slice(0, 20);
 }
 
 const Context = createContext<{

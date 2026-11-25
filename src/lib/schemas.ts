@@ -36,6 +36,8 @@ export const checkoutSchema = z
           .object({
             product_id: uuid,
             quantity: z.number().int().min(1).max(20),
+            piece_id: z.string().max(80).optional(),
+            piece_code: z.string().max(80).optional(),
           })
           .strict(),
       )

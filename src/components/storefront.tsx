@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { CategoryItem, Product, Settings, money, unitPrice, unitSuffix } from "@/lib/core";
+import { CategoryItem, Product, Profile, Settings, money, unitPrice, unitSuffix } from "@/lib/core";
 import { Catalogue, ProductCard } from "./catalogue";
 import { useShop, checkoutLines } from "./shop-context";
 import { api } from "./api";
@@ -707,9 +707,11 @@ export const addressFields = [
 export function Checkout({
   products,
   settings: s,
+  profile,
 }: {
   products: Product[];
   settings: Settings;
+  profile?: Profile | null;
 }) {
   const { cart, clear, notice } = useShop();
   const [busy, setBusy] = useState(false),
@@ -811,12 +813,44 @@ export function Checkout({
         </Link>
       ) : (
         <form onSubmit={submit} className="form-panel">
-          <p>
-            Sign in before placing an order.{" "}
-            <Link href="/login" className="text-link">
-              Sign in ↗
-            </Link>
-          </p>
+          {profile ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 16px",
+                background: "rgba(128, 0, 32, 0.04)",
+                border: "1px solid rgba(128, 0, 32, 0.15)",
+                borderRadius: "8px",
+                marginBottom: "20px",
+              }}
+            >
+              <div>
+                <span style={{ fontSize: "12px", color: "var(--erp-text-muted, #7E6551)", display: "block" }}>
+                  Ordering as
+                </span>
+                <strong style={{ color: "var(--erp-maroon, #800020)", fontSize: "15px" }}>
+                  {profile.display_name || profile.phone || profile.email}
+                </strong>
+                {profile.phone && profile.display_name && (
+                  <span style={{ fontSize: "13px", color: "#666", marginLeft: "8px" }}>
+                    · {profile.phone}
+                  </span>
+                )}
+              </div>
+              <Link href="/account" className="text-link" style={{ fontSize: "13px" }}>
+                My Account ↗
+              </Link>
+            </div>
+          ) : (
+            <p>
+              Sign in before placing an order.{" "}
+              <Link href="/login?returnTo=/checkout" className="text-link">
+                Sign in ↗
+              </Link>
+            </p>
+          )}
           {addresses.length > 0 && (
             <label>
               Use a saved address
@@ -838,27 +872,36 @@ export function Checkout({
             </label>
           )}
           <div className="form-grid">
-            {addressFields.map(([key, label]) => (
-              <label key={key}>
-                {label}
-                <input
-                  key={`${key}-${selected[key]}`}
-                  name={key}
-                  defaultValue={selected[key] || ""}
-                  required={key !== "line2"}
-                  maxLength={key === "pin" ? 6 : key === "phone" ? 20 : 180}
-                  autoComplete={
-                    key === "name"
-                      ? "name"
-                      : key === "phone"
-                        ? "tel"
-                        : key === "pin"
-                          ? "postal-code"
-                          : "off"
-                  }
-                />
-              </label>
-            ))}
+            {addressFields.map(([key, label]) => {
+              const defaultVal =
+                selected[key] ||
+                (key === "name"
+                  ? profile?.display_name || ""
+                  : key === "phone"
+                    ? profile?.phone || ""
+                    : "");
+              return (
+                <label key={key}>
+                  {label}
+                  <input
+                    key={`${key}-${defaultVal}`}
+                    name={key}
+                    defaultValue={defaultVal}
+                    required={key !== "line2"}
+                    maxLength={key === "pin" ? 6 : key === "phone" ? 20 : 180}
+                    autoComplete={
+                      key === "name"
+                        ? "name"
+                        : key === "phone"
+                          ? "tel"
+                          : key === "pin"
+                            ? "postal-code"
+                            : "off"
+                    }
+                  />
+                </label>
+              );
+            })}
           </div>
           <label>
             Coupon code (optional)
