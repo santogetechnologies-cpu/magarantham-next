@@ -1101,14 +1101,14 @@ export function ProductModal({
                 <thead>
                   <tr className="ap-variants-thead-row">
                     <th style={{ width: 155, minWidth: 155, whiteSpace: "nowrap" }}>Piece Code</th>
-                    <th style={{ width: 110, minWidth: 110, whiteSpace: "nowrap" }}>Colour</th>
+                    <th style={{ width: 130, minWidth: 130, whiteSpace: "nowrap" }}>Colour</th>
                     <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Selling Price (₹)</th>
                     <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Purchase Cost (₹)</th>
-                    <th style={{ width: 80, minWidth: 80, whiteSpace: "nowrap" }}>Stock</th>
-                    <th style={{ width: 85, minWidth: 85, whiteSpace: "nowrap" }}>Low Stock</th>
-                    <th style={{ width: 105, minWidth: 105, whiteSpace: "nowrap" }}>Location</th>
-                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Stock Status</th>
-                    <th style={{ width: 70, minWidth: 70, textAlign: "center", whiteSpace: "nowrap" }}>Delete</th>
+                    <th style={{ width: 85, minWidth: 85, textAlign: "center", whiteSpace: "nowrap" }}>Stock</th>
+                    <th style={{ width: 85, minWidth: 85, textAlign: "center", whiteSpace: "nowrap" }}>Low Stock</th>
+                    <th style={{ width: 110, minWidth: 110, whiteSpace: "nowrap" }}>Location</th>
+                    <th style={{ width: 125, minWidth: 125, textAlign: "center", whiteSpace: "nowrap" }}>Stock Status</th>
+                    <th style={{ width: 65, minWidth: 65, textAlign: "center", whiteSpace: "nowrap" }}>Delete</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1116,26 +1116,23 @@ export function ProductModal({
                     <tr className="ap-variant-table-row" key={pc.key}>
                       {/* Piece Code */}
                       <td>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. KAN-PUR-001"
-                          value={pc.piece_code}
-                          onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
-                          className="ap-inline-input"
-                          style={{ fontWeight: 600, color: "#800020", minWidth: 140 }}
-                        />
+                        <div className="ap-cell-box">
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. KAN-PUR-001"
+                            value={pc.piece_code}
+                            onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#800020" }}
+                            aria-label="Piece code"
+                          />
+                        </div>
                       </td>
 
                       {/* Colour */}
                       <td>
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
+                        <div className="ap-cell-box" style={{ gap: 6 }}>
                           <span
                             style={{
                               backgroundColor: colourHex(pc.colour),
@@ -1149,14 +1146,18 @@ export function ProductModal({
                           <select
                             value={pc.colour}
                             onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
-                            className="ap-inline-select"
+                            className="ap-cell-input"
                             style={{
                               border: "none",
                               background: "transparent",
                               fontWeight: 600,
-                              fontSize: 12,
+                              fontSize: 12.5,
                               color: "#800020",
+                              cursor: "pointer",
+                              width: "100%",
+                              padding: 0,
                             }}
+                            aria-label="Piece colour"
                           >
                             {COLOUR_PRESETS.map((c) => (
                               <option key={c.name} value={c.name}>
@@ -1214,7 +1215,7 @@ export function ProductModal({
                       </td>
 
                       {/* Stock */}
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <div className="ap-cell-box">
                           <input
                             type="number"
@@ -1236,7 +1237,7 @@ export function ProductModal({
                       </td>
 
                       {/* Low Stock */}
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <div className="ap-cell-box" style={{ background: "#FFFDF9", borderColor: "#EAD5C0" }}>
                           <input
                             type="number"
@@ -1259,18 +1260,21 @@ export function ProductModal({
 
                       {/* Stock Location */}
                       <td>
-                        <input
-                          type="text"
-                          placeholder="e.g. Rack A-1"
-                          value={pc.location}
-                          onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
-                          className="ap-inline-input"
-                          style={{ fontSize: 12 }}
-                        />
+                        <div className="ap-cell-box">
+                          <input
+                            type="text"
+                            placeholder="e.g. Rack A-1"
+                            value={pc.location}
+                            onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
+                            className="ap-cell-input"
+                            style={{ fontSize: 12.5 }}
+                            aria-label="Location"
+                          />
+                        </div>
                       </td>
 
                       {/* Stock Status */}
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <select
                           value={pc.status}
                           onChange={(e) =>
@@ -1278,12 +1282,21 @@ export function ProductModal({
                               status: e.target.value as PieceRow["status"],
                             })
                           }
-                          className="ap-inline-select"
                           style={{
+                            height: 32,
+                            width: "100%",
                             fontSize: 12,
-                            fontWeight: 600,
-                            padding: "4px 8px",
-                            borderRadius: 4,
+                            fontWeight: 700,
+                            padding: "0 8px",
+                            borderRadius: 6,
+                            border:
+                              pc.status === "available"
+                                ? "1px solid #86EFAC"
+                                : pc.status === "sold"
+                                  ? "1px solid #CBD5E1"
+                                  : pc.status === "reserved"
+                                    ? "1px solid #FCD34D"
+                                    : "1px solid #FECACA",
                             background:
                               pc.status === "available"
                                 ? "#DCFCE7"
@@ -1300,7 +1313,14 @@ export function ProductModal({
                                   : pc.status === "reserved"
                                     ? "#92400E"
                                     : "#991B1B",
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            textAlign: "center",
                           }}
+                          aria-label="Stock status"
                         >
                           <option value="available">Available</option>
                           <option value="reserved">Reserved</option>
@@ -1311,7 +1331,7 @@ export function ProductModal({
                       </td>
 
                       {/* Delete */}
-                      <td style={{ textAlign: "center", width: 60 }}>
+                      <td style={{ textAlign: "center", width: 65 }}>
                         <button
                           type="button"
                           className="ap-variant-del-btn"
