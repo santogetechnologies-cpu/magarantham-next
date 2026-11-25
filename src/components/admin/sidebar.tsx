@@ -103,6 +103,14 @@ export const adminNavGroups: NavGroup[] = [
       },
       {
         key: "employees",
+        label: "Add Department",
+        href: "/admin/employees?tab=departments&action=new-dept",
+        cap: "superadmin",
+        icon: "plus",
+        matchQuery: { param: "action", value: "new-dept" },
+      },
+      {
+        key: "employees",
         label: "Staff Reports",
         href: "/admin/employees?tab=reports",
         cap: "superadmin",

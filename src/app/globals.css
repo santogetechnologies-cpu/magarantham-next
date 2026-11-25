@@ -4733,14 +4733,17 @@ body:has(.luxury-admin-shell) #main {
 .luxury-modal-overlay {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   background: rgba(51, 35, 33, 0.62);
   backdrop-filter: blur(4px);
-  z-index: 1000;
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .luxury-modal-card {
@@ -4750,6 +4753,7 @@ body:has(.luxury-admin-shell) #main {
   width: 100%;
   max-width: 640px;
   max-height: 92vh;
+  margin: auto;
   display: flex;
   flex-direction: column;
   box-shadow: var(--erp-shadow-lg);

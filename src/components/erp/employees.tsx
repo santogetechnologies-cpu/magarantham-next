@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { indiaDate } from '@/lib/barcode';
@@ -69,6 +70,7 @@ export function EmployeesManager({
   profile?: Profile;
 }) {
   const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
@@ -79,7 +81,6 @@ export function EmployeesManager({
   const [modal, setModal] = useState<StaffForm | null>(null);
   const [modalTab, setModalTab] = useState<'basic' | 'job' | 'salary' | 'bank'>('basic');
   const [viewingEmployee, setViewingEmployee] = useState<Row | null>(null);
-  const [loginTarget, setLoginTarget] = useState<Row | null>(null);
   const [resetTarget, setResetTarget] = useState<Row | null>(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
@@ -88,6 +89,26 @@ export function EmployeesManager({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const { busy, send, notice } = useERP();
+
+  // Department modal state
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptHead, setNewDeptHead] = useState('');
+  const [deptError, setDeptError] = useState('');
+  const [customDepts, setCustomDepts] = useState<string[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const saved = localStorage.getItem('magarantham_custom_depts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCustomDepts(parsed);
+        }
+      }
+    } catch {}
+  }, []);
 
   const policies = refs.salary_policies || [];
   const defaultPolicyId =
@@ -108,10 +129,14 @@ export function EmployeesManager({
 
   // Handle query params from sidebar navigation
   useEffect(() => {
-    if (searchParams.get('action') === 'new') {
-      openAdd();
-    }
+    const action = searchParams.get('action');
     const tabParam = searchParams.get('tab');
+    if (action === 'new') {
+      openAdd();
+    } else if (action === 'new-dept' || action === 'add-department') {
+      setActiveTab('departments');
+      setDeptModalOpen(true);
+    }
     if (tabParam === 'departments') {
       setActiveTab('departments');
     } else if (tabParam === 'reports') {
@@ -123,13 +148,27 @@ export function EmployeesManager({
   const activeStaff = useMemo(() => rows.filter((r) => r.active !== false), [rows]);
   const inactiveStaff = useMemo(() => rows.filter((r) => r.active === false), [rows]);
 
+  const allDeptOptions = useMemo(() => {
+    const set = new Set<string>(DEPARTMENT_OPTIONS);
+    for (const r of rows) {
+      if (r.department) set.add(r.department);
+    }
+    for (const d of customDepts) {
+      if (d) set.add(d);
+    }
+    return Array.from(set);
+  }, [rows, customDepts]);
+
   const distinctDepartments = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) {
       set.add(r.department || 'Retail Sales');
     }
+    for (const d of customDepts) {
+      if (d) set.add(d);
+    }
     return Array.from(set);
-  }, [rows]);
+  }, [rows, customDepts]);
 
   const monthlyEstimatePaise = useMemo(() => {
     return activeStaff
@@ -237,6 +276,32 @@ export function EmployeesManager({
       ifsc_code: bank.ifsc_code || '',
       branch: bank.branch || '',
     });
+  }
+
+  function handleAddDepartment(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = newDeptName.trim();
+    if (!trimmed) {
+      setDeptError('Please enter a department name.');
+      return;
+    }
+    if (allDeptOptions.includes(trimmed)) {
+      setDeptError(`Department "${trimmed}" already exists.`);
+      return;
+    }
+    const next = [...customDepts, trimmed];
+    setCustomDepts(next);
+    try {
+      localStorage.setItem('magarantham_custom_depts', JSON.stringify(next));
+    } catch {}
+    if (modal) {
+      setModal({ ...modal, department: trimmed });
+    }
+    setDeptModalOpen(false);
+    setNewDeptName('');
+    setNewDeptHead('');
+    setDeptError('');
+    notice(`Department "${trimmed}" added successfully.`);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -880,10 +945,30 @@ export function EmployeesManager({
       {/* 5. Tab: Departments Breakdown */}
       {activeTab === 'departments' && (
         <section className="sp-panel">
-          <div className="sp-panel-head">
+          <div className="sp-panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 className="sp-panel-title">Departments Directory</h2>
               <p className="sp-panel-sub">Employees grouped by operational unit and department</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="sp-btn-maroon"
+                onClick={() => {
+                  setDeptModalOpen(true);
+                  setNewDeptName('');
+                  setDeptError('');
+                }}
+              >
+                + Add Department
+              </button>
+              <button
+                type="button"
+                className="button outline-btn"
+                onClick={openAdd}
+              >
+                + Add Employee
+              </button>
             </div>
           </div>
 
@@ -901,31 +986,47 @@ export function EmployeesManager({
                     </span>
                   </div>
 
-                  <div className="sp-dept-members-list">
-                    {deptStaff.map((emp) => (
-                      <div className="sp-dept-member-item" key={emp.id}>
-                        <span className="sp-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>
-                          {String(emp.name || 'S')[0].toUpperCase()}
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong style={{ display: 'block', fontSize: 12, color: 'var(--erp-maroon)' }}>
-                            {emp.name}
-                          </strong>
-                          <small style={{ color: '#888', fontSize: 11 }}>
-                            {emp.code} · {emp.designation || 'Staff'}
-                          </small>
+                  {deptStaff.length === 0 ? (
+                    <div style={{ padding: '16px 12px', textAlign: 'center', color: '#888', fontSize: 12 }}>
+                      <p style={{ margin: '0 0 10px' }}>No staff members assigned yet.</p>
+                      <button
+                        type="button"
+                        className="sp-btn-maroon mini-btn"
+                        onClick={() => {
+                          openAdd();
+                          setModal((prev) => (prev ? { ...prev, department: dept } : null));
+                        }}
+                      >
+                        + Add First Staff Member
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="sp-dept-members-list">
+                      {deptStaff.map((emp) => (
+                        <div className="sp-dept-member-item" key={emp.id}>
+                          <span className="sp-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>
+                            {String(emp.name || 'S')[0].toUpperCase()}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ display: 'block', fontSize: 12, color: 'var(--erp-maroon)' }}>
+                              {emp.name}
+                            </strong>
+                            <small style={{ color: '#888', fontSize: 11 }}>
+                              {emp.code} · {emp.designation || 'Staff'}
+                            </small>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-link"
+                            style={{ fontSize: 11 }}
+                            onClick={() => setViewingEmployee(emp)}
+                          >
+                            View →
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          className="text-link"
-                          style={{ fontSize: 11 }}
-                          onClick={() => setViewingEmployee(emp)}
-                        >
-                          View →
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
                   <button
                     type="button"
@@ -1023,16 +1124,34 @@ export function EmployeesManager({
       )}
 
       {/* 7. Comprehensive Add / Edit Employee Modal */}
-      {modal && (
+      {mounted && typeof document !== 'undefined' && modal && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => !busy && setModal(null)}
           role="dialog"
           aria-modal="true"
         >
           <div
             className="luxury-modal-card"
-            style={{ maxWidth: 680, maxHeight: '90vh', overflowY: 'auto' }}
+            style={{ maxWidth: 680, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -1178,16 +1297,39 @@ export function EmployeesManager({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div className="row-inputs-2">
                     <label className="input-group">
-                      <span>Department *</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span>Department *</span>
+                        <button
+                          type="button"
+                          className="text-link"
+                          style={{ fontSize: 11, fontWeight: 600, color: 'var(--erp-maroon)' }}
+                          onClick={() => {
+                            setDeptModalOpen(true);
+                            setNewDeptName('');
+                            setDeptError('');
+                          }}
+                        >
+                          + Add Department
+                        </button>
+                      </div>
                       <select
                         value={modal.department}
-                        onChange={(e) => setModal({ ...modal, department: e.target.value })}
+                        onChange={(e) => {
+                          if (e.target.value === '__NEW__') {
+                            setDeptModalOpen(true);
+                            setNewDeptName('');
+                            setDeptError('');
+                          } else {
+                            setModal({ ...modal, department: e.target.value });
+                          }
+                        }}
                       >
-                        {DEPARTMENT_OPTIONS.map((d) => (
+                        {allDeptOptions.map((d) => (
                           <option key={d} value={d}>
                             {d}
                           </option>
                         ))}
+                        <option value="__NEW__">+ Add New Department...</option>
                       </select>
                     </label>
 
@@ -1424,20 +1566,175 @@ export function EmployeesManager({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Add Department Modal */}
+      {mounted && typeof document !== 'undefined' && deptModalOpen && createPortal(
+        <div
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
+          onClick={() => setDeptModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="luxury-modal-card"
+            style={{ maxWidth: 540, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <span className="modal-eyebrow">✦ MAGARANTHAM SILKS · DEPARTMENTS</span>
+                <h2 className="modal-title">Add New Department</h2>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setDeptModalOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {deptError && (
+              <div className="modal-error-banner" role="alert" style={{ margin: '14px 20px 0' }}>
+                {deptError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddDepartment} className="modal-form-body" style={{ padding: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <label className="input-group">
+                  <span>Department Name *</span>
+                  <input
+                    type="text"
+                    required
+                    maxLength={60}
+                    autoFocus
+                    placeholder="e.g. Quality Control & Packing"
+                    value={newDeptName}
+                    onChange={(e) => {
+                      setNewDeptName(e.target.value);
+                      setDeptError('');
+                    }}
+                  />
+                </label>
+
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--erp-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                    Quick Suggestions
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {[
+                      'Quality Control & Packing',
+                      'Visual Merchandising',
+                      'Embroidery & Handwork',
+                      'Online Sales & Dispatch',
+                      'Bridal Consultation',
+                      'Purchase & Procurement',
+                      'Customer Relations',
+                    ].map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        className="button outline-btn mini-btn"
+                        style={{
+                          fontSize: 11,
+                          padding: '4px 8px',
+                          borderColor: newDeptName === sug ? 'var(--erp-maroon)' : undefined,
+                          background: newDeptName === sug ? '#FAF0E6' : undefined,
+                          color: newDeptName === sug ? 'var(--erp-maroon)' : undefined,
+                        }}
+                        onClick={() => {
+                          setNewDeptName(sug);
+                          setDeptError('');
+                        }}
+                      >
+                        + {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="input-group">
+                  <span>Department Head / Supervisor (Optional)</span>
+                  <input
+                    type="text"
+                    maxLength={80}
+                    placeholder="e.g. Senior Manager / Floor Lead"
+                    value={newDeptHead}
+                    onChange={(e) => setNewDeptHead(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="modal-actions-footer" style={{ marginTop: 20 }}>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  onClick={() => setDeptModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="sp-btn-maroon">
+                  + Add Department
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingTarget && (
+      {mounted && typeof document !== 'undefined' && deletingTarget && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => !deletingBusy && setDeletingTarget(null)}
           role="dialog"
           aria-modal="true"
         >
           <div
             className="luxury-modal-card"
-            style={{ maxWidth: 440 }}
+            style={{ maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -1479,20 +1776,39 @@ export function EmployeesManager({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Password Reset Modal */}
-      {resetTarget && (
+      {mounted && typeof document !== 'undefined' && resetTarget && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => !resetBusy && setResetTarget(null)}
           role="dialog"
           aria-modal="true"
         >
           <div
             className="luxury-modal-card"
-            style={{ maxWidth: 440 }}
+            style={{ maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -1537,7 +1853,8 @@ export function EmployeesManager({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

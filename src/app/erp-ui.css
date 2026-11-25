@@ -1189,8 +1189,19 @@ body:has(.luxury-admin-shell) {
    MODALS
    ========================================================================== */
 .luxury-admin-shell .luxury-modal-overlay {
-  background: rgba(20, 8, 12, 0.45) !important;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: rgba(20, 8, 12, 0.55) !important;
   backdrop-filter: blur(4px);
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
   animation: ms-fade 0.18s ease both;
 }
 .luxury-admin-shell .luxury-modal-card {
@@ -1198,6 +1209,7 @@ body:has(.luxury-admin-shell) {
   border: 1px solid var(--ms-line) !important;
   box-shadow: var(--ms-shadow-3) !important;
   background: #fff !important;
+  margin: auto !important;
   animation: ms-pop 0.26s var(--ms-ease) both;
 }
 .luxury-admin-shell .modal-header {

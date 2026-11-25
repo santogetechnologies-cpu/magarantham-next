@@ -1,6 +1,7 @@
 "use client";
 import { indiaDate } from "@/lib/barcode";
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Profile, money } from "@/lib/core";
 import { api } from "../api";
 import { ImageUploader } from "./image-uploader";
@@ -968,16 +969,34 @@ export function EmployeeProfileView({
       )}
 
       {/* Apply Leave Modal */}
-      {showApplyLeave && (
+      {typeof document !== "undefined" && showApplyLeave && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100vw",
+            height: "100dvh",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(20, 8, 12, 0.55)",
+            backdropFilter: "blur(4px)",
+            overflowY: "auto",
+            boxSizing: "border-box",
+          }}
           onClick={() => !leaveSaving && setShowApplyLeave(false)}
           role="dialog"
           aria-modal="true"
         >
           <div
             className="luxury-modal-card"
-            style={{ maxWidth: 480 }}
+            style={{ maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", margin: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
@@ -1064,7 +1083,8 @@ export function EmployeeProfileView({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
