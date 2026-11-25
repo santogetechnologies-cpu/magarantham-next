@@ -4,7 +4,7 @@ import {staff,service,origin,json,rate,rpc,ok,failure,Fault} from '@/lib/server'
 import {Capability} from '@/lib/core';
 import {can,enrichCategories,erpReferences,posProducts,removeCategoryImage,saveCategoryImage} from '@/lib/erp-server';
 import {erpSchemas,employeeSchema,attendanceSchema,posInput,posCart,purchaseSchema,expenseSchema,payrollInput,id} from '@/lib/erp-schemas';
-const access:Record<string,Capability|'superadmin'|undefined>={reference:undefined,scan:'pos',pos:'pos',pos_quote:'pos',pos_sale:'pos',pos_return:'pos',labels:'inventory',suppliers:'purchases',purchases:'purchases',purchase_status:'purchases',purchase_receive:'purchases',purchase_pay:'purchases',expenses:'expenses',expense_void:'expenses',expense_review:'superadmin',attendance:'attendance',employees:'superadmin',employee_login:'superadmin',product_categories:'superadmin',catalog_discounts:'superadmin',expense_categories:'superadmin',salary_policies:'superadmin',pos_settings:'superadmin',payroll:'superadmin',payroll_preview:'superadmin',payroll_finalize:'superadmin',reports:'reports'};
+const access:Record<string,Capability|'superadmin'|undefined>={reference:undefined,scan:'pos',pos:'pos',pos_quote:'pos',pos_sale:'pos',pos_return:'pos',labels:'inventory',suppliers:'purchases',purchases:'purchases',purchase_status:'purchases',purchase_receive:'purchases',purchase_pay:'purchases',expenses:'expenses',expense_void:'superadmin',expense_review:'superadmin',expense_status:'superadmin',attendance:'attendance',employees:'superadmin',employee_login:'superadmin',product_categories:'superadmin',catalog_discounts:'superadmin',expense_categories:'superadmin',salary_policies:'superadmin',pos_settings:'superadmin',payroll:'superadmin',payroll_preview:'superadmin',payroll_finalize:'superadmin',reports:'reports'};
 export async function GET(req:Request,{params}:{params:Promise<{module:string}>}){try{
  const {module}=await params;if(!(module in access))throw new Fault(404,'NOT_FOUND');const session=await staff(access[module]);const db=service(),url=new URL(req.url);const page=z.coerce.number().int().min(0).max(100000).parse(url.searchParams.get('page')||0);
  if(module==='reference')return ok(await erpReferences(session.profile));
@@ -92,7 +92,7 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
  if(table==='product_categories')list=await enrichCategories(list);
  if(module==='purchases'&&list.length){const balances=await rpc('purchase_balances',{p_actor:session.user.id,p_ids:list.map(p=>p.id)});return ok({rows:list.map(p=>({...p,due_paise:balances.find((b:{id:string})=>b.id===p.id)?.due_paise||0})),nextPage:data.length>100?page+1:null});}
  if(module==='expenses'&&list.length){
-  const actorIds=Array.from(new Set(list.flatMap(r=>[r.actor_id,r.void_by].filter(Boolean))));
+  const actorIds=Array.from(new Set(list.flatMap(r=>[r.actor_id,r.void_by,r.reviewed_by].filter(Boolean))));
   if(actorIds.length){
    const [profilesRes, employeesRes]=await Promise.all([
     db.from('profiles').select('id,display_name,email,role').in('id',actorIds),
@@ -122,6 +122,7 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
      created_by_designation:designation,
      created_by_email:prof?.email||'',
      void_by_name:voidByName,
+     reviewed_by_name:(() => { if (!r.reviewed_by) return ''; const revEmp = empByProf.get(r.reviewed_by) || empById.get(r.reviewed_by); const revProf = profMap.get(r.reviewed_by); return revEmp?.name || revProf?.display_name || (revProf?.email ? revProf.email.split('@')[0] : 'Admin'); })(),
     };
    });
   }
@@ -143,7 +144,41 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
  else if(module==='purchase_pay'){const p=z.object({id,key:id,direction:z.enum(['paid','refund']),amount_paise:z.number().int().min(1).max(2000000000),method:z.enum(['cash','upi','card','bank']),reference:z.string().trim().min(6).max(100),checked:z.literal(true)}).strict().parse(input);result=await rpc('purchase_pay',{p_actor:actor,p_id:p.id,p_key:p.key,p_direction:p.direction,p_amount:p.amount_paise,p_method:p.method,p_reference:p.reference,p_checked:p.checked});}
  else if(module==='expenses'){const p=expenseSchema.parse(input);if(session.profile.role==='billing'){const db=service();const fp=createHash('sha256').update(JSON.stringify(p.data)).digest('hex');const existing=await db.from('expenses').select('id,fingerprint').eq('request_key',p.key).maybeSingle();if(existing.data){if(existing.data.fingerprint!==fp)throw new Fault(409,'IDEMPOTENCY_CONFLICT');result=existing.data.id;}else{const cat=await db.from('expense_categories').select('id').eq('id',p.data.category_id).eq('active',true).maybeSingle();if(!cat.data)throw new Fault(409,'CATEGORY_UNAVAILABLE');if(p.data.method!=='cash'&&p.data.reference.trim().length<6)throw new Fault(400,'PAYMENT_REFERENCE_REQUIRED');const expId=randomUUID();const ins=await db.from('expenses').insert({id:expId,request_key:p.key,fingerprint:fp,category_id:p.data.category_id,expense_on:p.data.expense_on,description:p.data.description,amount_paise:p.data.amount_paise,method:p.data.method,reference:p.data.reference||'',payee:p.data.payee||'',actor_id:actor,source:'manual',status:'pending'});if(ins.error)throw new Fault(503,'SAVE_FAILED');try{await db.from('audit_log').insert({actor_id:actor,action:'expense.submitted',entity:'expenses',entity_id:expId,details:{amount_paise:p.data.amount_paise,method:p.data.method}});}catch{}result=expId;}}else{result=await rpc('expense_post',{p_actor:actor,p_key:p.key,p_data:p.data});}}
  else if(module==='expense_review'){const p=z.object({id,action:z.enum(['approve','reject']),note:z.string().trim().max(300).default('')}).strict().parse(input);await rpc('expense_review',{p_actor:actor,p_id:p.id,p_action:p.action,p_note:p.note});}
- else if(module==='expense_void'){const p=z.object({id,reason:z.string().trim().min(3).max(500)}).strict().parse(input);if(session.profile.role==='billing'){const db=service();const existing=await db.from('expenses').select('id,source,status,actor_id,expense_on').eq('id',p.id).single();if(existing.error||!existing.data||existing.data.source!=='manual')throw new Fault(409,'EXPENSE_LOCKED');const todayIst=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());if(existing.data.actor_id!==actor||existing.data.expense_on!==todayIst)throw new Fault(403,'FORBIDDEN','Billing staff can only void their own expenses from today. Ask a manager for older entries.');if(existing.data.status!=='void'){const upd=await db.from('expenses').update({status:'void',void_by:actor,void_reason:p.reason}).eq('id',p.id);if(upd.error)throw new Fault(503,'SAVE_FAILED');try{await db.from('audit_log').insert({actor_id:actor,action:'expense.void',entity:'expenses',entity_id:p.id,details:{reason:p.reason}});}catch{}}}else{await rpc('expense_void',{p_actor:actor,p_id:p.id,p_reason:p.reason});}}
+ else if(module==='expense_status'){
+   const p=z.object({id,status:z.enum(['posted','pending','rejected','void']),reason:z.string().trim().max(500).default('')}).strict().parse(input);
+   const db=service();
+   const existing=await db.from('expenses').select('id,source,status').eq('id',p.id).single();
+   if(existing.error||!existing.data)throw new Fault(404,'NOT_FOUND');
+   if(existing.data.source!=='manual')throw new Fault(409,'EXPENSE_LOCKED','Automated payroll expenses cannot be manually modified.');
+   const nowIso=new Date().toISOString();
+   let updData:Record<string,unknown>={status:p.status};
+   if(p.status==='posted'){
+    updData={status:'posted',reviewed_by:actor,reviewed_at:nowIso,review_note:p.reason||'Approved by Admin',void_by:null,void_reason:null};
+   }else if(p.status==='pending'){
+    updData={status:'pending',reviewed_by:null,reviewed_at:null,review_note:p.reason||'',void_by:null,void_reason:null};
+   }else if(p.status==='rejected'){
+    updData={status:'rejected',reviewed_by:actor,reviewed_at:nowIso,review_note:p.reason||'Rejected by Admin'};
+   }else if(p.status==='void'){
+    updData={status:'void',void_by:actor,void_reason:p.reason||'Voided by Admin'};
+   }
+   const upd=await db.from('expenses').update(updData).eq('id',p.id);
+   if(upd.error)throw new Fault(503,'SAVE_FAILED');
+   try{
+    await db.from('audit_log').insert({actor_id:actor,action:'expense.status_changed',entity:'expenses',entity_id:p.id,details:{old_status:existing.data.status,new_status:p.status,reason:p.reason}});
+   }catch{}
+   result=p.id;
+  }
+  else if(module==='expense_void'){
+   const p=z.object({id,reason:z.string().trim().min(3).max(500)}).strict().parse(input);
+   const db=service();
+   const existing=await db.from('expenses').select('id,source,status').eq('id',p.id).single();
+   if(existing.error||!existing.data||existing.data.source!=='manual')throw new Fault(409,'EXPENSE_LOCKED');
+   const upd=await db.from('expenses').update({status:'void',void_by:actor,void_reason:p.reason}).eq('id',p.id);
+   if(upd.error)throw new Fault(503,'SAVE_FAILED');
+   try{
+    await db.from('audit_log').insert({actor_id:actor,action:'expense.void',entity:'expenses',entity_id:p.id,details:{reason:p.reason}});
+   }catch{}
+  }
  else if(module==='pos_quote'){const p=z.object({cart:posCart,discount_paise:z.number().int().min(0).max(100000000)}).strict().parse(input);result=await rpc('pos_quote',{p_actor:actor,p_cart:p.cart,p_discount:p.discount_paise});return ok(result);}
  else if(module==='pos_sale'){const p=posInput.parse(input);result=await rpc('pos_checkout',{p_actor:actor,p_key:p.key,p_cart:p.cart,p_customer:p.customer,p_discount:p.discount_paise,p_tenders:p.tenders,p_cash_received:p.cash_received_paise,p_bank_checked:p.bank_checked});
   // Keep Level 4 piece records in step with the stock the sale just used (idempotent per sale).
@@ -152,7 +187,7 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
  else if(module==='labels'){const p=z.object({ids:z.array(z.string().regex(/^[1-9][0-9]*$/)).min(1).max(500)}).strict().parse(input);await rpc('labels_printed',{p_actor:actor,p_ids:p.ids});}
  else if(module==='payroll'){const p=payrollInput.parse(input);result=await rpc('payroll_from_attendance',{p_actor:actor,p_employee:p.employee_id,p_period:p.period,p_bonus:p.bonus_paise,p_allowances:p.allowances,p_deductions:p.deductions});}
  else if(module==='payroll_finalize'){const p=z.object({id,action:z.enum(['approve','reopen','paid']),reference:z.string().trim().max(100).default(''),method:z.enum(['cash','upi','card','bank']).default('bank'),checked:z.boolean().default(false)}).strict().parse(input);await rpc('payroll_finalize',{p_actor:actor,p_run:p.id,p_action:p.action,p_reference:p.reference,p_method:p.method,p_checked:p.checked});}
- else throw new Fault(404,'NOT_FOUND');return ok({id:result,message:module==='employee_login'?'Login linked. Confirmation email requested for a newly created account.':module==='expenses'&&session.profile.role!=='superadmin'?'Expense sent to the owner for approval.':module==='expense_review'?'Expense review saved.':'Saved.'});
+ else throw new Fault(404,'NOT_FOUND');return ok({id:result,message:module==='employee_login'?'Login linked. Confirmation email requested for a newly created account.':module==='expenses'&&session.profile.role!=='superadmin'?'Expense sent to the owner for approval.':module==='expense_review'?'Expense review saved.':module==='expense_status'?'Expense status updated.':'Saved.'});
 }catch(e){return failure(e);}}
 export async function DELETE(req:Request,{params}:{params:Promise<{module:string}>}){try{
  origin(req);const {module}=await params;if(module!=='product_categories'&&module!=='employees'&&module!=='catalog_discounts')throw new Fault(403,'CANNOT_DELETE');const session=await staff('superadmin');await rate(req,'erp-write',session.user.id,60);const targetId=id.parse(new URL(req.url).searchParams.get('id'));const db=service();

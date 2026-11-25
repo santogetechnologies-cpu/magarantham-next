@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { money, Profile } from '@/lib/core';
 import { indiaDate } from '@/lib/barcode';
 import { api } from '../api';
@@ -23,6 +24,58 @@ export function Expenses({
   const [rejecting, setRejecting] = useState<Row | null>(null);
   const isOwner = profile?.role === 'superadmin';
   const [showLogForm, setShowLogForm] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [statusModalRow, setStatusModalRow] = useState<Row | null>(null);
+  const [targetStatus, setTargetStatus] = useState<'posted' | 'pending' | 'rejected' | 'void'>('posted');
+  const [statusReason, setStatusReason] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  function openStatusModal(row: Row, defaultStatus?: 'posted' | 'pending' | 'rejected' | 'void') {
+    setStatusModalRow(row);
+    setTargetStatus(defaultStatus || (row.status === 'void' ? 'posted' : (row.status as any) || 'posted'));
+    setStatusReason(defaultStatus === 'void' ? (row.void_reason || '') : (row.review_note || ''));
+  }
+
+  async function handleSaveStatus(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!statusModalRow) return;
+    if (targetStatus === 'void' && statusReason.trim().length < 3) {
+      notice('Please provide a void reason (at least 3 characters).');
+      return;
+    }
+    const res = await send(
+      'expense_status',
+      {
+        id: statusModalRow.id,
+        status: targetStatus,
+        reason: statusReason.trim(),
+      },
+      load
+    );
+    if (res) {
+      setStatusModalRow(null);
+      setStatusReason('');
+    }
+  }
+
+  async function handleQuickStatus(row: Row, status: 'posted' | 'pending' | 'rejected' | 'void', defaultReason?: string) {
+    if (status === 'void') {
+      openStatusModal(row, 'void');
+      return;
+    }
+    await send(
+      'expense_status',
+      {
+        id: row.id,
+        status,
+        reason: defaultReason || (status === 'posted' ? 'Approved by Admin' : 'Updated by Admin'),
+      },
+      load
+    );
+  }
 
   const { busy, send, notice } = useERP();
 
@@ -367,58 +420,6 @@ export function Expenses({
               onClick={() => setShowLogForm(false)}
             >
               Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Void Modal / Form */}
-      {voiding && (
-        <form
-          className="form-panel"
-          style={{
-            marginBottom: 24,
-            background: '#FFF5F5',
-            border: '1.5px solid #F87171',
-            borderRadius: 12,
-            padding: 20,
-          }}
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const r = await send(
-              'expense_void',
-              { id: voiding.id, reason: new FormData(e.currentTarget).get('reason') },
-              load
-            );
-            if (r) setVoiding(null);
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 22 }}>⚠️</span>
-            <h3 style={{ margin: 0, color: '#991B1B', fontSize: 18 }}>
-              Void Expense: {voiding.description} ({money(voiding.amount_paise)})
-            </h3>
-          </div>
-          <p style={{ margin: '0 0 12px', fontSize: 13, color: '#7F1D1D' }}>
-            Voiding marks this expense record as cancelled and audits your user account as the authority who voided it.
-          </p>
-          <label style={{ display: 'block', marginBottom: 14 }}>
-            Correction Reason (Minimum 3 characters) *
-            <input
-              name="reason"
-              required
-              minLength={3}
-              maxLength={500}
-              placeholder="e.g. Duplicate voucher entered by mistake / wrong amount"
-              style={{ width: '100%', marginTop: 4 }}
-            />
-          </label>
-          <div className="button-row">
-            <button className="button" style={{ background: '#DC2626', color: '#FFFFFF' }} disabled={busy}>
-              Confirm Void
-            </button>
-            <button type="button" className="text-link" onClick={() => setVoiding(null)}>
-              Keep Expense
             </button>
           </div>
         </form>
@@ -800,78 +801,281 @@ export function Expenses({
                       )}
                     </td>
 
-                    {/* STATUS - Easy & Simple */}
+                    {/* STATUS - Interactive for Admin, clear badge for staff */}
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                      {r.status === 'pending' || r.status === 'rejected' ? (
-                        <span className={`ms-badge ${r.status === 'pending' ? 'ms-badge-warn' : 'ms-badge-off'}`} title={r.review_note || undefined}>
-                          {r.status === 'pending' ? 'Waiting approval' : 'Rejected'}
-                        </span>
-                      ) : null}
-                      {r.status === 'rejected' && r.review_note && <small className="ex-note">{r.review_note}</small>}
-                      {(r.status === 'pending' || r.status === 'rejected') ? null : (<>
-                      {isVoid ? (
-                        <div>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                              background: '#FEE2E2',
-                              color: '#991B1B',
-                            }}
-                            title={r.void_reason ? `Reason: ${r.void_reason}` : undefined}
-                          >
-                            Void
-                          </span>
-                          {r.void_by_name && (
-                            <small
-                              style={{
-                                display: 'block',
-                                fontSize: 11,
-                                color: '#991B1B',
-                                marginTop: 2,
-                              }}
-                            >
-                              by {r.void_by_name}
-                            </small>
-                          )}
-                        </div>
-                      ) : (
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                            background: '#DCFCE7',
-                            color: '#166534',
-                          }}
-                        >
-                          Posted
-                        </span>
-                      )}
-                      </>)}
-                    </td>
-
-                    {/* Action */}
-                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
-                      {r.source === 'manual' && (r.status === 'posted' || r.status === 'pending') && (
+                      {isOwner && r.source === 'manual' ? (
                         <button
                           type="button"
-                          className="button button-outline"
-                          onClick={() => setVoiding(r)}
+                          onClick={() => openStatusModal(r)}
+                          title="Admin: Click to change status"
                           style={{
-                            fontSize: 12,
-                            padding: '4px 10px',
-                            color: '#DC2626',
-                            borderColor: '#FCA5A5',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            display: 'inline-flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
                           }}
                         >
-                          Void
+                          {r.status === 'pending' || r.status === 'rejected' ? (
+                            <span
+                              className={`ms-badge ${r.status === 'pending' ? 'ms-badge-warn' : 'ms-badge-off'}`}
+                              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
+                              {r.status === 'pending' ? 'Waiting approval' : 'Rejected'}
+                              <span style={{ fontSize: 10, opacity: 0.7 }}>✎</span>
+                            </span>
+                          ) : isVoid ? (
+                            <div>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 4,
+                                  background: '#FEE2E2',
+                                  color: '#991B1B',
+                                }}
+                                title={r.void_reason ? `Reason: ${r.void_reason}` : undefined}
+                              >
+                                Void
+                                <span style={{ fontSize: 10, opacity: 0.7 }}>✎</span>
+                              </span>
+                              {r.void_by_name && (
+                                <small
+                                  style={{
+                                    display: 'block',
+                                    fontSize: 11,
+                                    color: '#991B1B',
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  by {r.void_by_name}
+                                </small>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 4,
+                                  background: '#DCFCE7',
+                                  color: '#166534',
+                                }}
+                              >
+                                Posted
+                                <span style={{ fontSize: 10, opacity: 0.7 }}>✎</span>
+                              </span>
+                              {r.reviewed_by_name && r.created_by_role === 'billing' && (
+                                <small style={{ display: 'block', fontSize: 11, color: '#166534', marginTop: 2 }}>
+                                  appr. by {r.reviewed_by_name}
+                                </small>
+                              )}
+                            </div>
+                          )}
+                          {r.status === 'rejected' && r.review_note && (
+                            <small className="ex-note" style={{ marginTop: 2 }}>{r.review_note}</small>
+                          )}
                         </button>
+                      ) : (
+                        <div>
+                          {r.status === 'pending' || r.status === 'rejected' ? (
+                            <span className={`ms-badge ${r.status === 'pending' ? 'ms-badge-warn' : 'ms-badge-off'}`} title={r.review_note || undefined}>
+                              {r.status === 'pending' ? 'Waiting approval' : 'Rejected'}
+                            </span>
+                          ) : isVoid ? (
+                            <div>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 4,
+                                  background: '#FEE2E2',
+                                  color: '#991B1B',
+                                }}
+                                title={r.void_reason ? `Reason: ${r.void_reason}` : undefined}
+                              >
+                                Void
+                              </span>
+                              {r.void_by_name && (
+                                <small
+                                  style={{
+                                    display: 'block',
+                                    fontSize: 11,
+                                    color: '#991B1B',
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  by {r.void_by_name}
+                                </small>
+                              )}
+                            </div>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                                background: '#DCFCE7',
+                                color: '#166534',
+                              }}
+                            >
+                              Posted
+                            </span>
+                          )}
+                          {r.status === 'rejected' && r.review_note && <small className="ex-note">{r.review_note}</small>}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Action - Admin has status controls, staff sees — */}
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', textAlign: 'right' }}>
+                      {!isOwner ? (
+                        <span style={{ color: 'var(--erp-text-muted)', fontSize: 13 }}>—</span>
+                      ) : r.source !== 'manual' ? (
+                        <small style={{ color: 'var(--erp-text-muted)', fontSize: 11 }}>Payroll</small>
+                      ) : (
+                        <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                          {r.status === 'void' && (
+                            <button
+                              type="button"
+                              className="button"
+                              onClick={() => handleQuickStatus(r, 'posted', 'Reinstated by Admin')}
+                              disabled={busy}
+                              style={{
+                                fontSize: 12,
+                                padding: '4px 9px',
+                                background: '#166534',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: 5,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                              title="Reinstate this voided expense back to Posted"
+                            >
+                              ✓ Reinstate
+                            </button>
+                          )}
+
+                          {r.status === 'pending' && (
+                            <>
+                              <button
+                                type="button"
+                                className="button"
+                                onClick={() => handleQuickStatus(r, 'posted', 'Approved by Admin')}
+                                disabled={busy}
+                                style={{
+                                  fontSize: 12,
+                                  padding: '4px 9px',
+                                  background: '#166534',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  borderRadius: 5,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                                title="Approve expense"
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="button button-outline"
+                                onClick={() => openStatusModal(r, 'rejected')}
+                                disabled={busy}
+                                style={{
+                                  fontSize: 12,
+                                  padding: '4px 8px',
+                                  color: '#DC2626',
+                                  borderColor: '#FCA5A5',
+                                  borderRadius: 5,
+                                  cursor: 'pointer',
+                                }}
+                                title="Reject expense"
+                              >
+                                ✕ Reject
+                              </button>
+                            </>
+                          )}
+
+                          {r.status === 'posted' && (
+                            <button
+                              type="button"
+                              className="button button-outline"
+                              onClick={() => openStatusModal(r, 'void')}
+                              disabled={busy}
+                              style={{
+                                fontSize: 12,
+                                padding: '4px 9px',
+                                color: '#DC2626',
+                                borderColor: '#FCA5A5',
+                                borderRadius: 5,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                              title="Void expense"
+                            >
+                              Void
+                            </button>
+                          )}
+
+                          {r.status === 'rejected' && (
+                            <button
+                              type="button"
+                              className="button"
+                              onClick={() => handleQuickStatus(r, 'posted', 'Approved by Admin')}
+                              disabled={busy}
+                              style={{
+                                fontSize: 12,
+                                padding: '4px 9px',
+                                background: '#166534',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: 5,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                              title="Approve and reinstate expense"
+                            >
+                              ✓ Approve
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="button button-outline"
+                            onClick={() => openStatusModal(r)}
+                            disabled={busy}
+                            style={{
+                              fontSize: 12,
+                              padding: '4px 8px',
+                              color: 'var(--erp-maroon)',
+                              borderColor: '#D4B99F',
+                              background: '#FFFDF9',
+                              borderRadius: 5,
+                              cursor: 'pointer',
+                            }}
+                            title="Admin: Change status (Posted, Waiting approval, Rejected, Void)"
+                          >
+                            Status ▾
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -894,6 +1098,239 @@ export function Expenses({
             Load Older Expenses ↓
           </button>
         </div>
+      )}
+      {/* Portalled Centered Modal for Admin Status Management */}
+      {mounted && statusModalRow && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            background: 'rgba(26, 10, 15, 0.65)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setStatusModalRow(null)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 16,
+              boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
+              border: '1.5px solid var(--erp-gold, #C49A52)',
+              width: '100%',
+              maxWidth: 520,
+              margin: 'auto',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #FAF4EB 0%, #F5E8D3 100%)',
+                padding: '16px 20px',
+                borderBottom: '1px solid #EAD5C0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--erp-gold-dark, #96702E)',
+                  }}
+                >
+                  🛡️ ADMIN STATUS CONTROL
+                </span>
+                <h3
+                  style={{
+                    margin: '3px 0 0',
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: 'var(--erp-maroon, #6B1724)',
+                    fontFamily: 'var(--serif)',
+                  }}
+                >
+                  Change Expense Status
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatusModalRow(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 22,
+                  color: 'var(--erp-maroon)',
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                  padding: 4,
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Expense Summary Box */}
+            <div style={{ padding: '16px 20px 0' }}>
+              <div
+                style={{
+                  background: '#FAF8F5',
+                  border: '1px solid #EAD8C7',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--erp-text)' }}>
+                    {statusModalRow.description}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--erp-text-muted)', marginTop: 2 }}>
+                    {statusModalRow.expense_on} · {statusModalRow.payee ? `Payee: ${statusModalRow.payee}` : 'Shop expense'} · by {statusModalRow.created_by_name || 'Staff'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--erp-maroon)' }}>
+                    {money(statusModalRow.amount_paise)}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
+                    Current: {statusModalRow.status}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Selection Form */}
+            <form onSubmit={handleSaveStatus} style={{ padding: 20 }}>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--erp-maroon)', marginBottom: 8 }}>
+                Select New Status *
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
+                {([
+                  { id: 'posted', label: 'Posted', desc: 'Active outflow, counted in reports', color: '#166534', bg: '#DCFCE7', border: '#86EFAC' },
+                  { id: 'pending', label: 'Waiting Approval', desc: 'Pending in approval queue', color: '#92400E', bg: '#FEF3C7', border: '#FCD34D' },
+                  { id: 'rejected', label: 'Rejected', desc: 'Declined by admin, not counted', color: '#991B1B', bg: '#FEE2E2', border: '#FCA5A5' },
+                  { id: 'void', label: 'Void', desc: 'Cancelled record with audit trail', color: '#374151', bg: '#F3F4F6', border: '#D1D5DB' },
+                ] as const).map((st) => {
+                  const isSelected = targetStatus === st.id;
+                  return (
+                    <label
+                      key={st.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        border: `2px solid ${isSelected ? st.color : st.border}`,
+                        background: isSelected ? st.bg : '#FFFFFF',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isSelected ? `0 0 0 1px ${st.color}` : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="radio"
+                          name="modal_target_status"
+                          checked={isSelected}
+                          onChange={() => setTargetStatus(st.id)}
+                          style={{ accentColor: st.color }}
+                        />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: st.color }}>
+                          {st.label}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 11, color: '#6B7280', marginTop: 4, lineHeight: 1.3 }}>
+                        {st.desc}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Reason / Audit Note */}
+              <label style={{ display: 'block', marginBottom: 16 }}>
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--erp-text)', marginBottom: 4 }}>
+                  {targetStatus === 'void' ? 'Reason for Voiding *' : 'Status Note / Reason (Optional)'}
+                </span>
+                <input
+                  type="text"
+                  value={statusReason}
+                  onChange={(e) => setStatusReason(e.target.value)}
+                  required={targetStatus === 'void'}
+                  minLength={targetStatus === 'void' ? 3 : 0}
+                  maxLength={500}
+                  placeholder={
+                    targetStatus === 'void'
+                      ? 'e.g. Duplicate voucher / entered by mistake / wrong amount'
+                      : targetStatus === 'posted'
+                      ? 'e.g. Reinstated by Admin / Bill verified'
+                      : targetStatus === 'rejected'
+                      ? 'e.g. Bill not attached / unauthorized purchase'
+                      : 'e.g. Needs clarification from cashier'
+                  }
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    fontSize: 13,
+                    borderRadius: 6,
+                    border: '1px solid #D4B99F',
+                    background: '#FAF7F2',
+                    color: 'var(--erp-text)',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </label>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={() => setStatusModalRow(null)}
+                  disabled={busy}
+                  style={{ padding: '8px 16px', fontSize: 13 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button"
+                  disabled={busy}
+                  style={{
+                    background: 'var(--erp-maroon, #6B1724)',
+                    color: '#FFFFFF',
+                    padding: '8px 18px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {busy ? 'Saving...' : 'Save Status'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
