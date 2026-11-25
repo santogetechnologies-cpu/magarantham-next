@@ -1175,8 +1175,8 @@ export function ProductModal({
                           <input
                             type="number"
                             min="0"
-                            placeholder={basePriceRupees || "0"}
-                            value={pc.priceRupees || ""}
+                            placeholder={basePriceRupees && basePriceRupees !== "0" ? basePriceRupees : "0"}
+                            value={pc.priceRupees === "0" ? "" : (pc.priceRupees || "")}
                             onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -1198,8 +1198,8 @@ export function ProductModal({
                           <input
                             type="number"
                             min="0"
-                            placeholder={purchasePriceRupees || "0"}
-                            value={pc.purchaseCostRupees || ""}
+                            placeholder={purchasePriceRupees && purchasePriceRupees !== "0" ? purchasePriceRupees : "0"}
+                            value={pc.purchaseCostRupees === "0" ? "" : (pc.purchaseCostRupees || "")}
                             onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -1242,8 +1242,8 @@ export function ProductModal({
                           <input
                             type="number"
                             min="0"
-                            placeholder={String(minStockLevel || 0)}
-                            value={pc.minQuantity !== undefined ? pc.minQuantity : (minStockLevel || 0)}
+                            placeholder="0"
+                            value={pc.minQuantity === 0 || pc.minQuantity === "0" || pc.minQuantity === undefined ? "" : pc.minQuantity}
                             onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => {
                               const val = e.target.value;

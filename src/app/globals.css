@@ -8643,24 +8643,49 @@ body:has(.luxury-admin-shell) #main {
   user-select: none;
 }
 
-.ap-cell-box .ap-cell-input {
+.ap-cell-box .ap-cell-input,
+.ap-cell-box input,
+input.ap-cell-input {
   border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
   outline: none !important;
+  outline-offset: 0 !important;
   box-shadow: none !important;
   background: transparent !important;
+  background-color: transparent !important;
   height: 100% !important;
+  min-height: 0 !important;
   width: 100% !important;
   font-family: inherit;
-  font-size: 12px;
-  padding: 0 2px !important;
+  font-size: 12.5px;
+  padding: 0 4px !important;
   margin: 0 !important;
   border-radius: 0 !important;
+  box-sizing: border-box !important;
   -moz-appearance: textfield;
   appearance: textfield;
 }
 
+.ap-cell-box .ap-cell-input:focus,
+.ap-cell-box .ap-cell-input:focus-visible,
+.ap-cell-box input:focus,
+.ap-cell-box input:focus-visible,
+input.ap-cell-input:focus,
+input.ap-cell-input:focus-visible {
+  border: none !important;
+  border-color: transparent !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 .ap-cell-box .ap-cell-input::-webkit-outer-spin-button,
-.ap-cell-box .ap-cell-input::-webkit-inner-spin-button {
+.ap-cell-box .ap-cell-input::-webkit-inner-spin-button,
+.ap-cell-box input::-webkit-outer-spin-button,
+.ap-cell-box input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }

@@ -91,7 +91,7 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell ::selection {
   background: var(--ms-brand-100);
 }
-.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input) {
+.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input) {
   outline: none !important;
   box-shadow: var(--ms-ring) !important;
   border-radius: var(--ms-r-sm);
@@ -710,7 +710,7 @@ body:has(.luxury-admin-shell) {
 /* ==========================================================================
    FORM CONTROLS
    ========================================================================== */
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input),
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input),
 .luxury-admin-shell select,
 .luxury-admin-shell textarea {
   font-family: var(--ms-font) !important;
@@ -735,10 +735,10 @@ body:has(.luxury-admin-shell) {
   background-position: right 12px center;
   cursor: pointer;
 }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):hover,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):hover,
 .luxury-admin-shell select:hover,
 .luxury-admin-shell textarea:hover { border-color: #cbbfba; }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):focus,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):focus,
 .luxury-admin-shell select:focus,
 .luxury-admin-shell textarea:focus {
   border-color: var(--ms-brand) !important;
@@ -1886,6 +1886,54 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell input#pos-gst-pct-input:focus-visible,
 .luxury-admin-shell .pos-gst-input-wrap input:focus,
 .luxury-admin-shell .pos-gst-input-wrap input:focus-visible {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Table Cell input overrides - eliminates inside focus boxes, borders & shadows */
+.luxury-admin-shell .ap-cell-box input,
+.luxury-admin-shell input.ap-cell-input,
+.luxury-admin-shell .ap-variants-table input.ap-cell-input,
+.luxury-admin-shell .ap-variants-table input {
+  all: unset !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 4px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  color: inherit !important;
+  line-height: normal !important;
+  box-sizing: border-box !important;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+.luxury-admin-shell .ap-cell-box input:focus,
+.luxury-admin-shell .ap-cell-box input:focus-visible,
+.luxury-admin-shell input.ap-cell-input:focus,
+.luxury-admin-shell input.ap-cell-input:focus-visible,
+.luxury-admin-shell .ap-variants-table input.ap-cell-input:focus,
+.luxury-admin-shell .ap-variants-table input.ap-cell-input:focus-visible,
+.luxury-admin-shell .ap-variants-table input:focus,
+.luxury-admin-shell .ap-variants-table input:focus-visible {
   border: none !important;
   border-color: transparent !important;
   box-shadow: none !important;
