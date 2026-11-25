@@ -711,7 +711,7 @@ body:has(.luxury-admin-shell) {
    FORM CONTROLS
    ========================================================================== */
 .luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input),
-.luxury-admin-shell select,
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select),
 .luxury-admin-shell textarea {
   font-family: var(--ms-font) !important;
   font-size: 14px;
@@ -726,7 +726,7 @@ body:has(.luxury-admin-shell) {
   outline: none;
 }
 .luxury-admin-shell textarea { min-height: 84px; line-height: 1.5; resize: vertical; }
-.luxury-admin-shell select {
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select) {
   appearance: none;
   -webkit-appearance: none;
   padding-right: 34px;
@@ -736,10 +736,10 @@ body:has(.luxury-admin-shell) {
   cursor: pointer;
 }
 .luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):hover,
-.luxury-admin-shell select:hover,
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):hover,
 .luxury-admin-shell textarea:hover { border-color: #cbbfba; }
 .luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):focus,
-.luxury-admin-shell select:focus,
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):focus,
 .luxury-admin-shell textarea:focus {
   border-color: var(--ms-brand) !important;
   box-shadow: var(--ms-ring) !important;

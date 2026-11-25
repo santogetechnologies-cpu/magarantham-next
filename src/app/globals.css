@@ -10109,21 +10109,44 @@ select.ap-variant-colour-select:focus-visible {
   flex-wrap: wrap;
 }
 
-.sp-filter-select {
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid var(--erp-border, #EAD5C0);
-  background: #FFFDFB;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--erp-text, #332321);
-  cursor: pointer;
+.sp-filter-select,
+.luxury-admin-shell select.sp-filter-select {
+  width: auto !important;
+  min-width: 150px;
+  max-width: 240px;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 32px 0 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--erp-border, #EAD5C0) !important;
+  background-color: #FFFDFB !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--erp-text, #332321) !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23800020' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 10px 6px !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  flex-shrink: 0;
 }
 
-.sp-filter-select:focus {
-  border-color: var(--erp-gold, #C49A52);
-  outline: none;
+.sp-filter-select:hover,
+.luxury-admin-shell select.sp-filter-select:hover {
+  border-color: var(--erp-gold, #C49A52) !important;
+}
+
+.sp-filter-select:focus,
+.sp-filter-select:focus-visible,
+.luxury-admin-shell select.sp-filter-select:focus,
+.luxury-admin-shell select.sp-filter-select:focus-visible {
+  border-color: var(--erp-gold, #C49A52) !important;
+  box-shadow: 0 0 0 2px rgba(196, 154, 82, 0.2) !important;
+  outline: none !important;
 }
 
 /* Quick Attendance Buttons */

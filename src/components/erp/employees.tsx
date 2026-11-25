@@ -560,8 +560,8 @@ export function EmployeesManager({
       {activeTab === 'directory' && (
         <section className="sp-panel" style={{ padding: 0 }}>
           {/* Toolbar with Search, Department Filter, Role Filter, Status Filter */}
-          <div className="sp-toolbar" style={{ border: 'none', borderBottom: '1px solid var(--erp-border-light)' }}>
-            <div className="sp-search-field">
+          <div className="sp-toolbar" style={{ border: 'none', borderBottom: '1px solid var(--erp-border-light)', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div className="sp-search-field" style={{ flex: '1 1 240px', maxWidth: 320 }}>
               <span className="sp-search-icon">🔍</span>
               <input
                 type="search"
@@ -598,17 +598,19 @@ export function EmployeesManager({
                 <option value="part_time">Part Time</option>
               </select>
 
-              <div style={{ display: 'inline-flex', border: '1px solid var(--erp-border)', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ display: 'inline-flex', height: 38, border: '1px solid var(--erp-border, #EAD5C0)', borderRadius: 8, overflow: 'hidden', background: '#FFFDFB', flexShrink: 0 }}>
                 <button
                   type="button"
                   style={{
-                    padding: '8px 12px',
-                    fontSize: 12,
+                    padding: '0 14px',
+                    height: '100%',
+                    fontSize: 12.5,
                     fontWeight: 600,
                     border: 'none',
-                    background: statusFilter === 'all' ? 'var(--erp-maroon)' : '#FFFDFB',
-                    color: statusFilter === 'all' ? '#FFFFFF' : 'var(--erp-text)',
+                    background: statusFilter === 'all' ? 'var(--erp-maroon, #800020)' : 'transparent',
+                    color: statusFilter === 'all' ? '#FFFFFF' : 'var(--erp-text, #332321)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                   onClick={() => setStatusFilter('all')}
                 >
@@ -617,14 +619,16 @@ export function EmployeesManager({
                 <button
                   type="button"
                   style={{
-                    padding: '8px 12px',
-                    fontSize: 12,
+                    padding: '0 14px',
+                    height: '100%',
+                    fontSize: 12.5,
                     fontWeight: 600,
                     border: 'none',
-                    borderLeft: '1px solid var(--erp-border)',
-                    background: statusFilter === 'active' ? 'var(--erp-maroon)' : '#FFFDFB',
-                    color: statusFilter === 'active' ? '#FFFFFF' : 'var(--erp-text)',
+                    borderLeft: '1px solid var(--erp-border, #EAD5C0)',
+                    background: statusFilter === 'active' ? 'var(--erp-maroon, #800020)' : 'transparent',
+                    color: statusFilter === 'active' ? '#FFFFFF' : 'var(--erp-text, #332321)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                   onClick={() => setStatusFilter('active')}
                 >
@@ -633,14 +637,16 @@ export function EmployeesManager({
                 <button
                   type="button"
                   style={{
-                    padding: '8px 12px',
-                    fontSize: 12,
+                    padding: '0 14px',
+                    height: '100%',
+                    fontSize: 12.5,
                     fontWeight: 600,
                     border: 'none',
-                    borderLeft: '1px solid var(--erp-border)',
-                    background: statusFilter === 'inactive' ? 'var(--erp-maroon)' : '#FFFDFB',
-                    color: statusFilter === 'inactive' ? '#FFFFFF' : 'var(--erp-text)',
+                    borderLeft: '1px solid var(--erp-border, #EAD5C0)',
+                    background: statusFilter === 'inactive' ? 'var(--erp-maroon, #800020)' : 'transparent',
+                    color: statusFilter === 'inactive' ? '#FFFFFF' : 'var(--erp-text, #332321)',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                   onClick={() => setStatusFilter('inactive')}
                 >
@@ -650,11 +656,12 @@ export function EmployeesManager({
 
               <button
                 type="button"
-                className="button outline-btn mini-btn"
+                className="ms-btn ms-btn-primary ms-btn-sm"
                 onClick={openAdd}
-                style={{ height: 38 }}
+                style={{ height: 38, padding: '0 16px', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
               >
-                + Add Employee
+                <span>+</span>
+                <span>Add Employee</span>
               </button>
             </div>
           </div>
