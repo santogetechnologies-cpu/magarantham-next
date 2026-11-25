@@ -7,8 +7,10 @@ import {
   ok,
   failure,
   Fault,
+  service,
 } from "@/lib/server";
 import { checkoutSchema } from "@/lib/schemas";
+import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp";
 export async function POST(req: Request) {
   try {
     origin(req);
@@ -25,6 +27,15 @@ export async function POST(req: Request) {
       p_channel: p.channel,
       p_coupon: p.coupon || null,
     });
+    const customerPhone = p.address.phone || session.profile?.phone || null;
+    if (customerPhone) {
+      await service().from("orders").update({ customer_phone: customerPhone }).eq("id", id);
+    }
+    if (p.channel === "whatsapp") {
+      sendOrderConfirmationWhatsApp(id).catch((err) =>
+        console.warn("[Checkout] WhatsApp trigger error:", err),
+      );
+    }
     return ok({ id, redirect: `/account/orders/${id}` });
   } catch (e) {
     return failure(e);

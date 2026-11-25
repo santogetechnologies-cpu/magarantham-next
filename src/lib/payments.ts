@@ -1,6 +1,7 @@
 import "server-only";
 import { syncOrderPieces } from "./piece-server";
 import { Fault, service, rpc, razor } from "./server";
+import { sendOrderConfirmationWhatsApp } from "./whatsapp";
 export async function reconcile(
   paymentId: string,
   expectedOrder?: string,
@@ -39,6 +40,10 @@ export async function reconcile(
   });
   // Paid online order: mark its sarees' pieces sold (idempotent).
   await syncOrderPieces(o.id);
+  // Send WhatsApp confirmation & PDF invoice
+  sendOrderConfirmationWhatsApp(o.id).catch((err) =>
+    console.warn("[Payments] WhatsApp trigger error:", err),
+  );
   return result;
 }
 export async function reconcileRefund(id: string, event: string) {

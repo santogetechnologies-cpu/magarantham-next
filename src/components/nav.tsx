@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Settings, Profile } from "@/lib/core";
 import { api } from "./api";
 import { useShop } from "./shop-context";
+import { CustomerAuthModal } from "./customer-auth-modal";
 
 function UserRoundIcon({ className = "" }: { className?: string }) {
   return (
@@ -36,6 +37,7 @@ export function Nav({
 }) {
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(initialProfile);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null),
     path = usePathname();
   const { cart } = useShop();
@@ -97,6 +99,12 @@ export function Nav({
           </Link>
           <Link
             href="/account"
+            onClick={(e) => {
+              if (!profile) {
+                e.preventDefault();
+                setShowAuthModal(true);
+              }
+            }}
             className={`header-account-link ${profile ? "is-logged-in" : ""}`}
             aria-label={
               profile
@@ -114,6 +122,11 @@ export function Nav({
           </Link>
         </nav>
       </header>
+      <CustomerAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialRedirect="/account"
+      />
       <dialog
         ref={dialog}
         onCancel={() => setOpen(false)}
@@ -149,7 +162,22 @@ export function Nav({
             <div className="menu-links">
               <Link href="/account">My account</Link>
               <Link href="/cart">Shopping bag</Link>
-              <Link href="/login">Sign in</Link>
+              {!profile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dialog.current?.close();
+                    setOpen(false);
+                    setShowAuthModal(true);
+                  }}
+                  className="text-link"
+                  style={{ textAlign: "left", padding: 0, font: "inherit", color: "inherit", background: "none", border: "none", cursor: "pointer" }}
+                >
+                  Sign in
+                </button>
+              ) : (
+                <Link href="/account">Account settings</Link>
+              )}
             </div>
           </div>
           <div className="menu-categories">

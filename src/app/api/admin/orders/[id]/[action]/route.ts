@@ -14,6 +14,7 @@ import {
 import { getOrder } from "@/lib/store";
 import { reconcile, reconcileRefund } from "@/lib/payments";
 import { syncOrderPieces } from "@/lib/piece-server";
+import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp";
 import { uuid } from "@/lib/schemas";
 export async function GET(
   _req: Request,
@@ -130,6 +131,9 @@ export async function POST(
         p_reference: p.reference,
       });
       await syncOrderPieces(id);
+      sendOrderConfirmationWhatsApp(id).catch((err) =>
+        console.warn("[Admin Order] WhatsApp trigger error:", err),
+      );
     } else if (action === "tracking") {
       const p = z
         .object({
@@ -255,6 +259,13 @@ export async function POST(
           entity: "orders",
           entity_id: id,
         });
+    } else if (action === "retry-whatsapp") {
+      const res = await sendOrderConfirmationWhatsApp(id);
+      return ok({
+        message: res.success
+          ? "WhatsApp notification sent successfully."
+          : `WhatsApp notification ${res.status}: ${res.error || "queued"}`,
+      });
     } else throw new Fault(404, "NOT_FOUND");
     return ok({ message: "Order updated." });
   } catch (e) {

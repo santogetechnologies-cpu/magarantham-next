@@ -100,23 +100,185 @@ export function Account({
           {rows
             .sort((a, b) => b.created_at.localeCompare(a.created_at))
             .map((o) => (
-              <Link
-                className="order-card"
+              <div
+                className="order-card-desktop"
                 key={o.id}
-                href={`/account/orders/${o.id}`}
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "8px",
+                  padding: "24px",
+                  marginBottom: "20px",
+                  background: "#FFF",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                }}
               >
-                <div>
-                  <span className="eyebrow">MS-{o.number}</span>
-                  <h3>{o.status.replaceAll("_", " ")}</h3>
-                  <span>
-                    {new Date(o.created_at).toLocaleDateString("en-IN")}
-                  </span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                    gap: "16px",
+                    paddingBottom: "16px",
+                    borderBottom: "1px solid var(--line)",
+                  }}
+                >
+                  <div>
+                    <span className="eyebrow" style={{ display: "block", marginBottom: "4px" }}>
+                      Order MS-{o.number}
+                    </span>
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      Placed on{" "}
+                      {new Date(o.created_at).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span className={`status status-${o.payment_status}`}>
+                      Payment: {o.payment_status.replaceAll("_", " ")}
+                    </span>
+                    <span className="status" style={{ background: "#F4EBE1", color: "#333" }}>
+                      Status: {o.status.replaceAll("_", " ")}
+                    </span>
+                    <b
+                      style={{
+                        fontSize: "17px",
+                        marginLeft: "6px",
+                        color: "var(--wine, #6B1724)",
+                      }}
+                    >
+                      {money(o.total_paise)}
+                    </b>
+                  </div>
                 </div>
-                <div>
-                  <b>{money(o.total_paise)}</b>
-                  <p>{o.payment_status.replaceAll("_", " ")} ↗</p>
+
+                {/* Products Summary */}
+                {Array.isArray(o.order_items) && o.order_items.length > 0 && (
+                  <div
+                    style={{
+                      padding: "16px 0",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                      borderBottom: "1px solid var(--line)",
+                    }}
+                  >
+                    {o.order_items.map((item: Row) => (
+                      <div
+                        key={item.id || item.name}
+                        style={{ display: "flex", alignItems: "center", gap: "16px" }}
+                      >
+                        {item.image_path ? (
+                          <img
+                            src={item.image_path}
+                            alt={item.name}
+                            style={{
+                              width: "56px",
+                              height: "72px",
+                              objectFit: "cover",
+                              borderRadius: "4px",
+                              border: "1px solid var(--line)",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "56px",
+                              height: "72px",
+                              borderRadius: "4px",
+                              border: "1px solid var(--line)",
+                              background: "#FBF7F2",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "20px",
+                            }}
+                          >
+                            🥻
+                          </div>
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: "0 0 4px 0", fontSize: "15px", fontWeight: 600 }}>
+                            {item.name}
+                          </h4>
+                          <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+                            Qty: {item.quantity} × {money(item.unit_price_paise)}
+                          </p>
+                        </div>
+                        <div style={{ fontWeight: 600, fontSize: "14px" }}>
+                          {money(item.quantity * item.unit_price_paise)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                    paddingTop: "16px",
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "#777" }}>
+                    {o.tracking_id ? `Tracking ID: ${o.tracking_id}` : ""}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Link
+                      href={`/account/orders/${o.id}`}
+                      className="button button-outline"
+                      style={{
+                        minHeight: "38px",
+                        padding: "8px 18px",
+                        gap: "8px",
+                        fontSize: "12px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      View Details ↗
+                    </Link>
+                    <a
+                      href={`/api/orders/${o.id}/invoice`}
+                      download={`Invoice-MS-${o.number}.pdf`}
+                      className="button"
+                      style={{
+                        minHeight: "38px",
+                        padding: "8px 18px",
+                        gap: "8px",
+                        fontSize: "12px",
+                        background: "#6B1724",
+                        color: "#FFF",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      Download Invoice 📄
+                    </a>
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           {!rows.length && (
             <p className="empty">Your orders will appear here.</p>

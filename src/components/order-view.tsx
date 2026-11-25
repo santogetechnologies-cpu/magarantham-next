@@ -131,11 +131,44 @@ export function OrderView({
           <p className="eyebrow">Order MS-{o.number}</p>
           <h1>{o.status.replaceAll("_", " ")}.</h1>
         </div>
-        <div>
-          <span className={`status status-${o.payment_status}`}>
-            {o.payment_status.replaceAll("_", " ")}
-          </span>
-          <p>{new Date(o.created_at).toLocaleString("en-IN")}</p>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+          <a
+            href={`/api/orders/${o.id}/invoice`}
+            download={`Invoice-MS-${o.number}.pdf`}
+            className="button button-outline"
+            style={{
+              minHeight: "42px",
+              padding: "10px 18px",
+              gap: "8px",
+              fontSize: "12px",
+              textDecoration: "none",
+            }}
+          >
+            Download Invoice 📄
+          </a>
+          {admin && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => action("retry-whatsapp", {})}
+              className="button button-outline"
+              style={{
+                minHeight: "42px",
+                padding: "10px 18px",
+                gap: "8px",
+                fontSize: "12px",
+              }}
+              title="Resend WhatsApp confirmation & PDF invoice"
+            >
+              Retry WhatsApp 📲
+            </button>
+          )}
+          <div>
+            <span className={`status status-${o.payment_status}`}>
+              {o.payment_status.replaceAll("_", " ")}
+            </span>
+            <p>{new Date(o.created_at).toLocaleString("en-IN")}</p>
+          </div>
         </div>
       </div>
       <div className="two-column">

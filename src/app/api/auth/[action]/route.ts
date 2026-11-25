@@ -14,6 +14,7 @@ import {
   captcha,
 } from "@/lib/server";
 import { indiaDate } from "@/lib/barcode";
+import { normalizePhone, isValidE164, formatPhoneForDisplay } from "@/lib/phone";
 const credentials = z.object({
   email: z.email().max(254),
   password: z.string().min(6).max(128),
@@ -33,6 +34,104 @@ export async function POST(
     const { action } = await params;
     const data = await json(req, 8000);
     const auth = await authClient();
+    if (action === "phone-send-otp") {
+      const p = z
+        .object({
+          phone: z.string().min(5).max(30),
+          dial_code: z.string().max(10).default("+91"),
+        })
+        .strict()
+        .parse(data);
+      const normalized = normalizePhone(p.phone, p.dial_code);
+      if (!isValidE164(normalized)) {
+        throw new Fault(400, "INVALID_PHONE", "Please enter a valid mobile number with country code.");
+      }
+      await rate(req, "phone-otp-send", normalized, 4, 600);
+      await rate(req, "phone-otp-ip", "", 25, 3600);
+      const { error } = await auth.auth.signInWithOtp({
+        phone: normalized,
+        options: { channel: "sms" },
+      });
+      if (error) {
+        const msg = error.message?.toLowerCase().includes("sms provider")
+          ? "SMS service is initializing. Please verify Supabase Phone provider in project dashboard."
+          : error.message || "Could not send OTP. Please check the mobile number and try again.";
+        throw new Fault(400, "OTP_SEND_FAILED", msg);
+      }
+      return ok({
+        message: `OTP sent to ${formatPhoneForDisplay(normalized)}.`,
+        phone: normalized,
+        expires_in: 60,
+      });
+    }
+    if (action === "phone-verify-otp") {
+      const p = z
+        .object({
+          phone: z.string().min(5).max(30),
+          token: z.string().regex(/^\d{6}$/),
+          dial_code: z.string().max(10).default("+91"),
+          name: z.string().max(80).optional(),
+        })
+        .strict()
+        .parse(data);
+      const normalized = normalizePhone(p.phone, p.dial_code);
+      await rate(req, "phone-otp-verify", normalized, 6, 900);
+      const { data: verifiedData, error: verifyErr } = await auth.auth.verifyOtp({
+        phone: normalized,
+        token: p.token,
+        type: "sms",
+      });
+      if (verifyErr || !verifiedData.user) {
+        throw new Fault(400, "INVALID_OTP", verifyErr?.message || "Invalid or expired 6-digit OTP code.");
+      }
+      const userId = verifiedData.user.id;
+      const db = service();
+
+      // Ensure customer role in profiles (never admin permissions)
+      let { data: profile } = await db
+        .from("profiles")
+        .select("id,role,email,display_name,phone")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!profile) {
+        const displayName = p.name?.trim() || verifiedData.user.user_metadata?.name || "Customer";
+        await db.from("profiles").insert({
+          id: userId,
+          email: verifiedData.user.email || "",
+          display_name: displayName,
+          role: "customer",
+          phone: normalized,
+          phone_confirmed_at: new Date().toISOString(),
+        });
+      } else {
+        await db
+          .from("profiles")
+          .update({
+            phone: normalized,
+            phone_confirmed_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+      }
+
+      // Safe account linking: preserve existing orders placed with this verified phone
+      try {
+        await db
+          .from("orders")
+          .update({ customer_phone: normalized })
+          .eq("customer_id", userId);
+      } catch {}
+
+      return ok({
+        message: "Mobile number verified successfully.",
+        redirect: "/account",
+        user: {
+          id: userId,
+          phone: normalized,
+          role: profile?.role || "customer",
+        },
+      });
+    }
     if (action === "login") {
       const p = credentials.parse(data);
       await rate(req, "login", p.email, 10);

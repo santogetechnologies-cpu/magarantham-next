@@ -21,6 +21,8 @@ export type Profile = {
   role: "customer" | "manager" | "billing" | "superadmin";
   suspended: boolean;
   permissions: string[];
+  phone?: string;
+  phone_confirmed_at?: string;
 };
 export type PieceStatus =
   | "available"
@@ -86,7 +88,6 @@ export type Product = {
   saree_type?: string;
   barcode?: string;
   compare_at_price_paise?: number;
-  /** How the item is sold: piece, set, pair, metre, pack, dozen or box. */
   sale_unit?: string;
   stock_on_hand?: number;
   pieces?: IndividualPiece[];
@@ -149,19 +150,19 @@ export const publicProduct = (p: Record<string, unknown>): Product => {
   // Strip admin-only fields (purchase_cost_paise, location) for public customer consumption
   const publicPieces: IndividualPiece[] | undefined = rawPieces.length > 0
     ? rawPieces.map((piece) => ({
-        id: String(piece.id),
-        product_id: String(piece.product_id),
-        piece_code: String(piece.piece_code || ""),
-        barcode: String(piece.barcode || ""),
-        colour: String(piece.colour || p.colour || ""),
-        price_paise: Number(piece.price_paise || p.price_paise || 0),
-        status: (piece.status || "available") as PieceStatus,
-        quantity: piece.quantity != null && Number(piece.quantity) >= 0 ? Number(piece.quantity) : 1,
-        min_quantity: piece.min_quantity != null && Number(piece.min_quantity) >= 0 ? Number(piece.min_quantity) : 0,
-        image_path: piece.image_path ? String(piece.image_path) : undefined,
-        created_at: String(piece.created_at || new Date().toISOString()),
-        unit_id: piece.unit_id != null ? piece.unit_id : undefined,
-      }))
+      id: String(piece.id),
+      product_id: String(piece.product_id),
+      piece_code: String(piece.piece_code || ""),
+      barcode: String(piece.barcode || ""),
+      colour: String(piece.colour || p.colour || ""),
+      price_paise: Number(piece.price_paise || p.price_paise || 0),
+      status: (piece.status || "available") as PieceStatus,
+      quantity: piece.quantity != null && Number(piece.quantity) >= 0 ? Number(piece.quantity) : 1,
+      min_quantity: piece.min_quantity != null && Number(piece.min_quantity) >= 0 ? Number(piece.min_quantity) : 0,
+      image_path: piece.image_path ? String(piece.image_path) : undefined,
+      created_at: String(piece.created_at || new Date().toISOString()),
+      unit_id: piece.unit_id != null ? piece.unit_id : undefined,
+    }))
     : undefined;
 
   const totalPieces = publicPieces ? publicPieces.reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
