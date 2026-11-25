@@ -189,7 +189,7 @@ export function Expenses({
       r.created_by_code || '—',
       r.created_by_designation || r.created_by_role || 'Staff',
       r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : '—',
-      r.status,
+      r.status === 'posted' ? 'Accepted' : r.status,
       r.source,
       r.void_by_name || '—',
       r.void_reason || '—',
@@ -230,7 +230,7 @@ export function Expenses({
             <strong className="sp-stat-value" style={{ color: 'var(--erp-maroon)' }}>
               {money(stats.totalPaise)}
             </strong>
-            <span className="sp-stat-subtext">{stats.postedCount} posted transactions</span>
+            <span className="sp-stat-subtext">{stats.postedCount} accepted transactions</span>
           </div>
           <div className="sp-stat-icon-wrap tone-total" style={{ background: '#FFF1F2', color: '#9F1239' }}>
             <span style={{ fontSize: 20 }}>💰</span>
@@ -412,7 +412,7 @@ export function Expenses({
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <button className="button sp-btn-maroon" disabled={busy} type="submit">
-              {busy ? 'Saving...' : '✓ Save & Post Expense'}
+              {busy ? 'Saving...' : '✓ Save & Accept Expense'}
             </button>
             <button
               type="button"
@@ -587,7 +587,7 @@ export function Expenses({
           >
             <option value="all">All Statuses</option>
             <option value="pending">Waiting approval</option>
-            <option value="posted">Posted</option>
+            <option value="posted">Accepted</option>
             <option value="rejected">Rejected</option>
             <option value="void">Void</option>
           </select>
@@ -874,7 +874,7 @@ export function Expenses({
                                   color: '#166534',
                                 }}
                               >
-                                Posted
+                                Accepted
                                 <span style={{ fontSize: 10, opacity: 0.7 }}>✎</span>
                               </span>
                               {r.reviewed_by_name && r.created_by_role === 'billing' && (
@@ -935,7 +935,7 @@ export function Expenses({
                                 color: '#166534',
                               }}
                             >
-                              Posted
+                              Accepted
                             </span>
                           )}
                           {r.status === 'rejected' && r.review_note && <small className="ex-note">{r.review_note}</small>}
@@ -954,20 +954,23 @@ export function Expenses({
                           {r.status === 'void' && (
                             <button
                               type="button"
-                              className="button"
-                              onClick={() => handleQuickStatus(r, 'posted', 'Reinstated by Admin')}
+                              onClick={() => handleQuickStatus(r, 'posted', 'Reinstated & Accepted by Admin')}
                               disabled={busy}
                               style={{
                                 fontSize: 12,
-                                padding: '4px 9px',
+                                padding: '5px 11px',
                                 background: '#166534',
                                 color: '#FFFFFF',
                                 border: 'none',
-                                borderRadius: 5,
+                                borderRadius: 6,
                                 fontWeight: 600,
                                 cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(22, 101, 52, 0.2)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
                               }}
-                              title="Reinstate this voided expense back to Posted"
+                              title="Reinstate this voided expense back to Accepted"
                             >
                               ✓ Reinstate
                             </button>
@@ -977,35 +980,42 @@ export function Expenses({
                             <>
                               <button
                                 type="button"
-                                className="button"
-                                onClick={() => handleQuickStatus(r, 'posted', 'Approved by Admin')}
+                                onClick={() => handleQuickStatus(r, 'posted', 'Accepted by Admin')}
                                 disabled={busy}
                                 style={{
                                   fontSize: 12,
-                                  padding: '4px 9px',
+                                  padding: '5px 11px',
                                   background: '#166534',
                                   color: '#FFFFFF',
                                   border: 'none',
-                                  borderRadius: 5,
+                                  borderRadius: 6,
                                   fontWeight: 600,
                                   cursor: 'pointer',
+                                  boxShadow: '0 1px 3px rgba(22, 101, 52, 0.2)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
                                 }}
-                                title="Approve expense"
+                                title="Accept expense"
                               >
-                                ✓ Approve
+                                ✓ Accept
                               </button>
                               <button
                                 type="button"
-                                className="button button-outline"
                                 onClick={() => openStatusModal(r, 'rejected')}
                                 disabled={busy}
                                 style={{
                                   fontSize: 12,
-                                  padding: '4px 8px',
+                                  padding: '5px 10px',
                                   color: '#DC2626',
-                                  borderColor: '#FCA5A5',
-                                  borderRadius: 5,
+                                  border: '1px solid #FCA5A5',
+                                  background: '#FEF2F2',
+                                  borderRadius: 6,
+                                  fontWeight: 600,
                                   cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
                                 }}
                                 title="Reject expense"
                               >
@@ -1017,15 +1027,15 @@ export function Expenses({
                           {r.status === 'posted' && (
                             <button
                               type="button"
-                              className="button button-outline"
                               onClick={() => openStatusModal(r, 'void')}
                               disabled={busy}
                               style={{
                                 fontSize: 12,
-                                padding: '4px 9px',
+                                padding: '5px 10px',
                                 color: '#DC2626',
-                                borderColor: '#FCA5A5',
-                                borderRadius: 5,
+                                border: '1px solid #FCA5A5',
+                                background: '#FEF2F2',
+                                borderRadius: 6,
                                 fontWeight: 600,
                                 cursor: 'pointer',
                               }}
@@ -1038,40 +1048,46 @@ export function Expenses({
                           {r.status === 'rejected' && (
                             <button
                               type="button"
-                              className="button"
-                              onClick={() => handleQuickStatus(r, 'posted', 'Approved by Admin')}
+                              onClick={() => handleQuickStatus(r, 'posted', 'Accepted by Admin')}
                               disabled={busy}
                               style={{
                                 fontSize: 12,
-                                padding: '4px 9px',
+                                padding: '5px 11px',
                                 background: '#166534',
                                 color: '#FFFFFF',
                                 border: 'none',
-                                borderRadius: 5,
+                                borderRadius: 6,
                                 fontWeight: 600,
                                 cursor: 'pointer',
+                                boxShadow: '0 1px 3px rgba(22, 101, 52, 0.2)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
                               }}
-                              title="Approve and reinstate expense"
+                              title="Accept expense"
                             >
-                              ✓ Approve
+                              ✓ Accept
                             </button>
                           )}
 
                           <button
                             type="button"
-                            className="button button-outline"
                             onClick={() => openStatusModal(r)}
                             disabled={busy}
                             style={{
                               fontSize: 12,
-                              padding: '4px 8px',
+                              padding: '5px 10px',
                               color: 'var(--erp-maroon)',
-                              borderColor: '#D4B99F',
+                              border: '1px solid #D4B99F',
                               background: '#FFFDF9',
-                              borderRadius: 5,
+                              borderRadius: 6,
+                              fontWeight: 600,
                               cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 2,
                             }}
-                            title="Admin: Change status (Posted, Waiting approval, Rejected, Void)"
+                            title="Admin: Change status (Accepted, Waiting approval, Rejected, Void)"
                           >
                             Status ▾
                           </button>
@@ -1209,7 +1225,7 @@ export function Expenses({
                     {money(statusModalRow.amount_paise)}
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
-                    Current: {statusModalRow.status}
+                    Current: {statusModalRow.status === 'posted' ? 'ACCEPTED' : String(statusModalRow.status).toUpperCase()}
                   </div>
                 </div>
               </div>
@@ -1223,7 +1239,7 @@ export function Expenses({
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
                 {([
-                  { id: 'posted', label: 'Posted', desc: 'Active outflow, counted in reports', color: '#166534', bg: '#DCFCE7', border: '#86EFAC' },
+                  { id: 'posted', label: 'Accepted', desc: 'Active outflow, counted in reports', color: '#166534', bg: '#DCFCE7', border: '#86EFAC' },
                   { id: 'pending', label: 'Waiting Approval', desc: 'Pending in approval queue', color: '#92400E', bg: '#FEF3C7', border: '#FCD34D' },
                   { id: 'rejected', label: 'Rejected', desc: 'Declined by admin, not counted', color: '#991B1B', bg: '#FEE2E2', border: '#FCA5A5' },
                   { id: 'void', label: 'Void', desc: 'Cancelled record with audit trail', color: '#374151', bg: '#F3F4F6', border: '#D1D5DB' },
@@ -1235,28 +1251,28 @@ export function Expenses({
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '10px 12px',
-                        borderRadius: 8,
+                        padding: '11px 13px',
+                        borderRadius: 10,
                         border: `2px solid ${isSelected ? st.color : st.border}`,
                         background: isSelected ? st.bg : '#FFFFFF',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        boxShadow: isSelected ? `0 0 0 1px ${st.color}` : 'none',
+                        boxShadow: isSelected ? `0 2px 8px rgba(0,0,0,0.06)` : 'none',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input
                           type="radio"
                           name="modal_target_status"
                           checked={isSelected}
                           onChange={() => setTargetStatus(st.id)}
-                          style={{ accentColor: st.color }}
+                          style={{ accentColor: st.color, width: 16, height: 16, margin: 0, cursor: 'pointer' }}
                         />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: st.color }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: st.color }}>
                           {st.label}
                         </span>
                       </div>
-                      <span style={{ fontSize: 11, color: '#6B7280', marginTop: 4, lineHeight: 1.3 }}>
+                      <span style={{ fontSize: 11, color: '#4B5563', marginTop: 4, lineHeight: 1.3, paddingLeft: 24 }}>
                         {st.desc}
                       </span>
                     </label>
@@ -1280,7 +1296,7 @@ export function Expenses({
                     targetStatus === 'void'
                       ? 'e.g. Duplicate voucher / entered by mistake / wrong amount'
                       : targetStatus === 'posted'
-                      ? 'e.g. Reinstated by Admin / Bill verified'
+                      ? 'e.g. Accepted & verified by Admin / Bill checked'
                       : targetStatus === 'rejected'
                       ? 'e.g. Bill not attached / unauthorized purchase'
                       : 'e.g. Needs clarification from cashier'
@@ -1299,29 +1315,39 @@ export function Expenses({
               </label>
 
               {/* Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 4 }}>
                 <button
                   type="button"
-                  className="button button-outline"
                   onClick={() => setStatusModalRow(null)}
                   disabled={busy}
-                  style={{ padding: '8px 16px', fontSize: 13 }}
+                  style={{
+                    padding: '9px 18px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    border: '1.5px solid #D4B99F',
+                    background: '#FAF7F2',
+                    color: 'var(--erp-maroon, #6B1724)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="button"
                   disabled={busy}
                   style={{
                     background: 'var(--erp-maroon, #6B1724)',
                     color: '#FFFFFF',
-                    padding: '8px 18px',
+                    padding: '9px 22px',
                     fontSize: 13,
                     fontWeight: 700,
                     border: 'none',
-                    borderRadius: 6,
-                    cursor: 'pointer',
+                    borderRadius: 8,
+                    cursor: busy ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 6px rgba(107, 23, 36, 0.25)',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   {busy ? 'Saving...' : 'Save Status'}
