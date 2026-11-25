@@ -12059,11 +12059,76 @@ select.ap-variant-colour-select:focus-visible {
 }
 
 .cat-close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: #888;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FFFFFF;
+  color: #64748B;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cat-close-btn:hover {
+  background: #FEE2E2;
+  border-color: #FECACA;
+  color: #B91C1C;
+  transform: scale(1.05);
+}
+
+.cat-footer-close-btn {
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: 1px solid var(--erp-border, #EAD5C0);
+  background: #FFFFFF;
+  color: var(--erp-maroon, #800020);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+
+.cat-footer-close-btn:hover {
+  background: #FAF5EE;
+  border-color: var(--erp-gold, #C49A52);
+  color: var(--erp-maroon, #800020);
+  transform: translateY(-1px);
+}
+
+.cat-modal-card .button {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  gap: 6px !important;
+  transform: none !important;
+}
+
+.cat-modal-card .button.outline-btn {
+  background: #FFFFFF !important;
+  color: var(--erp-maroon, #800020) !important;
+  border: 1px solid var(--erp-border, #EAD5C0) !important;
+}
+
+.cat-modal-card .button.outline-btn:hover {
+  background: #FAF5EE !important;
+  border-color: var(--erp-gold, #C49A52) !important;
 }
 
 .cat-modal-body {

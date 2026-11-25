@@ -2886,7 +2886,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
       {/* ------------------------------------------------------------- */}
       {mounted && typeof document !== 'undefined' && holdPromptOpen && createPortal(
         <div
-          className="cat-modal-backdrop"
+          className="cat-modal-backdrop luxury-admin-shell"
           onClick={() => setHoldPromptOpen(false)}
           style={{
             position: 'fixed',
@@ -2917,6 +2917,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 className="cat-close-btn"
                 onClick={() => setHoldPromptOpen(false)}
                 aria-label="Close"
+                title="Close (Esc)"
               >
                 ✕
               </button>
@@ -2980,7 +2981,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button
                   type="button"
-                  className="button outline-btn"
+                  className="cat-footer-close-btn"
                   onClick={() => setHoldPromptOpen(false)}
                 >
                   Cancel
@@ -3005,7 +3006,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
       {/* ------------------------------------------------------------- */}
       {mounted && typeof document !== 'undefined' && heldModalOpen && createPortal(
         <div
-          className="cat-modal-backdrop"
+          className="cat-modal-backdrop luxury-admin-shell"
           onClick={() => setHeldModalOpen(false)}
           style={{
             position: 'fixed',
@@ -3043,6 +3044,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 className="cat-close-btn"
                 onClick={() => setHeldModalOpen(false)}
                 aria-label="Close"
+                title="Close (Esc)"
               >
                 ✕
               </button>
@@ -3252,7 +3254,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               </small>
               <button
                 type="button"
-                className="button outline-btn mini-btn"
+                className="cat-footer-close-btn"
                 onClick={() => setHeldModalOpen(false)}
               >
                 Close
@@ -3268,7 +3270,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
       {/* ------------------------------------------------------------- */}
       {mounted && typeof document !== 'undefined' && conflictHeldBill && createPortal(
         <div
-          className="cat-modal-backdrop"
+          className="cat-modal-backdrop luxury-admin-shell"
           onClick={() => {
             setConflictHeldBill(null);
             setHeldModalOpen(true);
@@ -3298,6 +3300,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                   setHeldModalOpen(true);
                 }}
                 aria-label="Close"
+                title="Close (Esc)"
               >
                 ✕
               </button>
@@ -3320,16 +3323,16 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 </button>
                 <button
                   type="button"
-                  className="button outline-btn"
-                  style={{ color: '#B91C1C', borderColor: '#FECACA', background: '#FEF2F2', padding: '9px 16px' }}
+                  className="cat-footer-close-btn"
+                  style={{ color: '#B91C1C', borderColor: '#FECACA', background: '#FEF2F2', height: 38, width: '100%' }}
                   onClick={() => handleDiscardCurrentAndResume(conflictHeldBill)}
                 >
                   🗑 Discard Current Bill &amp; Resume Hold #{conflictHeldBill.holdNumber}
                 </button>
                 <button
                   type="button"
-                  className="button outline-btn"
-                  style={{ padding: '8px 16px' }}
+                  className="cat-footer-close-btn"
+                  style={{ height: 38, width: '100%' }}
                   onClick={() => {
                     setConflictHeldBill(null);
                     setHeldModalOpen(true);
