@@ -686,8 +686,12 @@ export function EmployeeProfileView({
             <div className="sp-stat-card">
               <div className="sp-stat-info">
                 <span className="sp-stat-label">Overtime</span>
-                <strong className="sp-stat-count" style={{ color: "#1D4ED8" }}>{attendanceStats.overtimeMins}m</strong>
-                <span className="sp-stat-sublabel">{Math.round((attendanceStats.overtimeMins / 60) * 10) / 10} hours</span>
+                <strong className="sp-stat-count" style={{ color: "#1D4ED8" }}>
+                  {Math.floor(attendanceStats.overtimeMins / 60)}h {attendanceStats.overtimeMins % 60}m
+                </strong>
+                <span className="sp-stat-sublabel">
+                  {attendanceStats.overtimeMins} mins total ({Math.round((attendanceStats.overtimeMins / 60) * 10) / 10} hrs)
+                </span>
               </div>
             </div>
           </div>
@@ -713,7 +717,11 @@ export function EmployeeProfileView({
                       </span>
                     </td>
                     <td>{Math.floor((row.worked_minutes || 0) / 60)} hrs {(row.worked_minutes || 0) % 60} mins</td>
-                    <td>{row.overtime_minutes ? `${row.overtime_minutes} mins` : "—"}</td>
+                    <td>
+                      {row.overtime_minutes
+                        ? `${Math.floor(row.overtime_minutes / 60)} hrs ${row.overtime_minutes % 60} mins`
+                        : "—"}
+                    </td>
                     <td>{row.note || "—"}</td>
                   </tr>
                 ))

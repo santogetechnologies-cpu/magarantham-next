@@ -1,11 +1,40 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { indiaDate } from '@/lib/barcode';
 import { money } from '@/lib/core';
 import { api } from '../api';
 import { References, Row, useERP } from './shared';
+
+export function formatHoursMinutes(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes || 0));
+  if (m === 0) return '0 mins';
+  const hrs = Math.floor(m / 60);
+  const mins = m % 60;
+  if (hrs > 0 && mins > 0) {
+    return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''}`;
+  }
+  if (hrs > 0) {
+    return `${hrs} hr${hrs > 1 ? 's' : ''}`;
+  }
+  return `${mins} mins`;
+}
+
+export function formatHoursMinutesShort(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes || 0));
+  if (m === 0) return '0m';
+  const hrs = Math.floor(m / 60);
+  const mins = m % 60;
+  if (hrs > 0 && mins > 0) {
+    return `${hrs}h ${mins}m`;
+  }
+  if (hrs > 0) {
+    return `${hrs}h`;
+  }
+  return `${mins}m`;
+}
 
 export const STATUS_OPTIONS: {
   key: string;
@@ -86,6 +115,11 @@ export function Attendance({ refs }: { refs: References }) {
   });
 
   // Overtime State & Modal
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [editingDetail, setEditingDetail] = useState<{
     employee: Row;
     work_on: string;
@@ -1001,7 +1035,7 @@ export function Attendance({ refs }: { refs: References }) {
                             {/* Overtime & remarks hint */}
                             {rec?.overtime_minutes ? (
                               <span style={{ fontSize: 11, color: '#1D4ED8', fontWeight: 600 }}>
-                                +{rec.overtime_minutes}m OT
+                                +{formatHoursMinutesShort(rec.overtime_minutes)} OT
                               </span>
                             ) : null}
                             {rec?.note ? (
@@ -1640,7 +1674,7 @@ export function Attendance({ refs }: { refs: References }) {
                           </td>
                           <td>{emp?.department || 'Retail Sales'}</td>
                           <td style={{ fontWeight: 700, color: '#1D4ED8' }}>
-                            {otMins} mins ({hours.toFixed(1)} hrs)
+                            {formatHoursMinutes(otMins)} ({otMins} mins)
                           </td>
                           <td>{money(hourlyRatePaise)} / hr</td>
                           <td style={{ fontWeight: 700, color: '#166534' }}>
@@ -1688,14 +1722,32 @@ export function Attendance({ refs }: { refs: References }) {
       {/* ========================================================================= */}
 
       {/* Confirmation Modal: Mark All Present */}
-      {showMarkAllConfirm && (
+      {mounted && typeof document !== 'undefined' && showMarkAllConfirm && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => !bulkSaving && setShowMarkAllConfirm(false)}
           role="dialog"
           aria-modal="true"
         >
-          <div className="luxury-modal-card" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+          <div className="luxury-modal-card" style={{ maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title" style={{ color: 'var(--erp-maroon)' }}>
                 Mark All Present?
@@ -1734,18 +1786,37 @@ export function Attendance({ refs }: { refs: References }) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirmation Modal: Reset / Undo */}
-      {showResetConfirm && (
+      {mounted && typeof document !== 'undefined' && showResetConfirm && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => setShowResetConfirm(false)}
           role="dialog"
           aria-modal="true"
         >
-          <div className="luxury-modal-card" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+          <div className="luxury-modal-card" style={{ maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Reload Daily Attendance?</h2>
               <button
@@ -1779,18 +1850,37 @@ export function Attendance({ refs }: { refs: References }) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Overtime & Detail Modal */}
-      {editingDetail && (
+      {mounted && typeof document !== 'undefined' && editingDetail && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => setEditingDetail(null)}
           role="dialog"
           aria-modal="true"
         >
-          <div className="luxury-modal-card" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+          <div className="luxury-modal-card" style={{ maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Overtime &amp; Notes</h2>
               <button type="button" className="modal-close-btn" onClick={() => setEditingDetail(null)}>
@@ -1810,30 +1900,112 @@ export function Attendance({ refs }: { refs: References }) {
               }}
               className="modal-form-body"
             >
-              <div style={{ marginBottom: 12 }}>
-                <strong>{editingDetail.employee.name}</strong> ({editingDetail.employee.code})
-                <small style={{ display: 'block', color: '#888' }}>Date: {editingDetail.work_on}</small>
+              <div style={{ marginBottom: 14 }}>
+                <strong style={{ fontSize: 14, color: 'var(--erp-maroon)' }}>{editingDetail.employee.name}</strong>{' '}
+                <span style={{ color: '#666', fontSize: 12 }}>({editingDetail.employee.code})</span>
+                <small style={{ display: 'block', color: '#888', marginTop: 2 }}>Date: {editingDetail.work_on}</small>
               </div>
 
-              <label className="input-group">
-                <span>Overtime (Minutes)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="720"
-                  step="15"
-                  value={editingDetail.overtime_minutes}
-                  onChange={(e) =>
-                    setEditingDetail({
-                      ...editingDetail,
-                      overtime_minutes: Math.max(0, parseInt(e.target.value, 10) || 0),
-                    })
-                  }
-                />
-                <small style={{ color: '#888' }}>
-                  60m = 1 hour, 120m = 2 hours
-                </small>
-              </label>
+              {/* Overtime in Hours and Minutes */}
+              <div className="input-group" style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span>Overtime Duration</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: editingDetail.overtime_minutes > 0 ? '#1D4ED8' : '#888' }}>
+                    {editingDetail.overtime_minutes > 0
+                      ? `${formatHoursMinutes(editingDetail.overtime_minutes)} (${editingDetail.overtime_minutes}m)`
+                      : '0 hrs 0 mins'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--erp-text-muted)' }}>Hours</span>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="24"
+                        step="1"
+                        placeholder="0"
+                        value={Math.floor(editingDetail.overtime_minutes / 60) === 0 ? '' : Math.floor(editingDetail.overtime_minutes / 60)}
+                        onChange={(e) => {
+                          const h = Math.max(0, parseInt(e.target.value, 10) || 0);
+                          const m = editingDetail.overtime_minutes % 60;
+                          setEditingDetail({
+                            ...editingDetail,
+                            overtime_minutes: h * 60 + m,
+                          });
+                        }}
+                        style={{ width: '100%', paddingRight: 38 }}
+                      />
+                      <span style={{ position: 'absolute', right: 10, fontSize: 12, color: '#888', pointerEvents: 'none' }}>hrs</span>
+                    </div>
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--erp-text-muted)' }}>Minutes</span>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        step="5"
+                        placeholder="0"
+                        value={(editingDetail.overtime_minutes % 60) === 0 ? '' : (editingDetail.overtime_minutes % 60)}
+                        onChange={(e) => {
+                          const h = Math.floor(editingDetail.overtime_minutes / 60);
+                          const rawM = parseInt(e.target.value, 10) || 0;
+                          const m = Math.max(0, Math.min(59, rawM));
+                          setEditingDetail({
+                            ...editingDetail,
+                            overtime_minutes: h * 60 + m,
+                          });
+                        }}
+                        style={{ width: '100%', paddingRight: 40 }}
+                      />
+                      <span style={{ position: 'absolute', right: 10, fontSize: 12, color: '#888', pointerEvents: 'none' }}>mins</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Quick Presets */}
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Quick presets:</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {[
+                      { label: '30 mins', mins: 30 },
+                      { label: '1 hour', mins: 60 },
+                      { label: '1 hr 30m', mins: 90 },
+                      { label: '2 hours', mins: 120 },
+                      { label: '2 hrs 30m', mins: 150 },
+                      { label: '3 hours', mins: 180 },
+                      { label: 'Clear (0)', mins: 0 },
+                    ].map((p) => (
+                      <button
+                        key={p.mins}
+                        type="button"
+                        className="button outline-btn mini-btn"
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 8px',
+                          borderColor: editingDetail.overtime_minutes === p.mins ? 'var(--erp-maroon)' : undefined,
+                          background: editingDetail.overtime_minutes === p.mins ? '#FAF0E6' : undefined,
+                          color: editingDetail.overtime_minutes === p.mins ? 'var(--erp-maroon)' : undefined,
+                          fontWeight: editingDetail.overtime_minutes === p.mins ? 700 : 500,
+                        }}
+                        onClick={() =>
+                          setEditingDetail({
+                            ...editingDetail,
+                            overtime_minutes: p.mins,
+                          })
+                        }
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               <label className="input-group">
                 <span>Work / Shift Remarks</span>
@@ -1855,18 +2027,37 @@ export function Attendance({ refs }: { refs: References }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Apply Leave Modal */}
-      {showApplyLeaveModal && (
+      {mounted && typeof document !== 'undefined' && showApplyLeaveModal && createPortal(
         <div
-          className="luxury-modal-overlay"
+          className="luxury-admin-shell luxury-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100dvh',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            background: 'rgba(20, 8, 12, 0.55)',
+            backdropFilter: 'blur(4px)',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
           onClick={() => !leaveSubmitting && setShowApplyLeaveModal(false)}
           role="dialog"
           aria-modal="true"
         >
-          <div className="luxury-modal-card" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+          <div className="luxury-modal-card" style={{ maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Apply Employee Leave</h2>
               <button
@@ -1967,7 +2158,8 @@ export function Attendance({ refs }: { refs: References }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
