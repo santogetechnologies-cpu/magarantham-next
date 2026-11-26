@@ -583,48 +583,6 @@ export function OrderView({
             )}
             <p className="subtle">Order reference: {o.id}</p>
           </div>
-          <div className="timeline">
-            <h2>Order Updates</h2>
-            {[...o.order_events]
-              .sort((a: Row, b: Row) =>
-                b.created_at.localeCompare(a.created_at),
-              )
-              .map((e: Row, idx: number) => (
-                <div key={e.id}>
-                  <span />
-                  <p>
-                    {idx === 0 && (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          marginRight: 8,
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          background: "#FEF3C7",
-                          color: "#92400E",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        Latest
-                      </span>
-                    )}
-                    {e.message}
-                    <small>
-                      {new Date(e.created_at).toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </small>
-                  </p>
-                </div>
-              ))}
-          </div>
         </div>
         <div>
           {!admin && (
@@ -812,6 +770,48 @@ export function OrderView({
               )}
             </>
           )}
+          <div className="timeline">
+            <h2>Order Updates</h2>
+            {[...o.order_events]
+              .sort((a: Row, b: Row) =>
+                b.created_at.localeCompare(a.created_at),
+              )
+              .map((e: Row, idx: number) => (
+                <div key={e.id}>
+                  <span />
+                  <p>
+                    {idx === 0 && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginRight: 8,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "#FEF3C7",
+                          color: "#92400E",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Latest
+                      </span>
+                    )}
+                    {e.message}
+                    <small>
+                      {new Date(e.created_at).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                  </p>
+                </div>
+              ))}
+          </div>
           {can("payments") && (
             <div className="form-panel">
               <h2>Payment check.</h2>
