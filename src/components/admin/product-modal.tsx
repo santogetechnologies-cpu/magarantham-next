@@ -257,6 +257,16 @@ export function ProductModal({
   // -------------------------------------------------------------
   const [pieces, setPieces] = useState<PieceRow[]>([]);
   const [piecesTab, setPiecesTab] = useState<"pieces" | "variants">("pieces");
+  const [bulkPieceCount, setBulkPieceCount] = useState("5");
+  const [bulkPieceColour, setBulkPieceColour] = useState("AUTO");
+
+  // Bulk Saree Import Mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkCsvText, setBulkCsvText] = useState(
+    "Name,Category,Colour,Price (Rs),Purchase Cost (Rs),Stock,Min Stock,Fabric,Description\nKanchipuram Bridal Zari,Kanchipuram,Maroon,8500,5200,5,2,Pure Kanchipuram Silk,Handwoven gold zari border\nSoft Silk Festive Saree,Soft Silk,Purple,4200,2600,8,2,Pure Soft Silk,Lightweight festive silk saree",
+  );
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState("");
 
   // Load existing individual pieces if editing product
   useEffect(() => {
@@ -376,6 +386,130 @@ export function ProductModal({
         location: `Rack A-${nextIdx}`,
       },
     ]);
+  }
+
+  function bulkAddPieceRows() {
+    const count = Math.min(100, Math.max(1, parseInt(bulkPieceCount, 10) || 1));
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+    const baseSelling = basePriceRupees || (pieces[0]?.priceRupees || "");
+    const baseCost = purchasePriceRupees || (pieces[0]?.purchaseCostRupees || "");
+    const newRows: PieceRow[] = [];
+    for (let i = 0; i < count; i++) {
+      const idx = pieces.length + i + 1;
+      const nextCol =
+        bulkPieceColour === "AUTO"
+          ? COLOUR_PRESETS[(idx - 1) % COLOUR_PRESETS.length].name
+          : bulkPieceColour;
+      const colCode = nextCol.slice(0, 3).toUpperCase();
+      newRows.push({
+        key: `pc-${Date.now()}-${idx}-${i}`,
+        piece_code: `${catCode}-${colCode}-${String(idx).padStart(3, "0")}`,
+        barcode: `MSU${Date.now().toString().slice(-7)}${String(idx).padStart(3, "0")}`,
+        colour: nextCol,
+        priceRupees: baseSelling,
+        purchaseCostRupees: baseCost,
+        quantity: 1,
+        minQuantity: minStockLevel || 0,
+        status: "available",
+        location: `Rack A-${idx}`,
+      });
+    }
+    setPieces((prev) => [...prev, ...newRows]);
+  }
+
+  function parseBulkCsvRows() {
+    const lines = bulkCsvText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return [];
+    const startIdx = lines[0].toLowerCase().startsWith("name,") ? 1 : 0;
+    return lines.slice(startIdx).map((line, i) => {
+      const cols = line.split(",").map((c) => c.trim());
+      const name = cols[0] || `Saree ${i + 1}`;
+      const cat = cols[1] || category || "Kanchipuram";
+      const colour = cols[2] || "Maroon";
+      const priceRupees = Math.max(0, Number(cols[3] || 0));
+      const costRupees = Math.max(0, Number(cols[4] || 0));
+      const stock = Math.max(1, parseInt(cols[5] || "1", 10) || 1);
+      const minStock = Math.max(0, parseInt(cols[6] || "2", 10) || 0);
+      const fabric = cols[7] || "Pure Silk";
+      const desc = cols[8] || `${name} in ${colour}`;
+      return { name, cat, colour, priceRupees, costRupees, stock, minStock, fabric, desc };
+    });
+  }
+
+  async function handleBulkImportSarees() {
+    const rows = parseBulkCsvRows();
+    if (rows.length === 0) {
+      setError("Please enter at least one saree row to import.");
+      return;
+    }
+    setBulkSaving(true);
+    setError("");
+    let created = 0;
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        setBulkProgress(`Importing ${i + 1} of ${rows.length}: ${r.name}...`);
+        const catObj = mainCategories.find(
+          (c) => c.name.toLowerCase() === r.cat.toLowerCase(),
+        );
+        const catName = catObj ? catObj.name : r.cat;
+        const catCode = catName.slice(0, 3).toUpperCase() || "SAR";
+        const colCode = r.colour.slice(0, 3).toUpperCase() || "SLK";
+        const suffix = uniqueSuffix().toUpperCase();
+        const sku = `MS-${catCode}-${colCode}-${suffix}`;
+        const slug = `${slugify(r.name) || "saree"}-${slugify(r.colour) || "silk"}-${uniqueSuffix()}`;
+
+        const res = await api<{ row?: { id: string } }>("/api/admin/products", {
+          name: r.name,
+          sku,
+          slug,
+          category: catName,
+          fabric: r.fabric,
+          colour: r.colour,
+          description: r.desc,
+          image_path: "/assets/product-01.jpg",
+          purchase_price_paise: Math.round(r.costRupees * 100),
+          price_paise: Math.round(r.priceRupees * 100),
+          compare_at_price_paise: 0,
+          sale_unit: "piece",
+          discount_percent: 0,
+          stock_on_hand: r.stock,
+          min_stock_level: r.minStock,
+          published: true,
+          featured: false,
+          archived: false,
+        });
+
+        const productId = res?.row?.id;
+        if (productId && r.stock > 0) {
+          const pieceRows = Array.from({ length: r.stock }).map((_, idx) => ({
+            piece_code: `${catCode}-${colCode}-${suffix}-${String(idx + 1).padStart(2, "0")}`,
+            barcode: `MSU${Date.now().toString().slice(-7)}${String(i + 1).padStart(2, "0")}${String(idx + 1).padStart(2, "0")}`,
+            colour: r.colour,
+            price_paise: Math.round(r.priceRupees * 100),
+            purchase_cost_paise: Math.round(r.costRupees * 100),
+            quantity: 1,
+            min_quantity: r.minStock,
+            status: "available",
+            location: `Rack A-${idx + 1}`,
+          }));
+          await api("/api/admin/pieces", {
+            product_id: productId,
+            pieces: pieceRows,
+          });
+        }
+        created++;
+      }
+      setBulkProgress(`Successfully imported ${created} sarees!`);
+      onSaved();
+    } catch (err) {
+      setError(`Imported ${created} sarees before error: ${(err as Error).message}`);
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   function updatePiece(key: string, patch: Partial<PieceRow>) {
@@ -750,26 +884,69 @@ export function ProductModal({
       {/* Top Header Bar */}
       <div className="ap-header-bar">
         <div>
-          <h1 className="ap-title">{isEditing ? "Edit Saree" : "Add Saree"}</h1>
+          <h1 className="ap-title">{isEditing ? "Edit Saree" : bulkMode ? "Bulk Add Sarees" : "Add Saree"}</h1>
           <p className="ap-subtitle">
             4-Level Hierarchy: Main Category → Sub Category → Product → Individual Pieces
           </p>
         </div>
 
         <div className="ap-header-actions">
+          {!isEditing && (
+            <div
+              style={{
+                display: "inline-flex",
+                border: "1px solid #D4B99F",
+                borderRadius: 8,
+                overflow: "hidden",
+                background: "#FFF",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setBulkMode(false)}
+                style={{
+                  padding: "8px 14px",
+                  border: "none",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: !bulkMode ? "#79051E" : "transparent",
+                  color: !bulkMode ? "#FFF" : "#79051E",
+                }}
+              >
+                Single Saree
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkMode(true)}
+                style={{
+                  padding: "8px 14px",
+                  border: "none",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: bulkMode ? "#79051E" : "transparent",
+                  color: bulkMode ? "#FFF" : "#79051E",
+                }}
+              >
+                Bulk Add Sarees (CSV)
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className="button outline-btn ap-cancel-btn"
-            disabled={saving}
+            disabled={saving || bulkSaving}
             onClick={onClose}
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            className="button ap-save-btn"
-            disabled={saving || mainUploading}
-          >
+          {!bulkMode && (
+            <button
+              type="submit"
+              className="button ap-save-btn"
+              disabled={saving || mainUploading}
+            >
             <svg
               width="15"
               height="15"
@@ -787,15 +964,137 @@ export function ProductModal({
             </svg>
             <span>{saving ? "Saving Saree..." : "Save Saree"}</span>
           </button>
+          )}
         </div>
       </div>
 
       {error && (
         <div className="ap-error-banner" role="alert">
-          <strong>Error:</strong> {error}
+          <span>⚠️ {error}</span>
         </div>
       )}
 
+      {bulkMode && !isEditing ? (
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid #EAD5C0",
+            borderRadius: 14,
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 20, color: "#79051E" }}>Bulk Add Multiple Sarees (CSV / Spreadsheet)</h2>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6B7280" }}>
+                Paste comma-separated rows or upload a <code>.csv</code> file to create multiple sarees and their individual stock pieces in one click.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <label className="button outline-btn" style={{ cursor: "pointer", fontSize: 12, padding: "8px 14px" }}>
+                Upload CSV File
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    setBulkCsvText(text);
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="button outline-btn"
+                style={{ fontSize: 12, padding: "8px 14px" }}
+                onClick={() => {
+                  const blob = new Blob(
+                    [
+                      "Name,Category,Colour,Price (Rs),Purchase Cost (Rs),Stock,Min Stock,Fabric,Description\nKanchipuram Bridal Zari,Kanchipuram,Maroon,8500,5200,5,2,Pure Kanchipuram Silk,Handwoven gold zari border\n",
+                    ],
+                    { type: "text/csv" },
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "magarantham_bulk_sarees_sample.csv";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Download Sample CSV
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            value={bulkCsvText}
+            onChange={(e) => setBulkCsvText(e.target.value)}
+            rows={7}
+            style={{
+              width: "100%",
+              fontFamily: "monospace",
+              fontSize: 13,
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #D4B99F",
+            }}
+          />
+
+          <div style={{ overflowX: "auto", border: "1px solid #EAD5C0", borderRadius: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#FAF5EE", textAlign: "left" }}>
+                  <th style={{ padding: "10px 12px" }}>#</th>
+                  <th style={{ padding: "10px 12px" }}>Name</th>
+                  <th style={{ padding: "10px 12px" }}>Category</th>
+                  <th style={{ padding: "10px 12px" }}>Colour</th>
+                  <th style={{ padding: "10px 12px" }}>Selling (₹)</th>
+                  <th style={{ padding: "10px 12px" }}>Cost (₹)</th>
+                  <th style={{ padding: "10px 12px" }}>Stock Pieces</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parseBulkCsvRows().map((r, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid #F3EAE0" }}>
+                    <td style={{ padding: "8px 12px" }}>{i + 1}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>{r.name}</td>
+                    <td style={{ padding: "8px 12px" }}>{r.cat}</td>
+                    <td style={{ padding: "8px 12px" }}>{r.colour}</td>
+                    <td style={{ padding: "8px 12px" }}>₹{r.priceRupees}</td>
+                    <td style={{ padding: "8px 12px" }}>₹{r.costRupees}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 700, color: "#79051E" }}>{r.stock}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {bulkProgress && (
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "#ECFDF5", color: "#065F46", fontSize: 13, fontWeight: 600 }}>
+              {bulkProgress}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+            <button
+              type="button"
+              disabled={bulkSaving || parseBulkCsvRows().length === 0}
+              onClick={() => void handleBulkImportSarees()}
+              className="button"
+              style={{ background: "#79051E", borderColor: "#79051E" }}
+            >
+              {bulkSaving ? "Importing…" : `Import ${parseBulkCsvRows().length} Sarees & Pieces ↗`}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* 2-Column Form Layout */}
       <div className="ap-columns-grid">
         {/* LEFT COLUMN: Main Cover Photo */}
@@ -1070,7 +1369,63 @@ export function ProductModal({
                   })()}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 8px",
+                    borderRadius: 8,
+                    background: "#FAF5EE",
+                    border: "1px solid #EAD5C0",
+                  }}
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={bulkPieceCount}
+                    onChange={(e) => setBulkPieceCount(e.target.value)}
+                    aria-label="Number of pieces to bulk add"
+                    style={{
+                      width: 58,
+                      height: 32,
+                      padding: "4px 6px",
+                      textAlign: "center",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      borderRadius: 6,
+                    }}
+                  />
+                  <select
+                    value={bulkPieceColour}
+                    onChange={(e) => setBulkPieceColour(e.target.value)}
+                    aria-label="Colour for bulk added pieces"
+                    style={{
+                      width: 125,
+                      height: 32,
+                      padding: "4px 8px",
+                      fontSize: 12,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <option value="AUTO">Mixed Colours</option>
+                    {COLOUR_PRESETS.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="button outline-btn"
+                    onClick={bulkAddPieceRows}
+                    style={{ fontSize: 12, padding: "6px 10px", minHeight: 32 }}
+                  >
+                    + Bulk Add Pieces
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="button outline-btn"
@@ -1423,6 +1778,8 @@ export function ProductModal({
           </button>
         </div>
       </div>
+        </>
+      )}
     </form>
   );
 }
