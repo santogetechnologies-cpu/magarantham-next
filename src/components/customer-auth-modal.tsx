@@ -88,9 +88,14 @@ export function CustomerAuthModal({
           email: email.trim(),
           password,
         });
+        if (res.redirect === '/admin') {
+          try {
+            sessionStorage.setItem('ms_admin_tab_session', '1');
+          } catch {}
+        }
         if (onClose) onClose();
         if (onSuccess) onSuccess();
-        else window.location.assign(getSafeReturnTo() || res.redirect || initialRedirect || '/');
+        else window.location.assign(res.redirect === '/admin' ? '/admin' : getSafeReturnTo() || res.redirect || initialRedirect || '/');
       } else if (tab === 'register') {
         const res = await api<{ message?: string; redirect?: string }>('/api/auth/register', {
           name: fullName.trim(),

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Profile } from "@/lib/core";
 import { pageMeta } from "@/lib/admin-pages";
+import { api } from "../api";
 import { adminNavGroups } from "./sidebar";
 import { OrderNotificationsManager } from "./order-notifications";
 
@@ -112,6 +113,16 @@ export function AdminTopbar({
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem("ms_admin_tab_session") !== "1") {
+        void api("/api/auth/logout", {})
+          .catch(() => {})
+          .finally(() => {
+            window.location.replace("/login?returnTo=/admin");
+          });
+        return;
+      }
+    } catch {}
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 30000);
     function onKey(e: KeyboardEvent) {

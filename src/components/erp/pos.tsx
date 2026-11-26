@@ -68,7 +68,7 @@ function playScanBeep(success = true) {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.25);
     }
-  } catch {}
+  } catch { }
 }
 
 export function POS({ profile }: { profile: Profile }) {
@@ -183,7 +183,7 @@ export function POS({ profile }: { profile: Profile }) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) setHeldBills(parsed);
-        } catch {}
+        } catch { }
       }
     }
     window.addEventListener('storage', onStorage);
@@ -528,11 +528,11 @@ export function POS({ profile }: { profile: Profile }) {
   const discountTypeLabel =
     discount > 0
       ? [
-          spotTotalPaise > 0 ? 'Spot' : '',
-          rawDiscountPaise > 0 ? (discountType === 'percent' ? `${parsedDiscountNum}%` : 'Fixed ₹') : '',
-        ]
-          .filter(Boolean)
-          .join(' + ')
+        spotTotalPaise > 0 ? 'Spot' : '',
+        rawDiscountPaise > 0 ? (discountType === 'percent' ? `${parsedDiscountNum}%` : 'Fixed ₹') : '',
+      ]
+        .filter(Boolean)
+        .join(' + ')
       : '';
 
   // Live instant client-side price preview (synced with authoritative server pos_quote)
@@ -1984,16 +1984,16 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               const serverDiscountReason =
                 discount > 0
                   ? [
-                      ...spotLines.map((l) => `Spot ${l.pct}% on ${l.name} (${money(l.paise)})`),
-                      rawDiscountPaise > 0
-                        ? discountType === 'percent'
-                          ? `Bill ${parsedDiscountNum}% (${money(rawDiscountPaise)})`
-                          : `Bill fixed (${money(rawDiscountPaise)})`
-                        : '',
-                    ]
-                      .filter(Boolean)
-                      .join('; ')
-                      .slice(0, 300)
+                    ...spotLines.map((l) => `Spot ${l.pct}% on ${l.name} (${money(l.paise)})`),
+                    rawDiscountPaise > 0
+                      ? discountType === 'percent'
+                        ? `Bill ${parsedDiscountNum}% (${money(rawDiscountPaise)})`
+                        : `Bill fixed (${money(rawDiscountPaise)})`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('; ')
+                    .slice(0, 300)
                   : '';
 
               const result = await send('pos_sale', {
@@ -2816,16 +2816,75 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                       </td>
                       <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         <strong>{money(totalPaidPaise)}</strong>
-                        <small
-                          style={{
-                            display: 'block',
-                            fontWeight: 600,
-                            color: 'var(--erp-text-muted)',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {payMethodsLabel}
-                        </small>
+                        {billTenders.length > 0 ? (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-end',
+                              gap: 3,
+                              marginTop: 4,
+                            }}
+                          >
+                            {billTenders.map((t: Row, tidx: number) => {
+                              const method = String(t.method || 'cash').toUpperCase();
+                              const amt =
+                                method === 'CASH' && cashRecvPaise > Number(t.amount_paise || 0)
+                                  ? cashRecvPaise
+                                  : Number(t.amount_paise || 0);
+                              const badgeColors: Record<string, { bg: string; color: string }> = {
+                                UPI: { bg: '#EFF6FF', color: '#1D4ED8' },
+                                CASH: { bg: '#ECFDF5', color: '#047857' },
+                                CARD: { bg: '#FEF3C7', color: '#B45309' },
+                              };
+                              const c = badgeColors[method] || { bg: '#F3F4F6', color: '#374151' };
+                              return (
+                                <div
+                                  key={`${t.id || tidx}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      padding: '1px 6px',
+                                      borderRadius: 4,
+                                      background: c.bg,
+                                      color: c.color,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {method}
+                                  </span>
+                                  <span style={{ color: 'var(--erp-text)' }}>
+                                    {money(amt)}
+                                  </span>
+                                  {t.reference && (
+                                    <span style={{ color: 'var(--erp-text-muted)', fontSize: 10 }}>
+                                      ({t.reference})
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <small
+                            style={{
+                              display: 'block',
+                              fontWeight: 600,
+                              color: 'var(--erp-text-muted)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {payMethodsLabel}
+                          </small>
+                        )}
                       </td>
                       <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {changeReturnedPaise > 0 ? (

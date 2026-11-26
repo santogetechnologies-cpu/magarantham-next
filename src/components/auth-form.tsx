@@ -151,7 +151,12 @@ export function AuthForm({ mode }: { mode: string }) {
         redirect?: string;
       }>(`/api/auth/${action}`, payload);
       if (r.redirect) {
-        const target = getReturnTo() || r.redirect;
+        if (r.redirect === "/admin") {
+          try {
+            sessionStorage.setItem("ms_admin_tab_session", "1");
+          } catch {}
+        }
+        const target = r.redirect === "/admin" ? "/admin" : getReturnTo() || r.redirect;
         window.location.assign(target);
       } else {
         setIsError(false);
@@ -495,6 +500,9 @@ export function Mfa() {
                 factor_id: factor?.id || enrollment?.id,
                 code: new FormData(e.currentTarget).get("code"),
               });
+              try {
+                sessionStorage.setItem("ms_admin_tab_session", "1");
+              } catch {}
               window.location.assign(r.redirect);
             } catch (e) {
               setMessage((e as Error).message);
