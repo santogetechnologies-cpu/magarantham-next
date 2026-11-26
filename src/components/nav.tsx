@@ -90,6 +90,7 @@ export function Nav({
           </span>
         </Link>
         <nav aria-label="Main navigation">
+          <Link href="/">Home</Link>
           <Link href="/shop">All sarees</Link>
           <Link
             href="/cart"
