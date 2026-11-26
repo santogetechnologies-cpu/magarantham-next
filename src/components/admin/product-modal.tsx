@@ -2,6 +2,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
+import {
+  SAMPLE_SAREE_CSV,
+  SAMPLE_SAREE_CSV_FILENAME,
+  parseBulkSareeCsv,
+} from "@/lib/bulk-csv";
 
 export type ProductFormData = {
   id?: string;
@@ -259,14 +264,10 @@ export function ProductModal({
   const [piecesTab, setPiecesTab] = useState<"pieces" | "variants">("pieces");
   const [bulkPieceCount, setBulkPieceCount] = useState("5");
   const [bulkPieceColour, setBulkPieceColour] = useState("AUTO");
-  const [bulkCustomColour, setBulkCustomColour] = useState("");
-  const [customColourRows, setCustomColourRows] = useState<Record<string, boolean>>({});
 
   // Bulk Saree Import Mode
   const [bulkMode, setBulkMode] = useState(false);
-  const [bulkCsvText, setBulkCsvText] = useState(
-    "Name,Category,Colour,Price (Rs),Purchase Cost (Rs),Stock,Min Stock,Fabric,Description\nKanchipuram Bridal Zari,Kanchipuram,Maroon,8500,5200,5,2,Pure Kanchipuram Silk,Handwoven gold zari border\nSoft Silk Festive Saree,Soft Silk,Purple,4200,2600,8,2,Pure Soft Silk,Lightweight festive silk saree",
-  );
+  const [bulkCsvText, setBulkCsvText] = useState(SAMPLE_SAREE_CSV);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkProgress, setBulkProgress] = useState("");
 
@@ -401,9 +402,7 @@ export function ProductModal({
       const nextCol =
         bulkPieceColour === "AUTO"
           ? COLOUR_PRESETS[(idx - 1) % COLOUR_PRESETS.length].name
-          : bulkPieceColour === "__CUSTOM__"
-            ? bulkCustomColour.trim() || "Custom"
-            : bulkPieceColour;
+          : bulkPieceColour;
       const colCode = nextCol.slice(0, 3).toUpperCase();
       newRows.push({
         key: `pc-${Date.now()}-${idx}-${i}`,
@@ -422,31 +421,18 @@ export function ProductModal({
   }
 
   function parseBulkCsvRows() {
-    const lines = bulkCsvText
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length === 0) return [];
-    const startIdx = lines[0].toLowerCase().startsWith("name,") ? 1 : 0;
-    return lines.slice(startIdx).map((line, i) => {
-      const cols = line.split(",").map((c) => c.trim());
-      const name = cols[0] || `Saree ${i + 1}`;
-      const cat = cols[1] || category || "Kanchipuram";
-      const colour = cols[2] || "Maroon";
-      const priceRupees = Math.max(0, Number(cols[3] || 0));
-      const costRupees = Math.max(0, Number(cols[4] || 0));
-      const stock = Math.max(1, parseInt(cols[5] || "1", 10) || 1);
-      const minStock = Math.max(0, parseInt(cols[6] || "2", 10) || 0);
-      const fabric = cols[7] || "Pure Silk";
-      const desc = cols[8] || `${name} in ${colour}`;
-      return { name, cat, colour, priceRupees, costRupees, stock, minStock, fabric, desc };
-    });
+    return parseBulkSareeCsv(bulkCsvText);
   }
 
   async function handleBulkImportSarees() {
     const rows = parseBulkCsvRows();
     if (rows.length === 0) {
       setError("Please enter at least one saree row to import.");
+      return;
+    }
+    const invalidRow = rows.find((r) => !r.valid);
+    if (invalidRow) {
+      setError(`Row ${invalidRow.rowNumber} (${invalidRow.name || "Unnamed"}): ${invalidRow.error}`);
       return;
     }
     setBulkSaving(true);
@@ -457,34 +443,46 @@ export function ProductModal({
         const r = rows[i];
         setBulkProgress(`Importing ${i + 1} of ${rows.length}: ${r.name}...`);
         const catObj = mainCategories.find(
-          (c) => c.name.toLowerCase() === r.cat.toLowerCase(),
+          (c) => c.name.toLowerCase() === r.category.toLowerCase(),
         );
-        const catName = catObj ? catObj.name : r.cat;
+        const catName = catObj ? catObj.name : r.category;
+        const subObj = r.subcategory
+          ? internalCategories.find(
+              (c) =>
+                Boolean(c.parent_id) &&
+                c.name.toLowerCase() === r.subcategory.toLowerCase() &&
+                (!catObj || c.parent_id === catObj.id),
+            )
+          : undefined;
         const catCode = catName.slice(0, 3).toUpperCase() || "SAR";
         const colCode = r.colour.slice(0, 3).toUpperCase() || "SLK";
         const suffix = uniqueSuffix().toUpperCase();
-        const sku = `MS-${catCode}-${colCode}-${suffix}`;
+        const sku = r.sku || `MS-${catCode}-${colCode}-${suffix}`;
         const slug = `${slugify(r.name) || "saree"}-${slugify(r.colour) || "silk"}-${uniqueSuffix()}`;
 
         const res = await api<{ row?: { id: string } }>("/api/admin/products", {
           name: r.name,
           sku,
+          barcode: null,
           slug,
           category: catName,
+          subcategory_id: subObj ? subObj.id : null,
+          saree_type: r.saree_type,
           fabric: r.fabric,
           colour: r.colour,
-          description: r.desc,
-          image_path: "/assets/product-01.jpg",
-          purchase_price_paise: Math.round(r.costRupees * 100),
-          price_paise: Math.round(r.priceRupees * 100),
-          compare_at_price_paise: 0,
+          design: r.design,
+          description: r.description,
+          image_path: r.image_path,
+          purchase_price_paise: Math.round(r.purchase_cost_rs * 100),
+          price_paise: Math.round(r.selling_price_rs * 100),
+          compare_at_price_paise: Math.round(r.original_price_rs * 100),
           sale_unit: "piece",
           discount_percent: 0,
           stock_on_hand: r.stock,
-          min_stock_level: r.minStock,
-          published: true,
+          min_stock_level: r.min_stock,
+          published: r.status === "published",
           featured: false,
-          archived: false,
+          archived: r.status === "archived",
         });
 
         const productId = res?.row?.id;
@@ -493,10 +491,10 @@ export function ProductModal({
             piece_code: `${catCode}-${colCode}-${suffix}-${String(idx + 1).padStart(2, "0")}`,
             barcode: `MSU${Date.now().toString().slice(-7)}${String(i + 1).padStart(2, "0")}${String(idx + 1).padStart(2, "0")}`,
             colour: r.colour,
-            price_paise: Math.round(r.priceRupees * 100),
-            purchase_cost_paise: Math.round(r.costRupees * 100),
+            price_paise: Math.round(r.selling_price_rs * 100),
+            purchase_cost_paise: Math.round(r.purchase_cost_rs * 100),
             quantity: 1,
-            min_quantity: r.minStock,
+            min_quantity: r.min_stock,
             status: "available",
             location: `Rack A-${idx + 1}`,
           }));
@@ -1017,16 +1015,13 @@ export function ProductModal({
                 className="button outline-btn"
                 style={{ fontSize: 12, padding: "8px 14px" }}
                 onClick={() => {
-                  const blob = new Blob(
-                    [
-                      "Name,Category,Colour,Price (Rs),Purchase Cost (Rs),Stock,Min Stock,Fabric,Description\nKanchipuram Bridal Zari,Kanchipuram,Maroon,8500,5200,5,2,Pure Kanchipuram Silk,Handwoven gold zari border\n",
-                    ],
-                    { type: "text/csv" },
-                  );
+                  const blob = new Blob([SAMPLE_SAREE_CSV], {
+                    type: "text/csv;charset=utf-8",
+                  });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = "magarantham_bulk_sarees_sample.csv";
+                  a.download = SAMPLE_SAREE_CSV_FILENAME;
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
@@ -1055,24 +1050,36 @@ export function ProductModal({
               <thead>
                 <tr style={{ background: "#FAF5EE", textAlign: "left" }}>
                   <th style={{ padding: "10px 12px" }}>#</th>
+                  <th style={{ padding: "10px 12px" }}>SKU</th>
                   <th style={{ padding: "10px 12px" }}>Name</th>
-                  <th style={{ padding: "10px 12px" }}>Category</th>
+                  <th style={{ padding: "10px 12px" }}>Category / Subcategory</th>
                   <th style={{ padding: "10px 12px" }}>Colour</th>
+                  <th style={{ padding: "10px 12px" }}>Orig (₹)</th>
                   <th style={{ padding: "10px 12px" }}>Selling (₹)</th>
-                  <th style={{ padding: "10px 12px" }}>Cost (₹)</th>
-                  <th style={{ padding: "10px 12px" }}>Stock Pieces</th>
+                  <th style={{ padding: "10px 12px" }}>Stock</th>
+                  <th style={{ padding: "10px 12px" }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {parseBulkCsvRows().map((r, i) => (
-                  <tr key={i} style={{ borderTop: "1px solid #F3EAE0" }}>
-                    <td style={{ padding: "8px 12px" }}>{i + 1}</td>
-                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>{r.name}</td>
-                    <td style={{ padding: "8px 12px" }}>{r.cat}</td>
+                {parseBulkCsvRows().map((r) => (
+                  <tr key={r.rowNumber} style={{ borderTop: "1px solid #F3EAE0" }}>
+                    <td style={{ padding: "8px 12px" }}>{r.rowNumber}</td>
+                    <td style={{ padding: "8px 12px", fontFamily: "monospace", fontSize: 12 }}>{r.sku || "Auto"}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                      {r.name}
+                      {!r.valid && (
+                        <div style={{ fontSize: 11, color: "#991B1B" }}>{r.error}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: "8px 12px" }}>
+                      {r.category}
+                      {r.subcategory ? ` · ${r.subcategory}` : ""}
+                    </td>
                     <td style={{ padding: "8px 12px" }}>{r.colour}</td>
-                    <td style={{ padding: "8px 12px" }}>₹{r.priceRupees}</td>
-                    <td style={{ padding: "8px 12px" }}>₹{r.costRupees}</td>
+                    <td style={{ padding: "8px 12px" }}>₹{r.original_price_rs}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>₹{r.selling_price_rs}</td>
                     <td style={{ padding: "8px 12px", fontWeight: 700, color: "#79051E" }}>{r.stock}</td>
+                    <td style={{ padding: "8px 12px", textTransform: "capitalize" }}>{r.status}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1407,7 +1414,7 @@ export function ProductModal({
                     onChange={(e) => setBulkPieceColour(e.target.value)}
                     aria-label="Colour for bulk added pieces"
                     style={{
-                      width: 140,
+                      width: 125,
                       height: 32,
                       padding: "4px 8px",
                       fontSize: 12,
@@ -1420,24 +1427,7 @@ export function ProductModal({
                         {c.name}
                       </option>
                     ))}
-                    <option value="__CUSTOM__">+ Custom / Undefined</option>
                   </select>
-                  {bulkPieceColour === "__CUSTOM__" && (
-                    <input
-                      type="text"
-                      value={bulkCustomColour}
-                      onChange={(e) => setBulkCustomColour(e.target.value)}
-                      placeholder="Type colour..."
-                      aria-label="Custom colour name"
-                      style={{
-                        width: 110,
-                        height: 32,
-                        padding: "4px 8px",
-                        fontSize: 12,
-                        borderRadius: 6,
-                      }}
-                    />
-                  )}
                   <button
                     type="button"
                     className="button outline-btn"
@@ -1508,112 +1498,40 @@ export function ProductModal({
 
                       {/* Colour */}
                       <td>
-                        {(() => {
-                          const isPreset = COLOUR_PRESETS.some(
-                            (c) => c.name.toLowerCase() === (pc.colour || "").trim().toLowerCase(),
-                          );
-                          const isCustom = Boolean(customColourRows[pc.key]) || (!isPreset && Boolean(pc.colour));
-                          return (
-                            <div className="ap-cell-box" style={{ gap: 6 }}>
-                              <span
-                                style={{
-                                  backgroundColor: colourHex(pc.colour),
-                                  width: 10,
-                                  height: 10,
-                                  borderRadius: "50%",
-                                  flexShrink: 0,
-                                  border: "1px solid rgba(0,0,0,0.15)",
-                                }}
-                              />
-                              {isCustom ? (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={pc.colour}
-                                    placeholder="Custom colour..."
-                                    onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
-                                    className="ap-cell-input"
-                                    style={{ fontWeight: 600, fontSize: 12.5, color: "#800020", width: "100%" }}
-                                    aria-label="Custom piece colour"
-                                  />
-                                  <button
-                                    type="button"
-                                    title="Switch back to preset colours"
-                                    onClick={() => {
-                                      setCustomColourRows((prev) => ({ ...prev, [pc.key]: false }));
-                                      if (!isPreset) updatePiece(pc.key, { colour: COLOUR_PRESETS[0].name });
-                                    }}
-                                    style={{
-                                      border: "none",
-                                      background: "transparent",
-                                      color: "#6B7280",
-                                      cursor: "pointer",
-                                      fontSize: 12,
-                                      padding: "0 2px",
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    ▾
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <select
-                                    value={pc.colour}
-                                    onChange={(e) => {
-                                      if (e.target.value === "__CUSTOM__") {
-                                        setCustomColourRows((prev) => ({ ...prev, [pc.key]: true }));
-                                        updatePiece(pc.key, { colour: "" });
-                                      } else {
-                                        updatePiece(pc.key, { colour: e.target.value });
-                                      }
-                                    }}
-                                    className="ap-cell-input"
-                                    style={{
-                                      border: "none",
-                                      background: "transparent",
-                                      fontWeight: 600,
-                                      fontSize: 12.5,
-                                      color: "#800020",
-                                      cursor: "pointer",
-                                      width: "100%",
-                                      padding: 0,
-                                    }}
-                                    aria-label="Piece colour"
-                                  >
-                                    {COLOUR_PRESETS.map((c) => (
-                                      <option key={c.name} value={c.name}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                    <option value="__CUSTOM__">+ Undefined / Custom Colour…</option>
-                                  </select>
-                                  <button
-                                    type="button"
-                                    title="Enter undefined / custom colour"
-                                    onClick={() => {
-                                      setCustomColourRows((prev) => ({ ...prev, [pc.key]: true }));
-                                      updatePiece(pc.key, { colour: "" });
-                                    }}
-                                    style={{
-                                      border: "1px solid #EAD5C0",
-                                      background: "#FAF5EE",
-                                      color: "#800020",
-                                      borderRadius: 4,
-                                      cursor: "pointer",
-                                      fontSize: 10,
-                                      fontWeight: 700,
-                                      padding: "2px 5px",
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    +
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <div className="ap-cell-box" style={{ gap: 6 }}>
+                          <span
+                            style={{
+                              backgroundColor: colourHex(pc.colour),
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              border: "1px solid rgba(0,0,0,0.15)",
+                            }}
+                          />
+                          <select
+                            value={pc.colour}
+                            onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
+                            className="ap-cell-input"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              fontWeight: 600,
+                              fontSize: 12.5,
+                              color: "#800020",
+                              cursor: "pointer",
+                              width: "100%",
+                              padding: 0,
+                            }}
+                            aria-label="Piece colour"
+                          >
+                            {COLOUR_PRESETS.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
 
                       {/* Selling Price (₹) */}
