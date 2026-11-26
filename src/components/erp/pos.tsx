@@ -2732,7 +2732,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 <th style={{ minWidth: 105, whiteSpace: 'nowrap', textAlign: 'right' }}>Total</th>
                 <th style={{ minWidth: 115, whiteSpace: 'nowrap', textAlign: 'right' }}>Paid</th>
                 <th style={{ minWidth: 125, whiteSpace: 'nowrap', textAlign: 'right' }}>Change Returned</th>
-                <th style={{ minWidth: 135, whiteSpace: 'nowrap', textAlign: 'center' }}>Action</th>
+                <th style={{ minWidth: 145, whiteSpace: 'nowrap', textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2799,8 +2799,8 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           '—'
                         )}
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                        {money(b.total_paise)}
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        <strong>{money(b.total_paise)}</strong>
                         {Number(b.discount_paise || 0) > 0 && (
                           <small
                             style={{
@@ -2808,13 +2808,14 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                               fontWeight: 600,
                               color: '#15803D',
                               whiteSpace: 'nowrap',
+                              marginTop: 2,
                             }}
                           >
                             Disc: −{money(Number(b.discount_paise))}
                           </small>
                         )}
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         <strong>{money(totalPaidPaise)}</strong>
                         <small
                           style={{
@@ -2822,12 +2823,13 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                             fontWeight: 600,
                             color: 'var(--erp-text-muted)',
                             whiteSpace: 'nowrap',
+                            marginTop: 2,
                           }}
                         >
                           {payMethodsLabel}
                         </small>
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {changeReturnedPaise > 0 ? (
                           <strong style={{ color: '#15803D' }}>
                             {money(changeReturnedPaise)}
@@ -2836,11 +2838,12 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           <span style={{ color: 'var(--erp-text-muted)' }}>0 Rs</span>
                         )}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap' }}>
                           <button
                             type="button"
                             className="button outline-btn mini-btn"
+                            style={{ minHeight: 32, height: 32, padding: '0 12px', fontSize: 12, borderRadius: 6 }}
                             onClick={() => void openBill(b.id, false)}
                           >
                             View
@@ -2848,6 +2851,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           <button
                             type="button"
                             className="button mini-btn"
+                            style={{ minHeight: 32, height: 32, padding: '0 12px', fontSize: 12, borderRadius: 6 }}
                             onClick={() => void openBill(b.id, true)}
                           >
                             🖨 Print
