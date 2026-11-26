@@ -279,8 +279,8 @@ export function AuthForm({ mode }: { mode: string }) {
             style={{
               display: "flex",
               border: "1px solid var(--line, #E5D5C5)",
-              borderRadius: "6px",
-              marginBottom: "20px",
+              borderRadius: "8px",
+              marginBottom: "24px",
               overflow: "hidden",
               background: "#FDFBF7",
             }}
@@ -295,6 +295,7 @@ export function AuthForm({ mode }: { mode: string }) {
                 flex: 1,
                 padding: "12px 14px",
                 border: "none",
+                outline: "none",
                 fontSize: "13px",
                 fontWeight: 600,
                 cursor: "pointer",
@@ -317,6 +318,7 @@ export function AuthForm({ mode }: { mode: string }) {
                 flex: 1,
                 padding: "12px 14px",
                 border: "none",
+                outline: "none",
                 fontSize: "13px",
                 fontWeight: 600,
                 cursor: "pointer",
@@ -342,21 +344,39 @@ export function AuthForm({ mode }: { mode: string }) {
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="e.g. Priyadharshini"
                   maxLength={80}
+                  className="auth-input"
+                  style={{
+                    width: "100%",
+                    height: "46px",
+                    padding: "10px 14px",
+                    border: "1px solid #D4B99F",
+                    borderRadius: "8px",
+                    background: "#FFFFFF",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                  }}
                 />
               </label>
               <label>
                 Mobile Number
-                <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+                <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
                   <select
                     value={dialCode}
                     onChange={(e) => setDialCode(e.target.value)}
+                    aria-label="Country Dial Code"
+                    className="auth-select"
                     style={{
-                      width: "125px",
-                      padding: "10px",
-                      border: "1px solid var(--line)",
-                      borderRadius: "4px",
-                      background: "#FFF",
+                      width: "135px",
+                      height: "46px",
+                      padding: "10px 12px",
+                      border: "1px solid #D4B99F",
+                      borderRadius: "8px",
+                      background: "#FFFFFF",
                       fontWeight: 600,
+                      fontSize: "13px",
+                      color: "var(--ink)",
+                      boxSizing: "border-box",
+                      cursor: "pointer",
                     }}
                   >
                     {SUPPORTED_COUNTRY_CODES.map((c) => (
@@ -371,7 +391,19 @@ export function AuthForm({ mode }: { mode: string }) {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="98765 43210"
                     required
-                    style={{ flex: 1 }}
+                    className="auth-input"
+                    style={{
+                      flex: 1,
+                      height: "46px",
+                      padding: "10px 14px",
+                      border: "1px solid #D4B99F",
+                      borderRadius: "8px",
+                      background: "#FFFFFF",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      letterSpacing: "0.02em",
+                      boxSizing: "border-box",
+                    }}
                   />
                 </div>
               </label>
@@ -379,7 +411,15 @@ export function AuthForm({ mode }: { mode: string }) {
                 type="submit"
                 disabled={busy}
                 className="button"
-                style={{ width: "100%", marginTop: "12px" }}
+                style={{
+                  width: "100%",
+                  marginTop: "14px",
+                  minHeight: "46px",
+                  height: "46px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                }}
               >
                 {busy ? "Sending OTP..." : "Send OTP ↗"}
               </button>
@@ -433,15 +473,17 @@ export function AuthForm({ mode }: { mode: string }) {
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                    className="otp-digit-input"
                     style={{
-                      width: "44px",
+                      width: "46px",
                       height: "52px",
                       textAlign: "center",
                       fontSize: "22px",
                       fontWeight: "bold",
                       border: "2px solid #C49A52",
-                      borderRadius: "6px",
-                      background: "#FFFDF9",
+                      borderRadius: "8px",
+                      background: "#FFFFFF",
+                      boxSizing: "border-box",
                     }}
                   />
                 ))}
@@ -478,7 +520,15 @@ export function AuthForm({ mode }: { mode: string }) {
                 type="submit"
                 disabled={busy}
                 className="button"
-                style={{ width: "100%", marginTop: "12px" }}
+                style={{
+                  width: "100%",
+                  marginTop: "14px",
+                  minHeight: "46px",
+                  height: "46px",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                }}
               >
                 {busy ? "Verifying..." : "Verify & Sign In ↗"}
               </button>
@@ -490,7 +540,13 @@ export function AuthForm({ mode }: { mode: string }) {
             {mode === "register" && (
               <label>
                 Your name
-                <input name="name" autoComplete="name" required maxLength={80} />
+                <input
+                  name="name"
+                  autoComplete="name"
+                  required
+                  maxLength={80}
+                  className="auth-input"
+                />
               </label>
             )}
             {mode !== "reset-password" && (
@@ -502,6 +558,7 @@ export function AuthForm({ mode }: { mode: string }) {
                   autoComplete="email"
                   required
                   maxLength={254}
+                  className="auth-input"
                 />
               </label>
             )}
@@ -518,7 +575,7 @@ export function AuthForm({ mode }: { mode: string }) {
                       mode === "login" ? "current-password" : "new-password"
                     }
                     required
-                    className="password-input"
+                    className="password-input auth-input"
                   />
                   <button
                     type="button"
