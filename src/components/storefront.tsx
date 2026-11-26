@@ -661,10 +661,13 @@ export function Cart({
                 <p>This saree is no longer available.</p>
               )}
               <button
+                type="button"
                 onClick={() => quantity(l.product_id, 0, l.piece_id)}
-                className="text-link"
+                className="cart-remove-btn"
+                title="Remove saree from bag"
               >
-                Remove
+                <span>Remove</span>
+                <span aria-hidden="true" style={{ fontSize: "14px", lineHeight: 1 }}>×</span>
               </button>
             </article>
           ))}
@@ -683,7 +686,11 @@ export function Cart({
             >
               Continue to order ↗
             </Link>
-            <button className="text-link" onClick={clear}>
+            <button
+              type="button"
+              className="button button-outline"
+              onClick={clear}
+            >
               Clear bag
             </button>
           </div>
