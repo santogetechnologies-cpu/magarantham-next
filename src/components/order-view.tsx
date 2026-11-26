@@ -983,69 +983,95 @@ export function OrderView({
               </button>
             </form>
           )}
-          {can("orders") && (
-            <form
-              className="form-panel"
-              onSubmit={(e) =>
-                formAction(e, "status", (f) => ({
-                  status: f.get("status"),
-                  note: f.get("note"),
-                }))
-              }
-            >
-              <h2>Order status.</h2>
-              <label>
-                Next status
-                <select name="status">
-                  {(o.status === "awaiting_payment"
-                    ? ["cancelled"]
-                    : o.status === "confirmed"
-                      ? ["packing", "cancelled"]
-                      : o.status === "packing"
-                        ? ["shipped", "cancelled"]
-                        : o.status === "shipped"
-                          ? ["delivered"]
-                          : o.status === "delivered"
-                            ? ["return_requested"]
-                            : o.status === "return_requested"
-                              ? ["returned"]
-                              : []
-                  ).map((v) => (
-                    <option key={v} value={v}>
-                      {v.replaceAll("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Update note / received return details
-                <textarea
-                  name="note"
-                  maxLength={500}
-                  required={o.status === "return_requested"}
-                  minLength={o.status === "return_requested" ? 3 : 0}
-                />
-              </label>
-              <p className="subtle">
-                Mark returned only after receiving and checking the physical
-                sarees. A tracking ID is required before shipping.
-              </p>
-              <button
-                className="button"
-                disabled={
-                  busy ||
-                  [
-                    "cancelled",
-                    "expired",
-                    "review_required",
-                    "returned",
-                  ].includes(o.status)
+          {can("orders") && (() => {
+            const nextStatuses =
+              o.status === "awaiting_payment"
+                ? ["cancelled"]
+                : o.status === "confirmed"
+                  ? ["packing", "cancelled"]
+                  : o.status === "packing"
+                    ? ["shipped", "cancelled"]
+                    : o.status === "shipped"
+                      ? ["delivered"]
+                      : o.status === "delivered"
+                        ? ["return_requested"]
+                        : o.status === "return_requested"
+                          ? ["returned"]
+                          : [];
+
+            const statusLabels: Record<string, string> = {
+              packing: "Packing (Processing)",
+              shipped: "Shipped",
+              delivered: "Delivered",
+              cancelled: "Cancelled",
+              return_requested: "Return Requested",
+              returned: "Returned",
+            };
+
+            return (
+              <form
+                className="form-panel"
+                onSubmit={(e) =>
+                  formAction(e, "status", (f) => ({
+                    status: f.get("status"),
+                    note: f.get("note"),
+                  }))
                 }
               >
-                Update order status
-              </button>
-            </form>
-          )}
+                <h2>Order status.</h2>
+                <p style={{ fontSize: 13, color: "#4B5563", marginBottom: 14 }}>
+                  Current status:{" "}
+                  <strong style={{ textTransform: "capitalize", color: "var(--wine)" }}>
+                    {o.status.replaceAll("_", " ")}
+                  </strong>
+                </p>
+
+                {nextStatuses.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      background: "#FAF5EE",
+                      border: "1px solid #EAD5C0",
+                      color: "#4B5563",
+                      fontSize: 13,
+                    }}
+                  >
+                    This order is in a final status (<strong>{o.status.replaceAll("_", " ")}</strong>) and has no further status transitions.
+                  </div>
+                ) : (
+                  <>
+                    <label>
+                      Next status
+                      <select name="status" required defaultValue={nextStatuses[0]}>
+                        {nextStatuses.map((v) => (
+                          <option key={v} value={v}>
+                            {statusLabels[v] || v.replaceAll("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Update note / received return details
+                      <textarea
+                        name="note"
+                        maxLength={500}
+                        required={o.status === "return_requested"}
+                        minLength={o.status === "return_requested" ? 3 : 0}
+                      />
+                    </label>
+                    <p className="subtle">
+                      Mark returned only after receiving and checking the physical
+                      sarees. A tracking ID is required before shipping.
+                    </p>
+                    <button className="button" disabled={busy}>
+                      Update order status
+                    </button>
+                  </>
+                )}
+              </form>
+            );
+          })()}
         </div>
       </div>
     </section>
