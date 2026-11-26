@@ -68,7 +68,7 @@ function playScanBeep(success = true) {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.25);
     }
-  } catch {}
+  } catch { }
 }
 
 export function POS({ profile }: { profile: Profile }) {
@@ -183,7 +183,7 @@ export function POS({ profile }: { profile: Profile }) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) setHeldBills(parsed);
-        } catch {}
+        } catch { }
       }
     }
     window.addEventListener('storage', onStorage);
@@ -528,11 +528,11 @@ export function POS({ profile }: { profile: Profile }) {
   const discountTypeLabel =
     discount > 0
       ? [
-          spotTotalPaise > 0 ? 'Spot' : '',
-          rawDiscountPaise > 0 ? (discountType === 'percent' ? `${parsedDiscountNum}%` : 'Fixed ₹') : '',
-        ]
-          .filter(Boolean)
-          .join(' + ')
+        spotTotalPaise > 0 ? 'Spot' : '',
+        rawDiscountPaise > 0 ? (discountType === 'percent' ? `${parsedDiscountNum}%` : 'Fixed ₹') : '',
+      ]
+        .filter(Boolean)
+        .join(' + ')
       : '';
 
   // Live instant client-side price preview (synced with authoritative server pos_quote)
@@ -1984,16 +1984,16 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
               const serverDiscountReason =
                 discount > 0
                   ? [
-                      ...spotLines.map((l) => `Spot ${l.pct}% on ${l.name} (${money(l.paise)})`),
-                      rawDiscountPaise > 0
-                        ? discountType === 'percent'
-                          ? `Bill ${parsedDiscountNum}% (${money(rawDiscountPaise)})`
-                          : `Bill fixed (${money(rawDiscountPaise)})`
-                        : '',
-                    ]
-                      .filter(Boolean)
-                      .join('; ')
-                      .slice(0, 300)
+                    ...spotLines.map((l) => `Spot ${l.pct}% on ${l.name} (${money(l.paise)})`),
+                    rawDiscountPaise > 0
+                      ? discountType === 'percent'
+                        ? `Bill ${parsedDiscountNum}% (${money(rawDiscountPaise)})`
+                        : `Bill fixed (${money(rawDiscountPaise)})`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('; ')
+                    .slice(0, 300)
                   : '';
 
               const result = await send('pos_sale', {
@@ -2732,7 +2732,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 <th style={{ minWidth: 105, whiteSpace: 'nowrap', textAlign: 'right' }}>Total</th>
                 <th style={{ minWidth: 115, whiteSpace: 'nowrap', textAlign: 'right' }}>Paid</th>
                 <th style={{ minWidth: 125, whiteSpace: 'nowrap', textAlign: 'right' }}>Change Returned</th>
-                <th style={{ minWidth: 145, whiteSpace: 'nowrap', textAlign: 'right' }}>Action</th>
+                <th style={{ minWidth: 135, whiteSpace: 'nowrap', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2799,8 +2799,8 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           '—'
                         )}
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        <strong>{money(b.total_paise)}</strong>
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        {money(b.total_paise)}
                         {Number(b.discount_paise || 0) > 0 && (
                           <small
                             style={{
@@ -2808,28 +2808,85 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                               fontWeight: 600,
                               color: '#15803D',
                               whiteSpace: 'nowrap',
-                              marginTop: 2,
                             }}
                           >
                             Disc: −{money(Number(b.discount_paise))}
                           </small>
                         )}
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         <strong>{money(totalPaidPaise)}</strong>
-                        <small
-                          style={{
-                            display: 'block',
-                            fontWeight: 600,
-                            color: 'var(--erp-text-muted)',
-                            whiteSpace: 'nowrap',
-                            marginTop: 2,
-                          }}
-                        >
-                          {payMethodsLabel}
-                        </small>
+                        {billTenders.length > 0 ? (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-end',
+                              gap: 3,
+                              marginTop: 4,
+                            }}
+                          >
+                            {billTenders.map((t: Row, tidx: number) => {
+                              const method = String(t.method || 'cash').toUpperCase();
+                              const amt =
+                                method === 'CASH' && cashRecvPaise > Number(t.amount_paise || 0)
+                                  ? cashRecvPaise
+                                  : Number(t.amount_paise || 0);
+                              const badgeColors: Record<string, { bg: string; color: string }> = {
+                                UPI: { bg: '#EFF6FF', color: '#1D4ED8' },
+                                CASH: { bg: '#ECFDF5', color: '#047857' },
+                                CARD: { bg: '#FEF3C7', color: '#B45309' },
+                              };
+                              const c = badgeColors[method] || { bg: '#F3F4F6', color: '#374151' };
+                              return (
+                                <div
+                                  key={`${t.id || tidx}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      padding: '1px 6px',
+                                      borderRadius: 4,
+                                      background: c.bg,
+                                      color: c.color,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {method}
+                                  </span>
+                                  <span style={{ color: 'var(--erp-text)' }}>
+                                    {money(amt)}
+                                  </span>
+                                  {t.reference && (
+                                    <span style={{ color: 'var(--erp-text-muted)', fontSize: 10 }}>
+                                      ({t.reference})
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <small
+                            style={{
+                              display: 'block',
+                              fontWeight: 600,
+                              color: 'var(--erp-text-muted)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {payMethodsLabel}
+                          </small>
+                        )}
                       </td>
-                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <td className="money-cell" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {changeReturnedPaise > 0 ? (
                           <strong style={{ color: '#15803D' }}>
                             {money(changeReturnedPaise)}
@@ -2838,12 +2895,11 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           <span style={{ color: 'var(--erp-text-muted)' }}>0 Rs</span>
                         )}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, whiteSpace: 'nowrap' }}>
+                      <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                           <button
                             type="button"
                             className="button outline-btn mini-btn"
-                            style={{ minHeight: 32, height: 32, padding: '0 12px', fontSize: 12, borderRadius: 6 }}
                             onClick={() => void openBill(b.id, false)}
                           >
                             View
@@ -2851,7 +2907,6 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                           <button
                             type="button"
                             className="button mini-btn"
-                            style={{ minHeight: 32, height: 32, padding: '0 12px', fontSize: 12, borderRadius: 6 }}
                             onClick={() => void openBill(b.id, true)}
                           >
                             🖨 Print
