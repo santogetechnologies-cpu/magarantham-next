@@ -6061,7 +6061,7 @@ body:has(.luxury-admin-shell) #main {
 /* Prominent Barcode Scanner Bar */
 .pos-scanner-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 14px;
   background: linear-gradient(135deg, #650019 0%, #800020 100%);
   border: 1px solid rgba(196, 154, 82, 0.45);
@@ -6071,9 +6071,9 @@ body:has(.luxury-admin-shell) #main {
 }
 
 .pos-scanner-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: rgba(196, 154, 82, 0.2);
   border: 1px solid rgba(196, 154, 82, 0.45);
   color: var(--erp-gold);
@@ -6088,7 +6088,7 @@ body:has(.luxury-admin-shell) #main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -6112,10 +6112,12 @@ body:has(.luxury-admin-shell) #main {
 }
 
 .pos-scanner-label {
-  font-size: 11px;
+  display: block;
+  margin-bottom: 0;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--erp-peach);
-  letter-spacing: 0.3px;
+  color: rgba(255, 235, 214, 0.94);
+  letter-spacing: 0.2px;
 }
 
 .pos-scanner-input {
