@@ -92,7 +92,7 @@ export function OrdersDashboard() {
       if (fromDate) params.set("from", fromDate);
       if (toDate) params.set("to", toDate);
       params.set("page", String(targetPage));
-      params.set("limit", "15");
+      params.set("limit", "100");
 
       const res = await api<{
         summary: OrderSummary;
@@ -424,7 +424,7 @@ export function OrdersDashboard() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Table Footer */}
         <div
           style={{
             padding: "12px 16px",
@@ -438,26 +438,9 @@ export function OrdersDashboard() {
           }}
         >
           <span>
-            Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> ({totalCount} orders)
+            Showing <strong>{orders.length}</strong> {orders.length === 1 ? "order" : "orders"}
+            {totalCount > orders.length ? ` (of ${totalCount} total)` : ""}
           </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              disabled={page <= 1 || loading}
-              onClick={() => void load(page - 1)}
-              className="ms-btn ms-btn-ghost ms-btn-sm"
-            >
-              ← Previous
-            </button>
-            <button
-              type="button"
-              disabled={page >= totalPages || loading}
-              onClick={() => void load(page + 1)}
-              className="ms-btn ms-btn-ghost ms-btn-sm"
-            >
-              Next →
-            </button>
-          </div>
         </div>
       </div>
     </div>

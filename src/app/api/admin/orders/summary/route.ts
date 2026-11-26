@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const fromDate = (url.searchParams.get("from") || "").trim();
     const toDate = (url.searchParams.get("to") || "").trim();
     const page = Math.max(1, Number(url.searchParams.get("page") || 1));
-    const limit = Math.min(50, Math.max(5, Number(url.searchParams.get("limit") || 15)));
+    const limit = Math.min(200, Math.max(5, Number(url.searchParams.get("limit") || 100)));
 
     // 1. Summary KPIs across all orders
     const { data: allStatsRows } = await db
