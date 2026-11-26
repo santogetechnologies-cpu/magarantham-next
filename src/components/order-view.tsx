@@ -219,6 +219,85 @@ export function OrderView({
         </div>
       </div>
 
+      {/* Customer Visual Order Progress Stepper */}
+      {!admin && !["cancelled", "expired", "returned", "return_requested"].includes(o.status) && (
+        <div
+          style={{
+            background: "#FFFDF9",
+            border: "1px solid #EAD5C0",
+            borderRadius: 14,
+            padding: "20px 24px",
+            marginBottom: 24,
+            boxShadow: "0 4px 16px rgba(121, 5, 30, 0.04)",
+          }}
+        >
+          {(() => {
+            const steps = [
+              { key: "awaiting_payment", label: "Order Placed", icon: "🛍️" },
+              { key: "confirmed", label: "Confirmed", icon: "✓" },
+              { key: "packing", label: "Packing", icon: "📦" },
+              { key: "shipped", label: "Shipped", icon: "🚚" },
+              { key: "delivered", label: "Delivered", icon: "✨" },
+            ];
+            const currentIdx = Math.max(
+              0,
+              steps.findIndex((st) => st.key === o.status),
+            );
+            return (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                {steps.map((st, idx) => {
+                  const done = idx <= currentIdx;
+                  const active = idx === currentIdx;
+                  return (
+                    <div key={st.key} style={{ textAlign: "center", position: "relative" }}>
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          margin: "0 auto 8px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 15,
+                          fontWeight: 700,
+                          background: done ? "#79051E" : "#FAF5EE",
+                          color: done ? "#FFFFFF" : "#9CA3AF",
+                          border: active
+                            ? "3px solid #C49A52"
+                            : done
+                              ? "2px solid #79051E"
+                              : "1px solid #EAD5C0",
+                          boxShadow: active ? "0 0 0 4px rgba(196, 154, 82, 0.2)" : "none",
+                        }}
+                      >
+                        {st.icon}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: active ? 700 : done ? 600 : 400,
+                          color: done ? "#79051E" : "#9CA3AF",
+                        }}
+                      >
+                        {st.label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Admin Structured Customer / Payment / Delivery Cards */}
       {admin && (
         <div
@@ -485,18 +564,42 @@ export function OrderView({
             <p className="subtle">Order reference: {o.id}</p>
           </div>
           <div className="timeline">
-            <h2>Order updates.</h2>
+            <h2>Order Updates</h2>
             {[...o.order_events]
               .sort((a: Row, b: Row) =>
                 b.created_at.localeCompare(a.created_at),
               )
-              .map((e: Row) => (
+              .map((e: Row, idx: number) => (
                 <div key={e.id}>
                   <span />
                   <p>
+                    {idx === 0 && (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          marginRight: 8,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "#FEF3C7",
+                          color: "#92400E",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Latest
+                      </span>
+                    )}
                     {e.message}
                     <small>
-                      {new Date(e.created_at).toLocaleString("en-IN")}
+                      {new Date(e.created_at).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </small>
                   </p>
                 </div>
