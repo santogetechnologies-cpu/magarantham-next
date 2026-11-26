@@ -6,20 +6,31 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 interface CustomerAuthModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
   onSuccess?: () => void;
   initialRedirect?: string;
+  initialTab?: ModalTab;
+  standalone?: boolean;
 }
 
 type ModalTab = 'login' | 'register' | 'forgot';
+
+function getSafeReturnTo(): string | null {
+  if (typeof window === 'undefined') return null;
+  const p = new URLSearchParams(window.location.search).get('returnTo');
+  if (p && p.startsWith('/') && !p.startsWith('//')) return p;
+  return null;
+}
 
 export function CustomerAuthModal({
   isOpen,
   onClose,
   onSuccess,
   initialRedirect = '/account',
+  initialTab = 'login',
+  standalone = false,
 }: CustomerAuthModalProps) {
-  const [tab, setTab] = useState<ModalTab>('login');
+  const [tab, setTab] = useState<ModalTab>(initialTab);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +41,17 @@ export function CustomerAuthModal({
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
+
+  function handleClose() {
+    if (onClose) onClose();
+    else if (standalone && typeof window !== 'undefined') {
+      window.location.assign('/');
+    }
+  }
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,9 +88,9 @@ export function CustomerAuthModal({
           email: email.trim(),
           password,
         });
-        onClose();
+        if (onClose) onClose();
         if (onSuccess) onSuccess();
-        else window.location.assign(res.redirect || initialRedirect || '/');
+        else window.location.assign(getSafeReturnTo() || res.redirect || initialRedirect || '/');
       } else if (tab === 'register') {
         const res = await api<{ message?: string; redirect?: string }>('/api/auth/register', {
           name: fullName.trim(),
@@ -78,9 +100,9 @@ export function CustomerAuthModal({
           captcha_token: '',
         });
         if (res.redirect === '/') {
-          onClose();
+          if (onClose) onClose();
           if (onSuccess) onSuccess();
-          else window.location.assign('/');
+          else window.location.assign(getSafeReturnTo() || '/');
         } else {
           setStatusMsg(res.message || 'Account created! You can now log in.');
         }
@@ -138,7 +160,7 @@ export function CustomerAuthModal({
         padding: 16,
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        if (e.target === e.currentTarget && !busy) handleClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -166,7 +188,7 @@ export function CustomerAuthModal({
         >
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={busy}
             aria-label="Close login modal"
             style={{

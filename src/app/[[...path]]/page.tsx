@@ -14,6 +14,7 @@ import {
 import { BannerSlot } from "@/components/banner-slot";
 import { Catalogue } from "@/components/catalogue";
 import { AuthForm, Mfa } from "@/components/auth-form";
+import { CustomerAuthModal } from "@/components/customer-auth-modal";
 import { Account } from "@/components/account";
 import { OrderView } from "@/components/order-view";
 import { CategoryCollectionPage } from "@/components/category-collection";
@@ -126,8 +127,15 @@ export default async function Page({
   }
   if (route === "cart") return <Cart {...store} />;
   if (route === "bulk") return <Bulk settings={store.settings} />;
-  if (["login", "register", "forgot-password"].includes(route))
-    return <AuthForm mode={route} />;
+  if (["login", "register", "forgot-password"].includes(route)) {
+    const initialTab =
+      route === "register"
+        ? "register"
+        : route === "forgot-password"
+          ? "forgot"
+          : "login";
+    return <CustomerAuthModal isOpen standalone initialTab={initialTab} />;
+  }
   if (
     ["checkout", "mfa", "reset-password", "account"].includes(route) ||
     (path[0] === "account" && path[1] === "orders" && path.length === 3)
