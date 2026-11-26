@@ -206,7 +206,7 @@ export function AuthForm({ mode }: { mode: string }) {
         </div>
       </div>
       <div className="auth-copy">
-        <p className="eyebrow">Your sarees. Your account.</p>
+        <p className="eyebrow">Customer & Admin Sign In</p>
         <h1>{title}</h1>
 
         <form className="form-panel" onSubmit={submit}>

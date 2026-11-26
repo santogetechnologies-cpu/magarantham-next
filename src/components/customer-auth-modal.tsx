@@ -212,7 +212,7 @@ export function CustomerAuthModal({
                   fontWeight: 600,
                 }}
               >
-                Magarantham Silks
+                Magarantham Silks · Customer & Admin Sign In
               </div>
               <h2
                 id="auth-modal-title"
@@ -298,7 +298,7 @@ export function CustomerAuthModal({
               />
             </label>
 
-            {tab !== 'forgot' && googleEnabled && (
+            {tab !== 'forgot' && (
               <label style={{ display: 'block', marginBottom: 0 }}>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
                   Password
