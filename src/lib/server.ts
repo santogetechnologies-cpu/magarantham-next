@@ -214,12 +214,35 @@ export async function staff(cap?: Capability | "superadmin") {
   return session;
 }
 export function origin(req: Request) {
+  if (req.headers.get("sec-fetch-site") === "cross-site") {
+    throw new Fault(403, "ORIGIN_REJECTED");
+  }
+  const reqOrigin = req.headers.get("origin");
+  if (!reqOrigin) return;
+
+  const allowedOrigins = new Set<string>();
   const expected = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!expected) throw new Fault(503, "SITE_URL_REQUIRED");
-  if (req.headers.get("origin") !== new URL(expected).origin)
+  if (expected) {
+    try {
+      allowedOrigins.add(new URL(expected).origin);
+    } catch {}
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") || (forwardedHost?.includes("localhost") ? "http" : "https");
+  if (forwardedHost) {
+    allowedOrigins.add(`${forwardedProto}://${forwardedHost}`);
+    allowedOrigins.add(`https://${forwardedHost}`);
+    allowedOrigins.add(`http://${forwardedHost}`);
+  }
+
+  try {
+    allowedOrigins.add(new URL(req.url).origin);
+  } catch {}
+
+  if (!allowedOrigins.has(reqOrigin)) {
     throw new Fault(403, "ORIGIN_REJECTED");
-  if (req.headers.get("sec-fetch-site") === "cross-site")
-    throw new Fault(403, "ORIGIN_REJECTED");
+  }
 }
 export async function json(req: Request, max = 40000) {
   if (!req.headers.get("content-type")?.startsWith("application/json"))
