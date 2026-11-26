@@ -1727,20 +1727,44 @@ legend {
 }
 
 .status {
-  display: inline-block;
-  padding: 7px 15px;
-  background: #e8be8c;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: capitalize;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .status-paid {
-  background: #d8dfc0;
-  color: #28432e;
+  background: #ECFDF5;
+  color: #065F46;
+  border-color: #6EE7B7;
+}
+
+.status-refund_pending {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #F59E0B;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.22);
 }
 
 .status-refunded {
-  background: #e7d6bd;
+  background: #EFF6FF;
+  color: #1E40AF;
+  border-color: #93C5FD;
+}
+
+.status-failed,
+.status-late_paid {
+  background: #FEF2F2;
+  color: #991B1B;
+  border-color: #FCA5A5;
 }
 
 .timeline {
