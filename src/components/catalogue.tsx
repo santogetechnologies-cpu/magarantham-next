@@ -19,7 +19,18 @@ export function ProductCard({
   return (
     <article className="product-card" data-reveal>
       <Link href={`/products/${p.slug}`} className="product-photo">
-        <img src={p.image_path} alt={`${p.name}, ${p.colour}`} loading="lazy" />
+        <img
+          src={p.image_path || "/assets/product-01.jpg"}
+          alt={`${p.name}, ${p.colour}`}
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.dataset.fallback) {
+              img.dataset.fallback = "1";
+              img.src = "/assets/product-01.jpg";
+            }
+          }}
+        />
         <span
           className="product-tag"
           style={

@@ -1,9 +1,8 @@
 "use client";
-import { FormEvent, useEffect, useRef, useState, KeyboardEvent } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { api } from "./api";
-import { SUPPORTED_COUNTRY_CODES } from "@/lib/phone";
 declare global {
   interface Window {
     turnstile?: {
@@ -72,124 +71,11 @@ export function AuthForm({ mode }: { mode: string }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [token, setToken] = useState(""),
-    [showPassword, setShowPassword] = useState(false);
+    [showPassword, setShowPassword] = useState(false),
+    [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const captchaRef = useRef<HTMLDivElement>(null),
     widget = useRef("");
 
-  // Mobile OTP States for Login
-  const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
-  const [phoneStep, setPhoneStep] = useState<"input" | "verify">("input");
-  const [dialCode, setDialCode] = useState("+91");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [countdown, setCountdown] = useState(60);
-  const [canResend, setCanResend] = useState(false);
-
-  // Countdown timer for Phone OTP
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (mode === "login" && phoneStep === "verify" && countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((c) => {
-          if (c <= 1) {
-            setCanResend(true);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [mode, phoneStep, countdown]);
-
-  async function sendPhoneOtp(e?: FormEvent) {
-    if (e) e.preventDefault();
-    const cleanDigits = phoneNumber.replace(/\D/g, "");
-    if (dialCode === "+91" && cleanDigits.length !== 10) {
-      setMessage("Please enter a valid 10-digit Indian mobile number.");
-      return;
-    }
-    if (cleanDigits.length < 7) {
-      setMessage("Please enter a valid mobile number.");
-      return;
-    }
-    setBusy(true);
-    setMessage("");
-    try {
-      const res = await api<{ message: string; expires_in?: number }>(
-        "/api/auth/phone-send-otp",
-        {
-          phone: cleanDigits,
-          dial_code: dialCode,
-        },
-      );
-      setMessage(res.message || "OTP sent successfully.");
-      setPhoneStep("verify");
-      setOtp(["", "", "", "", "", ""]);
-      setCountdown(res.expires_in || 60);
-      setCanResend(false);
-    } catch (err) {
-      setMessage((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verifyPhoneOtp(e?: FormEvent) {
-    if (e) e.preventDefault();
-    const code = otp.join("");
-    if (code.length !== 6) {
-      setMessage("Please enter the full 6-digit OTP code.");
-      return;
-    }
-    setBusy(true);
-    setMessage("");
-    try {
-      const res = await api<{ redirect?: string }>("/api/auth/phone-verify-otp", {
-        phone: phoneNumber.replace(/\D/g, ""),
-        dial_code: dialCode,
-        token: code,
-        name: customerName,
-      });
-      const target = getReturnTo() || res.redirect || "/account";
-      window.location.assign(target);
-    } catch (err) {
-      setMessage((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function handleOtpChange(index: number, val: string) {
-    const digitsOnly = val.replace(/\D/g, "");
-    if (digitsOnly.length > 1) {
-      const chars = digitsOnly.slice(0, 6).split("");
-      const newOtp = [...otp];
-      for (let i = 0; i < 6; i++) {
-        newOtp[i] = chars[i] || "";
-      }
-      setOtp(newOtp);
-      const nextIndex = Math.min(chars.length, 5);
-      const el = document.getElementById(`login-page-otp-${nextIndex}`);
-      el?.focus();
-      return;
-    }
-    const newOtp = [...otp];
-    newOtp[index] = digitsOnly;
-    setOtp(newOtp);
-    if (digitsOnly && index < 5) {
-      const el = document.getElementById(`login-page-otp-${index + 1}`);
-      el?.focus();
-    }
-  }
-
-  function handleOtpKeyDown(index: number, e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      const el = document.getElementById(`login-page-otp-${index - 1}`);
-      el?.focus();
-    }
-  }
   const title =
     mode === "register"
       ? "Create your account."
@@ -215,9 +101,17 @@ export function AuthForm({ mode }: { mode: string }) {
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
     setMessage("");
     const f = new FormData(e.currentTarget);
+    const password = String(f.get("password") || "");
+    const confirmPassword = String(f.get("confirm_password") || "");
+
+    if (mode === "register" && password !== confirmPassword) {
+      setMessage("Passwords do not match. Please re-enter carefully.");
+      return;
+    }
+
+    setBusy(true);
     const action =
       mode === "register"
         ? "register"
@@ -228,17 +122,18 @@ export function AuthForm({ mode }: { mode: string }) {
             : "login";
     const payload =
       action === "password"
-        ? { password: f.get("password") }
+        ? { password }
         : action === "forgot"
           ? { email: f.get("email") }
           : action === "register"
             ? {
                 email: f.get("email"),
-                password: f.get("password"),
+                password,
+                confirm_password: confirmPassword,
                 name: f.get("name"),
                 captcha_token: token,
               }
-            : { email: f.get("email"), password: f.get("password") };
+            : { email: f.get("email"), password };
     try {
       const r = await api<{
         message?: string;
@@ -274,370 +169,164 @@ export function AuthForm({ mode }: { mode: string }) {
         <p className="eyebrow">Your sarees. Your account.</p>
         <h1>{title}</h1>
 
-        {mode === "login" && (
-          <div
-            style={{
-              display: "flex",
-              border: "1px solid var(--line, #E5D5C5)",
-              borderRadius: "8px",
-              marginBottom: "24px",
-              overflow: "hidden",
-              background: "#FDFBF7",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMethod("phone");
-                setMessage("");
-              }}
-              style={{
-                flex: 1,
-                padding: "12px 14px",
-                border: "none",
-                outline: "none",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-                background:
-                  loginMethod === "phone" ? "var(--wine, #6B1724)" : "transparent",
-                color:
-                  loginMethod === "phone" ? "#FFF" : "var(--wine, #6B1724)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              📱 Mobile OTP
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMethod("email");
-                setMessage("");
-              }}
-              style={{
-                flex: 1,
-                padding: "12px 14px",
-                border: "none",
-                outline: "none",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-                background:
-                  loginMethod === "email" ? "var(--wine, #6B1724)" : "transparent",
-                color:
-                  loginMethod === "email" ? "#FFF" : "var(--wine, #6B1724)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              ✉️ Email & Password
-            </button>
-          </div>
-        )}
-
-        {mode === "login" && loginMethod === "phone" ? (
-          phoneStep === "input" ? (
-            <form className="form-panel" onSubmit={sendPhoneOtp}>
-              <label>
-                Your Name (Optional)
+        <form className="form-panel" onSubmit={submit}>
+          {mode === "register" && (
+            <label>
+              Full Name
+              <input
+                name="name"
+                autoComplete="name"
+                placeholder="e.g. Priyadharshini"
+                required
+                minLength={2}
+                maxLength={80}
+                className="auth-input"
+              />
+            </label>
+          )}
+          {mode !== "reset-password" && (
+            <label>
+              Email Address
+              <input
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                required
+                maxLength={254}
+                className="auth-input"
+              />
+            </label>
+          )}
+          {mode !== "forgot-password" && (
+            <label>
+              Password
+              <div className="password-field-wrapper">
                 <input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Priyadharshini"
-                  maxLength={80}
-                  className="auth-input"
-                  style={{
-                    width: "100%",
-                    height: "46px",
-                    padding: "10px 14px",
-                    border: "1px solid #D4B99F",
-                    borderRadius: "8px",
-                    background: "#FFFFFF",
-                    fontSize: "14px",
-                    boxSizing: "border-box",
-                  }}
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  minLength={6}
+                  maxLength={128}
+                  placeholder="Minimum 6 characters"
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  required
+                  className="password-input auth-input"
                 />
-              </label>
-              <label>
-                Mobile Number
-                <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
-                  <select
-                    value={dialCode}
-                    onChange={(e) => setDialCode(e.target.value)}
-                    aria-label="Country Dial Code"
-                    className="auth-select"
-                    style={{
-                      width: "135px",
-                      height: "46px",
-                      padding: "10px 12px",
-                      border: "1px solid #D4B99F",
-                      borderRadius: "8px",
-                      background: "#FFFFFF",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "var(--ink)",
-                      boxSizing: "border-box",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {SUPPORTED_COUNTRY_CODES.map((c) => (
-                      <option key={c.code} value={c.dialCode}>
-                        {c.flag} {c.dialCode} ({c.name})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="98765 43210"
-                    required
-                    className="auth-input"
-                    style={{
-                      flex: 1,
-                      height: "46px",
-                      padding: "10px 14px",
-                      border: "1px solid #D4B99F",
-                      borderRadius: "8px",
-                      background: "#FFFFFF",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      letterSpacing: "0.02em",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-              </label>
-              <button
-                type="submit"
-                disabled={busy}
-                className="button"
-                style={{
-                  width: "100%",
-                  marginTop: "14px",
-                  minHeight: "46px",
-                  height: "46px",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                }}
-              >
-                {busy ? "Sending OTP..." : "Send OTP ↗"}
-              </button>
-              {message && <p role="status">{message}</p>}
-            </form>
-          ) : (
-            <form className="form-panel" onSubmit={verifyPhoneOtp}>
-              <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                <p style={{ margin: "0 0 6px 0", fontSize: "14px", color: "#555" }}>
-                  Enter the 6-digit code sent to
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                  }}
-                >
-                  <b style={{ fontSize: "15px", color: "var(--wine, #6B1724)" }}>
-                    {dialCode} {phoneNumber}
-                  </b>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhoneStep("input");
-                      setMessage("");
-                    }}
-                    className="text-link"
-                    style={{ fontSize: "12px", textDecoration: "underline" }}
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: "8px",
-                  margin: "16px 0",
-                }}
-              >
-                {otp.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    id={`login-page-otp-${idx}`}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="otp-digit-input"
-                    style={{
-                      width: "46px",
-                      height: "52px",
-                      textAlign: "center",
-                      fontSize: "22px",
-                      fontWeight: "bold",
-                      border: "2px solid #C49A52",
-                      borderRadius: "8px",
-                      background: "#FFFFFF",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                ))}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  margin: "12px 0",
-                  fontSize: "13px",
-                }}
-              >
-                <span style={{ color: "#777" }}>
-                  {countdown > 0
-                    ? `Resend in ${countdown}s`
-                    : "Didn't receive code?"}
-                </span>
                 <button
                   type="button"
-                  disabled={busy || !canResend}
-                  onClick={() => sendPhoneOtp()}
-                  className="text-link"
-                  style={{
-                    color: canResend ? "var(--wine, #6B1724)" : "#AAA",
-                    fontWeight: 600,
-                    cursor: canResend ? "pointer" : "not-allowed",
-                  }}
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
-                  Resend OTP
+                  {showPassword ? (
+                    <EyeOffIcon className="password-toggle-icon" />
+                  ) : (
+                    <EyeIcon className="password-toggle-icon" />
+                  )}
                 </button>
               </div>
-              <button
-                type="submit"
-                disabled={busy}
-                className="button"
-                style={{
-                  width: "100%",
-                  marginTop: "14px",
-                  minHeight: "46px",
-                  height: "46px",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                }}
-              >
-                {busy ? "Verifying..." : "Verify & Sign In ↗"}
-              </button>
-              {message && <p role="status">{message}</p>}
-            </form>
-          )
-        ) : (
-          <form className="form-panel" onSubmit={submit}>
-            {mode === "register" && (
-              <label>
-                Your name
+            </label>
+          )}
+          {mode === "register" && (
+            <label>
+              Confirm Password
+              <div className="password-field-wrapper">
                 <input
-                  name="name"
-                  autoComplete="name"
+                  name="confirm_password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  minLength={6}
+                  maxLength={128}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
                   required
-                  maxLength={80}
-                  className="auth-input"
+                  className="password-input auth-input"
                 />
-              </label>
-            )}
-            {mode !== "reset-password" && (
-              <label>
-                Email address
-                <input
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  maxLength={254}
-                  className="auth-input"
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  aria-label={
+                    showConfirmPassword ? "Hide confirm password" : "Show confirm password"
+                  }
+                  title={
+                    showConfirmPassword ? "Hide confirm password" : "Show confirm password"
+                  }
+                >
+                  {showConfirmPassword ? (
+                    <EyeOffIcon className="password-toggle-icon" />
+                  ) : (
+                    <EyeIcon className="password-toggle-icon" />
+                  )}
+                </button>
+              </div>
+            </label>
+          )}
+          {mode === "register" &&
+            process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+              <>
+                <Script
+                  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                  onReady={mountCaptcha}
                 />
-              </label>
+                <div ref={captchaRef} />
+              </>
             )}
-            {mode !== "forgot-password" && (
-              <label>
-                Password
-                <div className="password-field-wrapper">
-                  <input
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    minLength={6}
-                    maxLength={128}
-                    autoComplete={
-                      mode === "login" ? "current-password" : "new-password"
-                    }
-                    required
-                    className="password-input auth-input"
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    title={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? (
-                      <EyeOffIcon className="password-toggle-icon" />
-                    ) : (
-                      <EyeIcon className="password-toggle-icon" />
-                    )}
-                  </button>
-                </div>
-              </label>
-            )}
-            {mode === "register" &&
-              process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-                <>
-                  <Script
-                    src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-                    onReady={mountCaptcha}
-                  />
-                  <div ref={captchaRef} />
-                </>
-              )}
-            <button
-              disabled={
-                busy ||
-                (mode === "register" &&
-                  Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) &&
-                  !token)
-              }
-              className="button"
+          <button
+            disabled={
+              busy ||
+              (mode === "register" &&
+                Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) &&
+                !token)
+            }
+            className="button"
+            style={{ width: "100%", marginTop: "6px" }}
+          >
+            {busy
+              ? "Please wait…"
+              : mode === "register"
+                ? "Create Account"
+                : mode === "forgot-password"
+                  ? "Send Reset Link"
+                  : mode === "reset-password"
+                    ? "Save Password"
+                    : "Login"}{" "}
+            ↗
+          </button>
+          {message && (
+            <p
+              role="status"
+              style={{
+                marginTop: "14px",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                background: "#FEF2F2",
+                border: "1px solid #FECACA",
+                color: "#991B1B",
+                fontSize: "13px",
+              }}
             >
-              {busy
-                ? "Please wait…"
-                : mode === "register"
-                  ? "Create account"
-                  : mode === "forgot-password"
-                    ? "Send reset email"
-                    : mode === "reset-password"
-                      ? "Save password"
-                      : "Sign in"}{" "}
-              ↗
-            </button>
-            <p role="status">{message}</p>
-          </form>
-        )}
+              {message}
+            </p>
+          )}
+        </form>
         <div className="auth-links">
           {mode === "login" ? (
             <>
-              <Link href="/register">Create customer account</Link>
-              {loginMethod === "email" && (
-                <Link href="/forgot-password">Forgot password?</Link>
-              )}
+              <Link href="/register">Create Account</Link>
+              <Link href="/forgot-password">Forgot Password?</Link>
+            </>
+          ) : mode === "register" ? (
+            <>
+              <Link href="/login">Already have an account? Login</Link>
+              <Link href="/forgot-password">Forgot Password?</Link>
             </>
           ) : (
             <>
-              <Link href="/login">Sign in</Link>
-              <Link href="/register">Create account</Link>
+              <Link href="/login">Back to Login</Link>
+              <Link href="/register">Create Account</Link>
             </>
           )}
         </div>

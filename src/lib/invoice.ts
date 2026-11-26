@@ -36,6 +36,10 @@ export interface InvoiceStoreSettings {
   support_email?: string;
   support_phone?: string;
   whatsapp_phone?: string;
+  gstin?: string;
+  store_address?: string;
+  invoice_prefix?: string;
+  tax_bps?: number;
 }
 
 /**
@@ -116,8 +120,11 @@ export async function generateInvoicePdf(
 
       const customerPhone = order.customer_phone || order.address?.phone || '—';
       const customerName = order.address?.name || 'Valued Customer';
-      const invoiceNo = `MS-INV-${order.number}`;
+      const invoicePrefix = settings?.invoice_prefix || 'MS-INV-';
+      const invoiceNo = `${invoicePrefix}${order.number}`;
       const orderNo = `MS-${order.number}`;
+      const storeAddress = settings?.store_address || 'Tamil Nadu, India';
+      const storeGstin = settings?.gstin?.trim() || '';
 
       // 1. Header Section: Brand & Store Contacts
       doc.rect(36, 36, 523, 76).fill('#FFFDF9');
@@ -127,20 +134,22 @@ export async function generateInvoicePdf(
       doc.rect(36, 36, 523, 4).fill(gold);
 
       // Brand Title
-      doc.fillColor(maroon).fontSize(20).font('Helvetica-Bold').text('MAGARANTHAM SILKS', 50, 48);
+      doc.fillColor(maroon).fontSize(20).font('Helvetica-Bold').text((settings?.brand_name || 'MAGARANTHAM SILKS').toUpperCase(), 50, 48);
       doc.fillColor(gold).fontSize(9).font('Helvetica-Bold').text('SILKS · SAREES · CELEBRATIONS', 50, 72);
       doc.fillColor(mutedText).fontSize(8.5).font('Helvetica').text('Exclusive Pure Silk & Handloom Sarees', 50, 86);
 
       // Store contact info (right side)
       doc.fillColor(darkText).fontSize(8.5).font('Helvetica');
-      doc.text('Tiruppur & Kanchipuram, Tamil Nadu, India', 340, 50, { align: 'right', width: 200 });
+      doc.text(storeAddress, 340, 50, { align: 'right', width: 200 });
       doc.text(`Phone: ${settings?.support_phone || settings?.whatsapp_phone || '+91 98765 43210'}`, 340, 63, { align: 'right', width: 200 });
       doc.text(`Email: ${settings?.support_email || 'support@magaranthamsilks.com'}`, 340, 76, { align: 'right', width: 200 });
-      doc.text('GSTIN: 33AAACM1234F1Z8', 340, 89, { align: 'right', width: 200 });
+      if (storeGstin) {
+        doc.text(`GSTIN: ${storeGstin}`, 340, 89, { align: 'right', width: 200 });
+      }
 
       // 2. Invoice Banner
       doc.rect(36, 122, 523, 26).fill(maroon);
-      doc.fillColor('#FFFFFF').fontSize(11).font('Helvetica-Bold').text('TAX INVOICE / CASH BILL', 50, 130);
+      doc.fillColor('#FFFFFF').fontSize(11).font('Helvetica-Bold').text(storeGstin ? 'TAX INVOICE' : 'INVOICE / CASH BILL', 50, 130);
       doc.fillColor('#FDE047').fontSize(9).font('Helvetica-Bold').text(`ORIGINAL FOR RECIPIENT`, 400, 131, { align: 'right', width: 140 });
 
       // 3. Customer Details & Invoice Metadata (Two columns)
@@ -256,8 +265,14 @@ export async function generateInvoicePdf(
       doc.fillColor(darkText).fontSize(8.5).font('Helvetica').text(shippingRs, 440, sumRowY, { align: 'right', width: 105 });
 
       sumRowY += 16;
-      doc.fillColor(mutedText).fontSize(8.5).font('Helvetica').text('Tax (GST Included):', 354, sumRowY);
-      doc.fillColor(darkText).fontSize(8.5).font('Helvetica').text('Included in price', 440, sumRowY, { align: 'right', width: 105 });
+      const taxPaise = order.tax_paise || 0;
+      const taxPercent = settings?.tax_bps ? (settings.tax_bps / 100).toFixed(2).replace(/\.00$/, '') : '';
+      const taxLabel = taxPercent ? `Tax (GST ${taxPercent}%):` : 'Tax (GST):';
+      const taxValue = taxPaise > 0
+        ? `₹${(taxPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+        : storeGstin ? 'Included' : 'N/A';
+      doc.fillColor(mutedText).fontSize(8.5).font('Helvetica').text(taxLabel, 354, sumRowY);
+      doc.fillColor(darkText).fontSize(8.5).font('Helvetica').text(taxValue, 440, sumRowY, { align: 'right', width: 105 });
 
       // Final Total Box
       sumRowY += 18;

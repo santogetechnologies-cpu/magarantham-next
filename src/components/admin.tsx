@@ -17,6 +17,7 @@ import { CatalogueHierarchyManager } from "./admin/catalogue-hierarchy";
 import { FestivalOffersManager } from "./admin/festival-offers";
 import { PageHeader } from "./admin/page-header";
 import { BannersManager } from "./admin/banners";
+import { OrdersDashboard } from "./admin/orders-dashboard";
 
 type Row = Record<string, any>;
 
@@ -1298,52 +1299,7 @@ export function Admin({
                 )}
 
               {/* ORDERS SECTION */}
-              {section === "orders" && (
-                <div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontWeight: 600 }}>Filter by Order Status:</span>
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: 6,
-                          border: "1px solid var(--erp-border, #EAD5C0)",
-                          background: "#FFF",
-                        }}
-                      >
-                        <option value="">All orders</option>
-                        {[
-                          "awaiting_payment",
-                          "confirmed",
-                          "packing",
-                          "shipped",
-                          "delivered",
-                          "cancelled",
-                          "expired",
-                          "review_required",
-                          "return_requested",
-                          "returned",
-                        ].map((s) => (
-                          <option key={s} value={s}>
-                            {s.replaceAll("_", " ")}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <DataTable
-                    columns={orderColumns}
-                    data={rows}
-                    searchKey={["number"]}
-                    searchPlaceholder="Search order number..."
-                    exportFileName="magarantham_orders"
-                    title="Customer Orders Register"
-                  />
-                </div>
-              )}
+              {section === "orders" && <OrdersDashboard />}
 
               {/* STAFF & ACCOUNTS SECTION */}
               {(section === "staff" ||

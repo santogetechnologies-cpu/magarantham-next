@@ -14,7 +14,9 @@ import {
 import { getOrder } from "@/lib/store";
 import { reconcile, reconcileRefund } from "@/lib/payments";
 import { syncOrderPieces } from "@/lib/piece-server";
-import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp";
+import { sendOrderConfirmationWhatsApp, formatOrderConfirmationMessage } from "@/lib/whatsapp";
+import { generateInvoicePdf } from "@/lib/invoice";
+import { normalizePhone } from "@/lib/phone";
 import { uuid } from "@/lib/schemas";
 export async function GET(
   _req: Request,
@@ -33,7 +35,45 @@ export async function GET(
     const s = await staff(action === "proofs" ? "payments" : "orders");
     if (action === "view") {
       const o = await getOrder(id);
-      return ok({ order: o, profile: s.profile });
+      const db = service();
+      const [{ data: customerProfile }, { data: whatsappNotif }, { data: storeSettings }] =
+        await Promise.all([
+          db.from("profiles").select("email,display_name,phone").eq("id", o.customer_id).maybeSingle(),
+          db.from("whatsapp_notifications").select("*").eq("order_id", id).maybeSingle(),
+          db
+            .from("store_settings")
+            .select("brand_name,support_email,support_phone,whatsapp_phone,gstin,store_address,invoice_prefix,tax_bps")
+            .eq("id", true)
+            .maybeSingle(),
+        ]);
+
+      const productIds = Array.isArray(o.order_items)
+        ? o.order_items.map((i: { product_id?: string }) => i.product_id).filter(Boolean)
+        : [];
+      const { data: productRows } = productIds.length
+        ? await db.from("products").select("id,sku").in("id", productIds)
+        : { data: [] };
+      const skuMap: Record<string, string> = {};
+      for (const p of productRows || []) skuMap[p.id] = p.sku;
+
+      const rawPhone = o.customer_phone || o.address?.phone || customerProfile?.phone || "";
+      const waDigits = rawPhone ? normalizePhone(rawPhone, "+91").replace(/\D/g, "") : "";
+      const waMessage = formatOrderConfirmationMessage(o);
+      const invoiceLink = o.invoice_pdf_url || (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/orders/${o.id}/invoice` : "");
+      const waTextWithLink = invoiceLink ? `${waMessage}\n\nInvoice PDF: ${invoiceLink}` : waMessage;
+      const whatsappClickToChatUrl = waDigits
+        ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waTextWithLink)}`
+        : "";
+
+      return ok({
+        order: o,
+        profile: s.profile,
+        customerEmail: customerProfile?.email || "",
+        whatsappNotification: whatsappNotif || null,
+        storeSettings: storeSettings || null,
+        skuMap,
+        whatsappClickToChatUrl,
+      });
     }
     if (action === "proofs") {
       const { data, error } = await service()
@@ -259,12 +299,68 @@ export async function POST(
           entity: "orders",
           entity_id: id,
         });
-    } else if (action === "retry-whatsapp") {
-      const res = await sendOrderConfirmationWhatsApp(id);
+    } else if (action === "generate-invoice") {
+      const db = service();
+      const { data: settings } = await db
+        .from("store_settings")
+        .select("brand_name,support_email,support_phone,whatsapp_phone,gstin,store_address,invoice_prefix,tax_bps")
+        .eq("id", true)
+        .maybeSingle();
+
+      const pdfBuffer = await generateInvoicePdf(o, settings || undefined);
+      const invoiceNumber = `${settings?.invoice_prefix || "MS-INV-"}${o.number}`;
+      const storagePath = `invoices/Invoice-MS-${o.number}-${Date.now()}.pdf`;
+      let invoiceUrl = `/api/orders/${o.id}/invoice`;
+
+      try {
+        await db.storage.from("invoices").upload(storagePath, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+        const { data: signed } = await db.storage
+          .from("invoices")
+          .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+        if (signed?.signedUrl) invoiceUrl = signed.signedUrl;
+      } catch (storageErr) {
+        console.warn("[Admin Invoice] Storage upload warning:", (storageErr as Error).message);
+      }
+
+      try {
+        await db
+          .from("orders")
+          .update({
+            invoice_number: invoiceNumber,
+            invoice_pdf_url: invoiceUrl,
+          })
+          .eq("id", id);
+      } catch {}
+
       return ok({
+        message: `Invoice ${invoiceNumber} generated successfully.`,
+        invoiceNumber,
+        invoiceUrl,
+      });
+    } else if (action === "send-whatsapp" || action === "retry-whatsapp") {
+      const res = await sendOrderConfirmationWhatsApp(id);
+      const db = service();
+      try {
+        await db
+          .from("orders")
+          .update({
+            whatsapp_status: res.status,
+            whatsapp_sent_at: res.success ? new Date().toISOString() : null,
+            whatsapp_error: res.error || "",
+          })
+          .eq("id", id);
+      } catch {}
+
+      return ok({
+        success: res.success,
+        status: res.status,
+        error: res.error || "",
         message: res.success
-          ? "WhatsApp notification sent successfully."
-          : `WhatsApp notification ${res.status}: ${res.error || "queued"}`,
+          ? "WhatsApp bill sent successfully."
+          : `WhatsApp ${res.status}: ${res.error || "API credentials not configured. Use Click-to-Chat below."}`,
       });
     } else throw new Fault(404, "NOT_FOUND");
     return ok({ message: "Order updated." });

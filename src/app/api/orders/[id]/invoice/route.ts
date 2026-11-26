@@ -24,10 +24,10 @@ export async function GET(
     const o = await getOrder(id, isStaff ? undefined : s.user.id);
     if (!o) throw new Fault(404, 'ORDER_NOT_FOUND');
 
-    // Fetch store settings for contact info
+    // Fetch store settings for contact info & configurable GST
     const { data: settings } = await service()
       .from('store_settings')
-      .select('brand_name,support_email,support_phone,whatsapp_phone')
+      .select('brand_name,support_email,support_phone,whatsapp_phone,gstin,store_address,invoice_prefix,tax_bps')
       .eq('id', true)
       .maybeSingle();
 

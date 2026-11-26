@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
+import { useSearchParams } from "next/navigation";
 import { Profile, money } from "@/lib/core";
 import { api } from "./api";
 import { useShop } from "./shop-context";
@@ -13,6 +14,8 @@ export function OrderView({
   id: string;
   admin?: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const isNewlyPlaced = searchParams.get("placed") === "1";
   const [data, setData] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [providers, setProviders] = useState<Row[]>([]),
@@ -65,9 +68,18 @@ export function OrderView({
     );
   const o = data.order;
   const profile = data.profile as Profile | undefined;
+  const whatsappNotif = data.whatsappNotification as Row | null | undefined;
+  const storeSettings = data.storeSettings as Row | null | undefined;
+  const skuMap = (data.skuMap || {}) as Record<string, string>;
+  const customerEmail = (data.customerEmail as string) || "";
+  const whatsappClickToChatUrl = (data.whatsappClickToChatUrl as string) || "";
   const can = (cap: string) =>
     admin &&
     (profile?.role === "superadmin" || profile?.permissions.includes(cap));
+  const waStatus = whatsappNotif?.status || o.whatsapp_status || "pending";
+  const waSentAt = whatsappNotif?.sent_at || o.whatsapp_sent_at || null;
+  const waError = whatsappNotif?.error_message || o.whatsapp_error || "";
+  const invoiceNumber = o.invoice_number || `${storeSettings?.invoice_prefix || "MS-INV-"}${o.number}`;
   async function pay() {
     setBusy(true);
     try {
@@ -126,9 +138,48 @@ export function OrderView({
       <Link className="text-link" href={admin ? "/admin/orders" : "/account"}>
         ← Back to orders
       </Link>
+
+      {/* Customer Order Confirmation Banner */}
+      {!admin && isNewlyPlaced && (
+        <div
+          style={{
+            marginTop: 18,
+            marginBottom: 24,
+            padding: "28px 26px",
+            background: "linear-gradient(135deg, #FFFDF9 0%, #FAF5EE 100%)",
+            border: "2px solid #C49A52",
+            borderRadius: 14,
+            boxShadow: "0 12px 30px rgba(107, 23, 36, 0.08)",
+          }}
+        >
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#15803D", textTransform: "uppercase" }}>
+                ✓ ORDER PLACED SUCCESSFULLY!
+              </div>
+              <h2 style={{ margin: "6px 0 4px", fontSize: 26, color: "#6B1724" }}>
+                Thank you for shopping with Magarantham.
+              </h2>
+              <p style={{ margin: 0, fontSize: 14, color: "#4B5563" }}>
+                Order ID: <strong style={{ color: "#800020" }}>#MS-{o.number}</strong> · Estimated Delivery:{" "}
+                <strong>3–5 business days</strong> across India
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Link href="/shop" className="button" style={{ minHeight: 42, padding: "10px 18px", fontSize: 13 }}>
+                CONTINUE SHOPPING
+              </Link>
+              <Link href="/account" className="button button-outline" style={{ minHeight: 42, padding: "10px 18px", fontSize: 13 }}>
+                VIEW MY ORDERS
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Order MS-{o.number}</p>
+          <p className="eyebrow">Order #MS-{o.number}</p>
           <h1>{o.status.replaceAll("_", " ")}.</h1>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -146,23 +197,6 @@ export function OrderView({
           >
             Download Invoice 📄
           </a>
-          {admin && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => action("retry-whatsapp", {})}
-              className="button button-outline"
-              style={{
-                minHeight: "42px",
-                padding: "10px 18px",
-                gap: "8px",
-                fontSize: "12px",
-              }}
-              title="Resend WhatsApp confirmation & PDF invoice"
-            >
-              Retry WhatsApp 📲
-            </button>
-          )}
           <div>
             <span className={`status status-${o.payment_status}`}>
               {o.payment_status.replaceAll("_", " ")}
@@ -171,14 +205,226 @@ export function OrderView({
           </div>
         </div>
       </div>
+
+      {/* Admin Structured Customer / Payment / Delivery Cards */}
+      {admin && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <div className="form-panel" style={{ margin: 0, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#800020", letterSpacing: "0.08em", marginBottom: 8 }}>
+              CUSTOMER INFORMATION
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1F2937" }}>{o.address?.name || "Customer"}</div>
+            {customerEmail && <div style={{ fontSize: 13, color: "#4B5563", marginTop: 2 }}>{customerEmail}</div>}
+            <div style={{ fontSize: 13, color: "#4B5563", marginTop: 2 }}>
+              Mobile: <strong>{o.customer_phone || o.address?.phone || "—"}</strong>
+            </div>
+            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 1.5 }}>
+              {o.address?.line1} {o.address?.line2}
+              <br />
+              {o.address?.city}, {o.address?.state} – {o.address?.pin}
+            </div>
+          </div>
+
+          <div className="form-panel" style={{ margin: 0, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#800020", letterSpacing: "0.08em", marginBottom: 8 }}>
+              PAYMENT INFORMATION
+            </div>
+            <div style={{ fontSize: 13, color: "#374151", display: "grid", gap: 4 }}>
+              <div>Method: <strong style={{ textTransform: "uppercase" }}>{o.channel}</strong></div>
+              <div>Status: <strong style={{ textTransform: "capitalize" }}>{o.payment_status.replaceAll("_", " ")}</strong></div>
+              <div>Reference: <code>{o.provider_payment_id || o.payment_reference || "—"}</code></div>
+              <div>Total Paid / Due: <strong style={{ color: "#800020" }}>{money(o.total_paise)}</strong></div>
+            </div>
+          </div>
+
+          <div className="form-panel" style={{ margin: 0, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#800020", letterSpacing: "0.08em", marginBottom: 8 }}>
+              DELIVERY INFORMATION
+            </div>
+            <div style={{ fontSize: 13, color: "#374151", display: "grid", gap: 4 }}>
+              <div>Delivery Status: <strong style={{ textTransform: "capitalize" }}>{o.status.replaceAll("_", " ")}</strong></div>
+              <div>Tracking ID: <strong>{o.tracking_id || "Not assigned yet"}</strong></div>
+              <div>Destination: {o.address?.city}, {o.address?.state} {o.address?.pin}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin WhatsApp Bill Section */}
+      {admin && (
+        <div
+          id="whatsapp-bill"
+          style={{
+            marginBottom: 28,
+            background: "#FFFFFF",
+            border: "2px solid #C49A52",
+            borderRadius: 14,
+            overflow: "hidden",
+            boxShadow: "0 10px 28px rgba(107, 23, 36, 0.08)",
+          }}
+        >
+          <div
+            style={{
+              background: "linear-gradient(135deg, #6B1724 0%, #4A0E17 100%)",
+              color: "#FFFFFF",
+              padding: "14px 20px",
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: "0.1em", color: "#FDE047", fontWeight: 700 }}>
+                WHATSAPP BILL SECTION · GST-READY INVOICE
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 700, marginTop: 2 }}>
+                Order #MS-{o.number} · {o.address?.name || "Customer"} ({o.customer_phone || o.address?.phone || "No mobile"})
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  background:
+                    waStatus === "sent" || waStatus === "delivered"
+                      ? "#166534"
+                      : waStatus === "failed"
+                        ? "#991B1B"
+                        : "#92400E",
+                  color: "#FFFFFF",
+                }}
+              >
+                WhatsApp: {waStatus}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ padding: 20 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 14,
+                marginBottom: 16,
+                padding: 14,
+                background: "#FAF5EE",
+                borderRadius: 10,
+                border: "1px solid #EAD5C0",
+                fontSize: 13,
+              }}
+            >
+              <div>
+                <strong>Invoice No:</strong> {invoiceNumber}
+              </div>
+              <div>
+                <strong>Customer WhatsApp:</strong> {o.customer_phone || o.address?.phone || "—"}
+              </div>
+              <div>
+                <strong>GSTIN:</strong> {storeSettings?.gstin || "Configurable in Store Settings"}
+              </div>
+              <div>
+                <strong>Sent Timestamp:</strong>{" "}
+                {waSentAt ? new Date(waSentAt).toLocaleString("en-IN") : "Not sent yet"}
+              </div>
+            </div>
+
+            {waError && (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  color: "#991B1B",
+                  fontSize: 12,
+                }}
+              >
+                <strong>WhatsApp Status Note:</strong> {waError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const res = await api<Row>(`${base}/generate-invoice`, {});
+                    notice(res.message || "Invoice PDF generated.");
+                    await load();
+                    window.open(`/api/orders/${o.id}/invoice`, "_blank", "noopener,noreferrer");
+                  } catch (err) {
+                    notice((err as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="button button-outline"
+                style={{ minHeight: 44, padding: "10px 18px", fontSize: 13 }}
+              >
+                GENERATE INVOICE PDF 📄
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => action("send-whatsapp", {})}
+                className="button"
+                style={{ minHeight: 44, padding: "10px 18px", fontSize: 13 }}
+              >
+                SEND BILL ON WHATSAPP 📲
+              </button>
+
+              {whatsappClickToChatUrl && (
+                <a
+                  href={whatsappClickToChatUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="button button-outline"
+                  style={{ minHeight: 44, padding: "10px 18px", fontSize: 13, textDecoration: "none" }}
+                >
+                  Open WhatsApp Click-to-Chat ↗
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="two-column">
         <div>
           <div className="form-panel">
             {o.order_items.map((i: Row) => (
               <div className="cart-line" key={i.id}>
-                <img src={i.image_path} alt={i.name} />
+                <img
+                  src={i.image_path || "/assets/product-01.jpg"}
+                  alt={i.name}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/assets/product-01.jpg";
+                  }}
+                />
                 <div>
                   <h3>{i.name}</h3>
+                  {admin && skuMap[i.product_id] && (
+                    <p style={{ fontSize: 11, color: "#6B7280", margin: "0 0 2px" }}>
+                      SKU: {skuMap[i.product_id]}
+                    </p>
+                  )}
                   <p>
                     {i.quantity} × {money(i.unit_price_paise)}
                   </p>

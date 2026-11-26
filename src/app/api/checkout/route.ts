@@ -45,12 +45,35 @@ export async function POST(req: Request) {
         } catch {}
       }
     }
+    try {
+      const db = service();
+      const { data: createdOrder } = await db
+        .from("orders")
+        .select("id,number,total_paise,customer_phone,address")
+        .eq("id", id)
+        .maybeSingle();
+      if (createdOrder) {
+        const itemCount = p.cart.reduce((sum, line) => sum + (line.quantity || 1), 0);
+        await db.from("admin_notifications").upsert(
+          {
+            order_id: createdOrder.id,
+            order_number: createdOrder.number,
+            customer_name: p.address.name || session.profile?.display_name || "Customer",
+            customer_phone: createdOrder.customer_phone || p.address.phone || "",
+            item_count: itemCount,
+            total_paise: createdOrder.total_paise,
+            is_read: false,
+          },
+          { onConflict: "order_id", ignoreDuplicates: true },
+        );
+      }
+    } catch {}
     if (p.channel === "whatsapp") {
       sendOrderConfirmationWhatsApp(id).catch((err) =>
         console.warn("[Checkout] WhatsApp trigger error:", err),
       );
     }
-    return ok({ id, redirect: `/account/orders/${id}` });
+    return ok({ id, redirect: `/account/orders/${id}?placed=1` });
   } catch (e) {
     return failure(e);
   }

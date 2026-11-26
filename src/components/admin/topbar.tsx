@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Profile } from "@/lib/core";
 import { pageMeta } from "@/lib/admin-pages";
 import { adminNavGroups } from "./sidebar";
+import { OrderNotificationsManager } from "./order-notifications";
 
 function can(profile: Profile, cap?: string) {
   if (!cap) return true;
@@ -129,6 +130,7 @@ export function AdminTopbar({
   const title = pageMeta(section).title;
   const canCatalogue = can(profile, "catalogue");
   const canPos = can(profile, "pos");
+  const canOrders = can(profile, "orders");
 
   return (
     <>
@@ -151,6 +153,7 @@ export function AdminTopbar({
         </button>
 
         <div className="ms-top-right">
+          <OrderNotificationsManager enabled={Boolean(canOrders)} />
           {now && (
             <span className="ms-top-date" suppressHydrationWarning>
               {now.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
