@@ -259,6 +259,8 @@ export function ProductModal({
   const [piecesTab, setPiecesTab] = useState<"pieces" | "variants">("pieces");
   const [bulkPieceCount, setBulkPieceCount] = useState("5");
   const [bulkPieceColour, setBulkPieceColour] = useState("AUTO");
+  const [bulkCustomColour, setBulkCustomColour] = useState("");
+  const [customColourRows, setCustomColourRows] = useState<Record<string, boolean>>({});
 
   // Bulk Saree Import Mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -399,7 +401,9 @@ export function ProductModal({
       const nextCol =
         bulkPieceColour === "AUTO"
           ? COLOUR_PRESETS[(idx - 1) % COLOUR_PRESETS.length].name
-          : bulkPieceColour;
+          : bulkPieceColour === "__CUSTOM__"
+            ? bulkCustomColour.trim() || "Custom"
+            : bulkPieceColour;
       const colCode = nextCol.slice(0, 3).toUpperCase();
       newRows.push({
         key: `pc-${Date.now()}-${idx}-${i}`,
@@ -1403,7 +1407,7 @@ export function ProductModal({
                     onChange={(e) => setBulkPieceColour(e.target.value)}
                     aria-label="Colour for bulk added pieces"
                     style={{
-                      width: 125,
+                      width: 140,
                       height: 32,
                       padding: "4px 8px",
                       fontSize: 12,
@@ -1416,7 +1420,24 @@ export function ProductModal({
                         {c.name}
                       </option>
                     ))}
+                    <option value="__CUSTOM__">+ Custom / Undefined</option>
                   </select>
+                  {bulkPieceColour === "__CUSTOM__" && (
+                    <input
+                      type="text"
+                      value={bulkCustomColour}
+                      onChange={(e) => setBulkCustomColour(e.target.value)}
+                      placeholder="Type colour..."
+                      aria-label="Custom colour name"
+                      style={{
+                        width: 110,
+                        height: 32,
+                        padding: "4px 8px",
+                        fontSize: 12,
+                        borderRadius: 6,
+                      }}
+                    />
+                  )}
                   <button
                     type="button"
                     className="button outline-btn"
@@ -1487,40 +1508,112 @@ export function ProductModal({
 
                       {/* Colour */}
                       <td>
-                        <div className="ap-cell-box" style={{ gap: 6 }}>
-                          <span
-                            style={{
-                              backgroundColor: colourHex(pc.colour),
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              flexShrink: 0,
-                              border: "1px solid rgba(0,0,0,0.15)",
-                            }}
-                          />
-                          <select
-                            value={pc.colour}
-                            onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
-                            className="ap-cell-input"
-                            style={{
-                              border: "none",
-                              background: "transparent",
-                              fontWeight: 600,
-                              fontSize: 12.5,
-                              color: "#800020",
-                              cursor: "pointer",
-                              width: "100%",
-                              padding: 0,
-                            }}
-                            aria-label="Piece colour"
-                          >
-                            {COLOUR_PRESETS.map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {(() => {
+                          const isPreset = COLOUR_PRESETS.some(
+                            (c) => c.name.toLowerCase() === (pc.colour || "").trim().toLowerCase(),
+                          );
+                          const isCustom = Boolean(customColourRows[pc.key]) || (!isPreset && Boolean(pc.colour));
+                          return (
+                            <div className="ap-cell-box" style={{ gap: 6 }}>
+                              <span
+                                style={{
+                                  backgroundColor: colourHex(pc.colour),
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: "50%",
+                                  flexShrink: 0,
+                                  border: "1px solid rgba(0,0,0,0.15)",
+                                }}
+                              />
+                              {isCustom ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={pc.colour}
+                                    placeholder="Custom colour..."
+                                    onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
+                                    className="ap-cell-input"
+                                    style={{ fontWeight: 600, fontSize: 12.5, color: "#800020", width: "100%" }}
+                                    aria-label="Custom piece colour"
+                                  />
+                                  <button
+                                    type="button"
+                                    title="Switch back to preset colours"
+                                    onClick={() => {
+                                      setCustomColourRows((prev) => ({ ...prev, [pc.key]: false }));
+                                      if (!isPreset) updatePiece(pc.key, { colour: COLOUR_PRESETS[0].name });
+                                    }}
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      color: "#6B7280",
+                                      cursor: "pointer",
+                                      fontSize: 12,
+                                      padding: "0 2px",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    ▾
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <select
+                                    value={pc.colour}
+                                    onChange={(e) => {
+                                      if (e.target.value === "__CUSTOM__") {
+                                        setCustomColourRows((prev) => ({ ...prev, [pc.key]: true }));
+                                        updatePiece(pc.key, { colour: "" });
+                                      } else {
+                                        updatePiece(pc.key, { colour: e.target.value });
+                                      }
+                                    }}
+                                    className="ap-cell-input"
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      fontWeight: 600,
+                                      fontSize: 12.5,
+                                      color: "#800020",
+                                      cursor: "pointer",
+                                      width: "100%",
+                                      padding: 0,
+                                    }}
+                                    aria-label="Piece colour"
+                                  >
+                                    {COLOUR_PRESETS.map((c) => (
+                                      <option key={c.name} value={c.name}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                    <option value="__CUSTOM__">+ Undefined / Custom Colour…</option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    title="Enter undefined / custom colour"
+                                    onClick={() => {
+                                      setCustomColourRows((prev) => ({ ...prev, [pc.key]: true }));
+                                      updatePiece(pc.key, { colour: "" });
+                                    }}
+                                    style={{
+                                      border: "1px solid #EAD5C0",
+                                      background: "#FAF5EE",
+                                      color: "#800020",
+                                      borderRadius: 4,
+                                      cursor: "pointer",
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      padding: "2px 5px",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    +
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Selling Price (₹) */}
