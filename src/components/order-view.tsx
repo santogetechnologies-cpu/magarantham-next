@@ -205,16 +205,36 @@ export function OrderView({
           >
             Download Invoice 📄
           </a>
-          <div style={{ textAlign: "right" }}>
+          <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <span
               className={`status status-${o.payment_status}`}
-              style={{ display: "inline-block", marginBottom: 4 }}
+              style={{ display: "inline-block" }}
             >
               {o.payment_status.replaceAll("_", " ")}
             </span>
-            <p style={{ margin: 0, fontSize: 12, color: "#6B7280" }}>
-              {new Date(o.created_at).toLocaleString("en-IN")}
-            </p>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px",
+                borderRadius: 999,
+                background: "#FFFDF9",
+                border: "1px solid #C49A52",
+                color: "#6B1724",
+                fontSize: 12,
+                fontWeight: 600,
+                boxShadow: "0 2px 6px rgba(107, 23, 36, 0.08)",
+              }}
+            >
+              📅 {new Date(o.created_at).toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
           </div>
         </div>
       </div>
