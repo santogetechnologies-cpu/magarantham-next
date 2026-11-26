@@ -18,6 +18,43 @@ const credentials = z.object({
   email: z.email().max(254),
   password: z.string().min(6).max(128),
 });
+
+export async function GET(
+  _req: Request,
+  {
+    params,
+  }: {
+    params: Promise<{
+      action: string;
+    }>;
+  },
+) {
+  try {
+    const { action } = await params;
+    if (action === "providers") {
+      let google = false;
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+        if (url && key) {
+          const res = await fetch(`${url}/auth/v1/settings`, {
+            headers: { apikey: key },
+            cache: "no-store",
+          });
+          if (res.ok) {
+            const settings = await res.json();
+            google = Boolean(settings?.external?.google);
+          }
+        }
+      } catch {}
+      return ok({ google });
+    }
+    throw new Fault(404, "NOT_FOUND");
+  } catch (e) {
+    return failure(e);
+  }
+}
+
 export async function POST(
   req: Request,
   {
@@ -35,13 +72,19 @@ export async function POST(
     const auth = await authClient();
     if (action === "login") {
       const p = credentials.parse(data);
-      await rate(req, "login", p.email, 10);
-      const { error } = await auth.auth.signInWithPassword(p);
+      const email = p.email.trim().toLowerCase();
+      await rate(req, "login", email, 10);
+      const { error } = await auth.auth.signInWithPassword({
+        email,
+        password: p.password,
+      });
       if (error) {
-        const msg =
-          error.message?.toLowerCase().includes("email not confirmed")
-            ? "Your email is not confirmed yet. In Supabase Dashboard, please check 'Auto Confirm User' or confirm your email."
-            : error.message || "Check your email, password and email confirmation.";
+        const lower = (error.message || "").toLowerCase();
+        const msg = lower.includes("email not confirmed")
+          ? "Your email is not confirmed yet. Please check your inbox or contact support."
+          : lower.includes("invalid login credentials")
+            ? "Invalid email or password. Please check your credentials or create an account."
+            : error.message || "Could not sign in. Please check your email and password.";
         throw new Fault(401, "LOGIN_FAILED", msg);
       }
       const session = await identity();
@@ -63,7 +106,7 @@ export async function POST(
       return ok({
         redirect:
           session.profile.role === "customer"
-            ? "/account"
+            ? "/"
             : "/admin",
       });
     }
@@ -79,27 +122,36 @@ export async function POST(
       if (p.confirm_password !== undefined && p.confirm_password !== p.password) {
         throw new Fault(400, "PASSWORD_MISMATCH", "Password and Confirm Password do not match.");
       }
+      const email = p.email.trim().toLowerCase();
       await rate(req, "registration", "", 10, 3600);
-      await rate(req, "registration-email", p.email, 3, 3600);
+      await rate(req, "registration-email", email, 5, 3600);
       await captcha(p.captcha_token, req);
-      const { error } = await service().auth.admin.createUser({
-        email: p.email,
+      const { error: createErr } = await service().auth.admin.createUser({
+        email,
         password: p.password,
-        email_confirm: false,
+        email_confirm: true,
         app_metadata: { store_role: "customer" },
         user_metadata: { name: p.name },
       });
-      if (!error)
-        await auth.auth.resend({
-          type: "signup",
-          email: p.email,
-          options: {
-            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-          },
+      if (createErr) {
+        const msg = createErr.message?.toLowerCase().includes("already")
+          ? "An account with this email already exists. Please log in instead."
+          : createErr.message || "Could not create account. Please try again.";
+        throw new Fault(400, "REGISTRATION_FAILED", msg);
+      }
+      const { error: signInErr } = await auth.auth.signInWithPassword({
+        email,
+        password: p.password,
+      });
+      if (signInErr) {
+        return ok({
+          message: "Account created successfully! Please log in with your email and password.",
+          redirect: "/login",
         });
+      }
       return ok({
-        message:
-          "If this address can be registered, a confirmation email has been sent. Check your inbox before signing in.",
+        message: "Account created successfully!",
+        redirect: "/",
       });
     }
     if (action === "resend") {

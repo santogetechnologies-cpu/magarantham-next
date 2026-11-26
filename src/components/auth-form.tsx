@@ -71,11 +71,19 @@ function getReturnTo(): string | null {
 export function AuthForm({ mode }: { mode: string }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
+    [isError, setIsError] = useState(false),
+    [googleEnabled, setGoogleEnabled] = useState(false),
     [token, setToken] = useState(""),
     [showPassword, setShowPassword] = useState(false),
     [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const captchaRef = useRef<HTMLDivElement>(null),
     widget = useRef("");
+
+  useEffect(() => {
+    api<{ google?: boolean }>("/api/auth/providers")
+      .then((res) => setGoogleEnabled(Boolean(res?.google)))
+      .catch(() => setGoogleEnabled(false));
+  }, []);
 
   const title =
     mode === "register"
@@ -103,11 +111,13 @@ export function AuthForm({ mode }: { mode: string }) {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage("");
+    setIsError(false);
     const f = new FormData(e.currentTarget);
     const password = String(f.get("password") || "");
     const confirmPassword = String(f.get("confirm_password") || "");
 
     if (mode === "register" && password !== confirmPassword) {
+      setIsError(true);
       setMessage("Passwords do not match. Please re-enter carefully.");
       return;
     }
@@ -143,8 +153,12 @@ export function AuthForm({ mode }: { mode: string }) {
       if (r.redirect) {
         const target = getReturnTo() || r.redirect;
         window.location.assign(target);
-      } else setMessage(r.message || "Done.");
+      } else {
+        setIsError(false);
+        setMessage(r.message || "Done.");
+      }
     } catch (error) {
+      setIsError(true);
       setMessage((error as Error).message);
     } finally {
       setBusy(false);
@@ -322,7 +336,7 @@ export function AuthForm({ mode }: { mode: string }) {
             ↗
           </button>
 
-          {(mode === "login" || mode === "register") && (
+          {(mode === "login" || mode === "register") && googleEnabled && (
             <>
               <div
                 style={{
@@ -377,9 +391,9 @@ export function AuthForm({ mode }: { mode: string }) {
                 marginTop: "14px",
                 padding: "10px 14px",
                 borderRadius: "8px",
-                background: "#FEF2F2",
-                border: "1px solid #FECACA",
-                color: "#991B1B",
+                background: isError ? "#FEF2F2" : "#ECFDF5",
+                border: `1px solid ${isError ? "#FECACA" : "#A7F3D0"}`,
+                color: isError ? "#991B1B" : "#065F46",
                 fontSize: "13px",
               }}
             >

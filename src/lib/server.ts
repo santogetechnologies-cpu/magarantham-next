@@ -364,8 +364,6 @@ export async function protectedSecret(req: Request, env: string) {
 }
 export async function captcha(token: string, req: Request) {
   if (!process.env.TURNSTILE_SECRET_KEY) {
-    if (process.env.NODE_ENV === "production")
-      throw new Fault(503, "CAPTCHA_REQUIRED");
     return;
   }
   const response = await fetch(

@@ -43,7 +43,7 @@ export async function GET(
       .from(resource)
       .select(
         resource === "orders"
-          ? "id,number,status,payment_status,total_paise,created_at,tracking_id,customer_phone,order_items(*)"
+          ? "id,number,status,payment_status,total_paise,created_at,tracking_id,address,order_items(*)"
           : "*",
       )
       .eq("customer_id", s.user.id);

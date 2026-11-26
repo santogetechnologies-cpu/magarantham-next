@@ -27,6 +27,7 @@ export function CustomerAuthModal({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -34,6 +35,9 @@ export function CustomerAuthModal({
     if (isOpen) {
       setErrorMsg('');
       setStatusMsg('');
+      api<{ google?: boolean }>('/api/auth/providers')
+        .then((res) => setGoogleEnabled(Boolean(res?.google)))
+        .catch(() => setGoogleEnabled(false));
     }
   }, [isOpen]);
 
@@ -64,19 +68,22 @@ export function CustomerAuthModal({
         });
         onClose();
         if (onSuccess) onSuccess();
-        else window.location.assign(initialRedirect || res.redirect || '/account');
+        else window.location.assign(res.redirect || initialRedirect || '/');
       } else if (tab === 'register') {
-        const res = await api<{ message?: string }>('/api/auth/register', {
+        const res = await api<{ message?: string; redirect?: string }>('/api/auth/register', {
           name: fullName.trim(),
           email: email.trim(),
           password,
           confirm_password: confirmPassword,
           captcha_token: '',
         });
-        setStatusMsg(
-          res.message ||
-            'Account created. Please check your inbox to confirm your email before signing in.'
-        );
+        if (res.redirect === '/') {
+          onClose();
+          if (onSuccess) onSuccess();
+          else window.location.assign('/');
+        } else {
+          setStatusMsg(res.message || 'Account created! You can now log in.');
+        }
       } else {
         const res = await api<{ message?: string }>('/api/auth/forgot', {
           email: email.trim(),
@@ -291,7 +298,7 @@ export function CustomerAuthModal({
               />
             </label>
 
-            {tab !== 'forgot' && (
+            {tab !== 'forgot' && googleEnabled && (
               <label style={{ display: 'block', marginBottom: 0 }}>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
                   Password
@@ -383,7 +390,7 @@ export function CustomerAuthModal({
             </button>
           </form>
 
-          {tab !== 'forgot' && (
+          {tab !== 'forgot' && googleEnabled && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 12px' }}>
                 <div style={{ flex: 1, height: 1, background: '#E5D5C5' }} />

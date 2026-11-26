@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     let query = db
       .from("orders")
       .select(
-        "id,number,customer_id,customer_phone,status,payment_status,channel,total_paise,address,created_at,order_items(id,quantity),profiles(email,display_name)",
+        "id,number,customer_id,status,payment_status,channel,total_paise,address,created_at,order_items(id,quantity),profiles(email,display_name)",
       )
       .order("created_at", { ascending: false });
 
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
         const orderNum = `ms-${o.number}`.toLowerCase();
         const numOnly = String(o.number);
         const name = String((o.address as Record<string, unknown>)?.name || "").toLowerCase();
-        const phone = String(o.customer_phone || (o.address as Record<string, unknown>)?.phone || "").toLowerCase();
+        const phone = String((o.address as Record<string, unknown>)?.phone || "").toLowerCase();
         return (
           orderNum.includes(q) ||
           numOnly.includes(q) ||
