@@ -275,9 +275,10 @@ small {
 
 .site-header nav {
   display: flex;
-  gap: 25px;
+  gap: 28px;
   align-items: center;
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .site-header nav a:hover {
@@ -292,7 +293,7 @@ small {
   justify-content: center;
   position: relative;
   color: var(--wine);
-  padding: 6px;
+  padding: 8px;
   border-radius: 50%;
   line-height: 1;
   text-decoration: none !important;
@@ -315,11 +316,11 @@ small {
 }
 
 .account-icon-svg {
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
   display: block;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 1.6;
   transition: transform 0.2s ease;
 }
 
@@ -329,10 +330,10 @@ small {
 
 .account-status-dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6.5px;
-  height: 6.5px;
+  top: 5px;
+  right: 5px;
+  width: 7.5px;
+  height: 7.5px;
   border-radius: 50%;
   background-color: var(--gold);
   border: 1.5px solid var(--cream);
