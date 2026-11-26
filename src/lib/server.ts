@@ -245,6 +245,20 @@ export async function readBody(req: Request, max: number) {
   }
   return Buffer.concat(chunks).toString("utf8");
 }
+const memoryRateLimits = new Map<string, { resetAt: number; count: number }>();
+
+function checkMemoryRate(key: string, limit: number, seconds: number): boolean {
+  const now = Date.now();
+  const entry = memoryRateLimits.get(key);
+  if (!entry || entry.resetAt <= now) {
+    memoryRateLimits.set(key, { resetAt: now + seconds * 1000, count: 1 });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count += 1;
+  return true;
+}
+
 export async function rate(
   req: Request,
   scope: string,
@@ -261,22 +275,27 @@ export async function rate(
   const key = createHmac("sha256", secret)
     .update(`${scope}|${ip}|${who.toLowerCase()}`)
     .digest("hex");
-  const { data, error } = await service().rpc("consume_rate_limit", {
-    p_key: key,
-    p_limit: limit,
-    p_seconds: seconds,
-  });
-  if (error) {
-    if (
-      error.code === "42501" ||
-      error.code === "PGRST202" ||
-      error.message?.includes("permission denied")
-    ) {
+  try {
+    const { data, error } = await service().rpc("consume_rate_limit", {
+      p_key: key,
+      p_limit: limit,
+      p_seconds: seconds,
+    });
+    if (error) {
+      console.warn("[rate] RPC fallback:", error.code, error.message);
+      if (!checkMemoryRate(key, limit, seconds)) {
+        throw new Fault(429, "TOO_MANY_REQUESTS");
+      }
       return;
     }
-    throw new Fault(503, "RATE_CHECK_UNAVAILABLE");
+    if (!data) throw new Fault(429, "TOO_MANY_REQUESTS");
+  } catch (err) {
+    if (err instanceof Fault) throw err;
+    console.warn("[rate] exception fallback:", (err as Error).message);
+    if (!checkMemoryRate(key, limit, seconds)) {
+      throw new Fault(429, "TOO_MANY_REQUESTS");
+    }
   }
-  if (!data) throw new Fault(429, "TOO_MANY_REQUESTS");
 }
 export async function rpc(name: string, args: Record<string, unknown>) {
   const { data, error } = await service().rpc(name, args);

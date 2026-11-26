@@ -189,7 +189,7 @@ export function CustomerAuthModal({
             ✕
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 42 }}>
             <img
               src="/assets/brand-logo.png"
               alt="Magarantham Silks"
