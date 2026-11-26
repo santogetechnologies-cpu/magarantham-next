@@ -87,11 +87,12 @@ export function ProductCard({
             )}
           </div>
           <button
+            className="card-add-btn"
             onClick={() => add(p.id)}
             disabled={!ordering || p.price_paise === 0 || p.available < 1}
             aria-label={`Add ${p.name} to bag`}
           >
-            Add to bag ＋
+            {p.available < 1 ? "Sold out" : "Add to bag ＋"}
           </button>
         </div>
       </div>
