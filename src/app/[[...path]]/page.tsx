@@ -157,6 +157,7 @@ export default async function Page({
           profile={session.profile}
           products={store.products}
           ordering={store.settings.ordering_enabled}
+          settings={store.settings}
         />
       );
     if (!/^[0-9a-f-]{36}$/i.test(path[2])) notFound();
