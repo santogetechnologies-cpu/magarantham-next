@@ -641,19 +641,50 @@ export function Cart({
                         Unique Serialized Piece (Qty: 1)
                       </small>
                     ) : (
-                      <label>
-                        Quantity{" "}
-                        <input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={l.quantity}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (e.target.value !== "" && Number.isInteger(n) && n >= 1) quantity(p.id, Math.min(20, n));
-                          }}
-                        />
-                      </label>
+                      <div className="cart-qty-control">
+                        <span className="cart-qty-label">Quantity:</span>
+                        <div className="cart-qty-stepper">
+                          <button
+                            type="button"
+                            className="cart-qty-btn"
+                            disabled={l.quantity <= 1}
+                            onClick={() => quantity(p.id, Math.max(1, l.quantity - 1))}
+                            aria-label="Decrease quantity"
+                            title="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={Math.min(20, p.available || 20)}
+                            value={l.quantity}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (e.target.value !== "" && Number.isInteger(n) && n >= 1) {
+                                quantity(p.id, Math.min(Math.min(20, p.available || 20), n));
+                              }
+                            }}
+                            className="cart-qty-input"
+                            aria-label="Quantity"
+                          />
+                          <button
+                            type="button"
+                            className="cart-qty-btn"
+                            disabled={l.quantity >= Math.min(20, p.available || 20)}
+                            onClick={() =>
+                              quantity(
+                                p.id,
+                                Math.min(20, Math.min(p.available || 20, l.quantity + 1)),
+                              )
+                            }
+                            aria-label="Increase quantity"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </>
