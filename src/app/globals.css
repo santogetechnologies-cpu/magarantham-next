@@ -1785,33 +1785,55 @@ legend {
 }
 
 .order-page .section-heading {
-  margin-top: 25px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.order-page .two-column {
+  align-items: start;
+  gap: 28px;
 }
 
 .order-page .form-panel {
-  padding: 28px;
+  padding: 26px;
+  margin: 0 0 24px;
+  background: #FFFDF9;
+  border: 1px solid #EAD5C0;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(121, 5, 30, 0.05);
 }
 
 .order-page h1 {
-  font-size: 60px;
+  font-size: clamp(38px, 4.5vw, 56px);
   text-transform: capitalize;
+  margin-bottom: 0;
 }
 
 .order-page .cart-line {
-  gap: 15px;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
 }
 
 .order-page .cart-line img {
-  width: 60px;
-  height: 85px;
+  width: 64px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #EAD5C0;
 }
 
 .order-page .cart-line h3 {
-  font-size: 21px;
+  font-size: 20px;
 }
 
 .order-page .cart-line b {
-  font-size: 12px;
+  font-size: 15px;
+  color: var(--wine);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .admin-layout {

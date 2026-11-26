@@ -179,10 +179,18 @@ export function OrderView({
 
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Order #MS-{o.number}</p>
+          <p className="eyebrow" style={{ marginBottom: 4 }}>Order #MS-{o.number}</p>
           <h1>{o.status.replaceAll("_", " ")}.</h1>
         </div>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "16px",
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <a
             href={`/api/orders/${o.id}/invoice`}
             download={`Invoice-MS-${o.number}.pdf`}
@@ -191,17 +199,22 @@ export function OrderView({
               minHeight: "42px",
               padding: "10px 18px",
               gap: "8px",
-              fontSize: "12px",
+              fontSize: "13px",
               textDecoration: "none",
             }}
           >
             Download Invoice 📄
           </a>
-          <div>
-            <span className={`status status-${o.payment_status}`}>
+          <div style={{ textAlign: "right" }}>
+            <span
+              className={`status status-${o.payment_status}`}
+              style={{ display: "inline-block", marginBottom: 4 }}
+            >
               {o.payment_status.replaceAll("_", " ")}
             </span>
-            <p>{new Date(o.created_at).toLocaleString("en-IN")}</p>
+            <p style={{ margin: 0, fontSize: 12, color: "#6B7280" }}>
+              {new Date(o.created_at).toLocaleString("en-IN")}
+            </p>
           </div>
         </div>
       </div>
@@ -494,15 +507,34 @@ export function OrderView({
           {!admin && (
             <>
               <div className="form-panel">
-                <h2>Payment.</h2>
-                <p>
-                  Final total: <b>{money(o.total_paise)}</b>
+                <h2 style={{ marginBottom: 14 }}>Payment.</h2>
+                <p style={{ marginBottom: 10 }}>
+                  Final total: <b style={{ color: "var(--wine)", fontSize: 16 }}>{money(o.total_paise)}</b>
                 </p>
-                <p className="subtle">
-                  Stock hold ends{" "}
-                  {new Date(o.expires_at).toLocaleString("en-IN")}. Do not pay
-                  after this time.
-                </p>
+                {o.payment_status === "paid" ? (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: "#ECFDF5",
+                      border: "1px solid #A7F3D0",
+                      color: "#065F46",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✓ Payment confirmed
+                    {o.paid_at ? ` on ${new Date(o.paid_at).toLocaleString("en-IN")}` : ""}
+                  </div>
+                ) : (
+                  o.status === "awaiting_payment" && (
+                    <p className="subtle" style={{ marginBottom: 12 }}>
+                      Stock hold ends{" "}
+                      {new Date(o.expires_at).toLocaleString("en-IN")}. Do not pay
+                      after this time.
+                    </p>
+                  )
+                )}
                 {o.payment_status === "late_paid" && (
                   <p>
                     Your payment needs staff review because the stock hold
