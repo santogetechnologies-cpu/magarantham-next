@@ -33,7 +33,7 @@ export function ERP({
 
   async function refreshRefs() {
     try {
-      setRefs(await api<References>('/api/erp/reference'));
+      setRefs(await api<References>(`/api/erp/reference?module=${encodeURIComponent(module)}`));
       setError('');
     } catch (e) {
       setError((e as Error).message);

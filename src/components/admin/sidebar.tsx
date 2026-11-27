@@ -610,6 +610,7 @@ export function AdminSidebar({
                         <li>
                           <Link
                             href={item.href}
+                            prefetch={true}
                             className={`ms-nav-link ${isActive ? "active" : ""}`}
                             aria-current={isActive ? "page" : undefined}
                             onClick={() => {

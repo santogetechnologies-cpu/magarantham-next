@@ -229,7 +229,7 @@ export function DashboardOverview({
             <div className="kpi-value">{stats.totalEmployees ?? 0}</div>
             <div className="kpi-footer">
               <span className="kpi-hint">Active workforce</span>
-              <Link href="/admin/employees" className="kpi-link">
+              <Link href="/admin/employees" className="kpi-link" prefetch={true}>
                 Directory &rarr;
               </Link>
             </div>
@@ -244,7 +244,7 @@ export function DashboardOverview({
             <div className="kpi-value success-text">{stats.presentToday ?? 0}</div>
             <div className="kpi-footer">
               <span className="kpi-hint">Marked on shift</span>
-              <Link href="/admin/attendance" className="kpi-link">
+              <Link href="/admin/attendance" className="kpi-link" prefetch={true}>
                 Register &rarr;
               </Link>
             </div>
@@ -259,7 +259,7 @@ export function DashboardOverview({
             <div className="kpi-value">{stats.absentToday ?? 0}</div>
             <div className="kpi-footer">
               <span className="kpi-hint">Not checked in</span>
-              <Link href="/admin/attendance" className="kpi-link">
+              <Link href="/admin/attendance" className="kpi-link" prefetch={true}>
                 Review &rarr;
               </Link>
             </div>
@@ -473,7 +473,7 @@ export function DashboardOverview({
               <h3 className="viz-title">Staff Attendance (Today)</h3>
               <p className="viz-subtitle">Daily floor &amp; billing deployment</p>
             </div>
-            <Link href="/admin/attendance" className="text-link">
+            <Link href="/admin/attendance" className="text-link" prefetch={true}>
               Manage &rarr;
             </Link>
           </div>

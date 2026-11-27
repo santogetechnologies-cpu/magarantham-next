@@ -232,25 +232,49 @@ export async function posProducts(includeCost = false) {
   }));
 }
 
-export async function erpReferences(profile: Profile) {
+export async function erpReferences(profile: Profile, module?: string) {
   const data: Record<string, unknown> = {};
-  if (['catalogue', 'inventory', 'pos', 'purchases'].some((c) => can(profile, c)) || profile.role === 'superadmin') {
-    data.products = await posProducts(can(profile, 'purchases'));
-    data.categories = await rows('product_categories');
+  const isAll = !module || module === 'all';
+
+  const needProducts = isAll || ['pos', 'purchases', 'labels', 'categories'].includes(module);
+  const needCategories = isAll || ['categories', 'discounts', 'purchases'].includes(module);
+  const needSuppliers = isAll || ['purchases', 'suppliers'].includes(module);
+  const needEmployees = isAll || ['attendance', 'payroll', 'employees', 'expenses'].includes(module);
+  const needSalaryPolicies = isAll || ['payroll', 'employees', 'salary-policies'].includes(module);
+  const needProfiles = isAll || ['employees', 'staff-logins'].includes(module);
+  const needExpenseCategories = isAll || ['expenses', 'expense-categories'].includes(module);
+
+  const tasks: Promise<void>[] = [];
+
+  if (needProducts && (['catalogue', 'inventory', 'pos', 'purchases'].some((c) => can(profile, c)) || profile.role === 'superadmin')) {
+    tasks.push(posProducts(can(profile, 'purchases')).then((r) => { data.products = r; }));
   }
-  if (can(profile, 'purchases')) data.suppliers = await rows('suppliers');
-  if (can(profile, 'attendance') || profile.role === 'superadmin')
-    data.employees = await rows(
-      'employees',
-      profile.role === 'superadmin'
-        ? '*'
-        : 'id,code,name,employment,active,joined_on,ended_on,daily_minutes',
+  if (needCategories && (['catalogue', 'inventory', 'pos', 'purchases'].some((c) => can(profile, c)) || profile.role === 'superadmin')) {
+    tasks.push(rows('product_categories').then((r) => { data.categories = r; }));
+  }
+  if (needSuppliers && can(profile, 'purchases')) {
+    tasks.push(rows('suppliers').then((r) => { data.suppliers = r; }));
+  }
+  if (needEmployees && (can(profile, 'attendance') || profile.role === 'superadmin')) {
+    tasks.push(
+      rows(
+        'employees',
+        profile.role === 'superadmin'
+          ? '*'
+          : 'id,code,name,employment,active,joined_on,ended_on,daily_minutes',
+      ).then((r) => { data.employees = r; }),
     );
-  if (profile.role === 'superadmin') {
-    data.salary_policies = await rows('salary_policies');
-    data.profiles = await rows('profiles', 'id,email,role,display_name');
   }
-  if (can(profile, 'expenses'))
-    data.expense_categories = await rows('expense_categories');
+  if (needSalaryPolicies && profile.role === 'superadmin') {
+    tasks.push(rows('salary_policies').then((r) => { data.salary_policies = r; }));
+  }
+  if (needProfiles && profile.role === 'superadmin') {
+    tasks.push(rows('profiles', 'id,email,role,display_name').then((r) => { data.profiles = r; }));
+  }
+  if (needExpenseCategories && can(profile, 'expenses')) {
+    tasks.push(rows('expense_categories').then((r) => { data.expense_categories = r; }));
+  }
+
+  await Promise.all(tasks);
   return data;
 }

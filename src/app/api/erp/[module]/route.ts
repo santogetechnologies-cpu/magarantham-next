@@ -7,7 +7,7 @@ import {erpSchemas,employeeSchema,attendanceSchema,posInput,posCart,purchaseSche
 const access:Record<string,Capability|'superadmin'|undefined>={reference:undefined,scan:'pos',pos:'pos',pos_quote:'pos',pos_sale:'pos',pos_return:'pos',labels:'inventory',suppliers:'purchases',purchases:'purchases',purchase_status:'purchases',purchase_receive:'purchases',purchase_pay:'purchases',expenses:'expenses',expense_void:'superadmin',expense_review:'superadmin',expense_status:'superadmin',attendance:'attendance',employees:'superadmin',employee_login:'superadmin',product_categories:'superadmin',catalog_discounts:'superadmin',expense_categories:'superadmin',salary_policies:'superadmin',pos_settings:'superadmin',payroll:'superadmin',payroll_preview:'superadmin',payroll_finalize:'superadmin',reports:'reports'};
 export async function GET(req:Request,{params}:{params:Promise<{module:string}>}){try{
  const {module}=await params;if(!(module in access))throw new Fault(404,'NOT_FOUND');const session=await staff(access[module]);const db=service(),url=new URL(req.url);const page=z.coerce.number().int().min(0).max(100000).parse(url.searchParams.get('page')||0);
- if(module==='reference')return ok(await erpReferences(session.profile));
+ if(module==='reference')return ok(await erpReferences(session.profile,url.searchParams.get('module')||undefined));
  if(module==='scan'){
   const rawCode=url.searchParams.get('barcode')||'';
   // Scanners may append Tab/CR or other control characters; keep the printable code only.
