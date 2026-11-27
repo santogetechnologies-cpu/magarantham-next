@@ -354,6 +354,38 @@ export function ERPRecords({
                     <button className="text-link" onClick={() => edit(r)}>
                       Edit
                     </button>
+                    {module === 'suppliers' && (
+                      <button
+                        type="button"
+                        className="text-link"
+                        style={{ color: '#B91C1C', fontWeight: 600 }}
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              `Delete supplier "${r.name || 'this supplier'}"? This cannot be undone.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          try {
+                            const res = await api<{ message?: string }>(
+                              `/api/erp/suppliers?id=${encodeURIComponent(String(r.id))}`,
+                              undefined,
+                              'DELETE',
+                            );
+                            notice(res.message || 'Supplier deleted.');
+                            if (editing?.id === r.id) setEditing(null);
+                            await load();
+                            await refreshRefs();
+                          } catch (e) {
+                            notice((e as Error).message);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
                     {module === 'employees' && !r.profile_id && r.active && (
                       <button className="text-link" onClick={() => setLogin(r)}>
                         Link login
