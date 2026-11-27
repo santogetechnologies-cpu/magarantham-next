@@ -51,6 +51,7 @@ type PieceRow = {
   status: "available" | "reserved" | "sold" | "damaged" | "returned";
   location: string;
   image_path?: string;
+  customColour?: boolean;
 };
 
 type VariantRow = {
@@ -1144,28 +1145,98 @@ export function ProductModal({
                               border: "1px solid rgba(0,0,0,0.15)",
                             }}
                           />
-                          <select
-                            value={pc.colour}
-                            onChange={(e) => updatePiece(pc.key, { colour: e.target.value })}
-                            className="ap-cell-input"
-                            style={{
-                              border: "none",
-                              background: "transparent",
-                              fontWeight: 600,
-                              fontSize: 12.5,
-                              color: "#800020",
-                              cursor: "pointer",
-                              width: "100%",
-                              padding: 0,
-                            }}
-                            aria-label="Piece colour"
-                          >
-                            {COLOUR_PRESETS.map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
+                          {(() => {
+                            const isPreset = COLOUR_PRESETS.some(
+                              (c) =>
+                                c.name !== "Undefined" &&
+                                c.name.toLowerCase() === (pc.colour || "").trim().toLowerCase(),
+                            );
+                            const showTextInput =
+                              Boolean(pc.customColour) || (Boolean(pc.colour) && !isPreset);
+
+                            if (showTextInput) {
+                              return (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={pc.colour}
+                                    placeholder="Enter colour..."
+                                    autoFocus
+                                    onChange={(e) =>
+                                      updatePiece(pc.key, {
+                                        colour: e.target.value,
+                                        customColour: true,
+                                      })
+                                    }
+                                    className="ap-cell-input"
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: 12.5,
+                                      color: "#800020",
+                                      width: "100%",
+                                    }}
+                                    aria-label="Custom piece colour"
+                                  />
+                                  <button
+                                    type="button"
+                                    title="Back to colour list"
+                                    onClick={() =>
+                                      updatePiece(pc.key, {
+                                        colour: "Purple",
+                                        customColour: false,
+                                      })
+                                    }
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      color: "#800020",
+                                      cursor: "pointer",
+                                      fontSize: 13,
+                                      lineHeight: 1,
+                                      padding: "0 2px",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                </>
+                              );
+                            }
+
+                            return (
+                              <select
+                                value={pc.colour}
+                                onChange={(e) => {
+                                  if (e.target.value === "Undefined") {
+                                    updatePiece(pc.key, { colour: "", customColour: true });
+                                  } else {
+                                    updatePiece(pc.key, {
+                                      colour: e.target.value,
+                                      customColour: false,
+                                    });
+                                  }
+                                }}
+                                className="ap-cell-input"
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  fontWeight: 600,
+                                  fontSize: 12.5,
+                                  color: "#800020",
+                                  cursor: "pointer",
+                                  width: "100%",
+                                  padding: 0,
+                                }}
+                                aria-label="Piece colour"
+                              >
+                                {COLOUR_PRESETS.map((c) => (
+                                  <option key={c.name} value={c.name}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            );
+                          })()}
                         </div>
                       </td>
 

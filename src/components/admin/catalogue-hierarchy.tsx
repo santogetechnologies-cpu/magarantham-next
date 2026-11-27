@@ -1414,17 +1414,62 @@ export function CatalogueHierarchyManager({
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <label className="ap-field" style={{ flex: "1 1 180px" }}>
                     <span className="ap-label">Colour</span>
-                    <select
-                      value={pieceModal.colour}
-                      onChange={(e) => setPieceModal({ ...pieceModal, colour: e.target.value })}
-                      className="ap-select"
-                    >
-                      {COLOUR_PRESETS.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const isPreset = COLOUR_PRESETS.some(
+                        (c) =>
+                          c.name !== "Undefined" &&
+                          c.name.toLowerCase() === (pieceModal.colour || "").trim().toLowerCase(),
+                      );
+                      const showText =
+                        pieceModal.colour === "Undefined" ||
+                        pieceModal.colour === "" ||
+                        !isPreset;
+
+                      if (showText) {
+                        return (
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <input
+                              type="text"
+                              value={pieceModal.colour === "Undefined" ? "" : pieceModal.colour}
+                              placeholder="Enter colour..."
+                              onChange={(e) =>
+                                setPieceModal({ ...pieceModal, colour: e.target.value })
+                              }
+                              className="ap-input"
+                            />
+                            <button
+                              type="button"
+                              title="Back to colour list"
+                              className="button outline-btn"
+                              style={{ padding: "0 10px", height: 38, flexShrink: 0 }}
+                              onClick={() => setPieceModal({ ...pieceModal, colour: "Purple" })}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <select
+                          value={pieceModal.colour}
+                          onChange={(e) => {
+                            if (e.target.value === "Undefined") {
+                              setPieceModal({ ...pieceModal, colour: "" });
+                            } else {
+                              setPieceModal({ ...pieceModal, colour: e.target.value });
+                            }
+                          }}
+                          className="ap-select"
+                        >
+                          {COLOUR_PRESETS.map((c) => (
+                            <option key={c.name} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </label>
 
                   <label className="ap-field" style={{ flex: "1 1 180px" }}>
