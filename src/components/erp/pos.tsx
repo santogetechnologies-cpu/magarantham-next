@@ -7,6 +7,7 @@ import { api } from '../api';
 import { Row, useERP } from './shared';
 import { buildCategoryMap, EnhancedOffer, resolveProductOffer } from '@/lib/offers';
 import { DEFAULT_TEMPLATES, renderTemplate, whatsappLink } from '@/lib/message-templates';
+import { CameraScannerModal, CameraScanResult } from './camera-scanner';
 
 type CartLine = {
   product_id: string;
@@ -125,6 +126,7 @@ export function POS({ profile }: { profile: Profile }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [lastScanned, setLastScanned] = useState<LastScanned | null>(null);
   const [quote, setQuote] = useState<Row | null>(null);
   const [quoteError, setQuoteError] = useState('');
@@ -868,10 +870,10 @@ export function POS({ profile }: { profile: Profile }) {
     });
   }
 
-  async function scan(code: string) {
+  async function scan(code: string): Promise<CameraScanResult> {
     // Strip scanner suffixes/prefixes (Tab, CR, control characters)
     const trimmed = code.replace(/[\x00-\x1f\x7f]/g, '').trim();
-    if (!trimmed) return;
+    if (!trimmed) return { ok: false, message: 'Empty barcode.' };
     setScanning(true);
 
     // 1. Instant local match from the prebuilt code index (no per-scan search)
@@ -884,7 +886,7 @@ export function POS({ profile }: { profile: Profile }) {
       setBarcodeInput('');
       scannerRef.current?.focus();
       setScanning(false);
-      return;
+      return { ok: true, message: `Added "${localProd.name}" (${trimmed})` };
     }
 
     // 2. Authoritative backend scan lookup (supports serialized units, pieces, barcodes, SKUs)
@@ -894,10 +896,13 @@ export function POS({ profile }: { profile: Profile }) {
       add(r.product, r.unit || undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
+      return { ok: true, message: `Added "${r.product?.name || trimmed}" (${trimmed})` };
     } catch (e) {
       playScanBeep(false);
-      notice((e as Error).message || `Barcode or code "${trimmed}" was not found.`);
+      const msg = (e as Error).message || `Barcode or code "${trimmed}" was not found.`;
+      notice(msg);
       scannerRef.current?.select();
+      return { ok: false, message: msg };
     } finally {
       setScanning(false);
     }
@@ -1659,58 +1664,74 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
           <label htmlFor="pos-barcode-input" className="pos-scanner-label">
             Search &amp; Barcode Scanner — Scan barcode / piece code or search saree name, SKU, colour, category &amp; press Enter
           </label>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <input
-              id="pos-barcode-input"
-              ref={scannerRef}
-              name="barcode"
-              value={barcodeInput}
-              onChange={(e) => {
-                const val = e.target.value;
-                setBarcodeInput(val);
-                if (val.trim()) {
-                  setManualDropdownOpen(true);
-                } else {
-                  setManualDropdownOpen(false);
-                }
-              }}
-              onFocus={() => {
-                if (barcodeInput.trim()) setManualDropdownOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setManualDropdownOpen(false);
-                }
-              }}
-              autoComplete="off"
-              placeholder="Scan barcode, piece code, or type saree name, SKU, colour, category (or press F3)..."
-              className="pos-scanner-input"
-            />
-            {barcodeInput && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBarcodeInput('');
-                  setAsyncBarcodeMatch(null);
-                  setIsSearchingBarcode(false);
-                  setManualDropdownOpen(false);
-                  scannerRef.current?.focus();
+          <div className="pos-scanner-controls">
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+              <input
+                id="pos-barcode-input"
+                ref={scannerRef}
+                name="barcode"
+                value={barcodeInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setBarcodeInput(val);
+                  if (val.trim()) {
+                    setManualDropdownOpen(true);
+                  } else {
+                    setManualDropdownOpen(false);
+                  }
                 }}
-                style={{
-                  position: 'absolute',
-                  right: 12,
-                  background: 'none',
-                  border: 'none',
-                  color: '#888',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '4px',
+                onFocus={() => {
+                  if (barcodeInput.trim()) setManualDropdownOpen(true);
                 }}
-                title="Clear input"
-              >
-                ✕
-              </button>
-            )}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setManualDropdownOpen(false);
+                  }
+                }}
+                autoComplete="off"
+                placeholder="Scan barcode, piece code, or type saree name, SKU, colour, category (or press F3)..."
+                className="pos-scanner-input"
+              />
+              {barcodeInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcodeInput('');
+                    setAsyncBarcodeMatch(null);
+                    setIsSearchingBarcode(false);
+                    setManualDropdownOpen(false);
+                    scannerRef.current?.focus();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    background: 'none',
+                    border: 'none',
+                    color: '#888',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    padding: '4px',
+                  }}
+                  title="Clear input"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="pos-camera-btn"
+              onClick={() => setCameraOpen(true)}
+              disabled={busy}
+              title="Scan barcode using mobile or device camera"
+              aria-label="Scan with Camera"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3" />
+              </svg>
+              <span>Scan with Camera</span>
+            </button>
           </div>
 
           {/* Autocomplete Dropdown */}
@@ -1891,6 +1912,21 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
           }}
         />
       )}
+
+      {mounted &&
+        cameraOpen &&
+        createPortal(
+          <CameraScannerModal
+            open={cameraOpen}
+            paused={Boolean(colourPick)}
+            onDetected={(code) => scan(code)}
+            onClose={() => {
+              setCameraOpen(false);
+              setTimeout(() => scannerRef.current?.focus(), 0);
+            }}
+          />,
+          document.body,
+        )}
 
       {/* Instant Scanned Confirmation Toast */}
       {lastScanned && (
