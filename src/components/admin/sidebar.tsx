@@ -496,25 +496,36 @@ export function AdminSidebar({
     return profile.permissions?.includes(cap as any);
   };
 
-  function isItemActive(item: NavItem) {
+  function getHrefParams(href: string): [string, string][] {
+    const idx = href.indexOf("?");
+    if (idx === -1) return [];
+    return Array.from(new URLSearchParams(href.slice(idx + 1)).entries());
+  }
+
+  function matchesItem(item: NavItem): number {
     const sectionMatches =
       currentSection === item.key ||
       (item.key === "" && currentSection === "dashboard");
+    if (!sectionMatches) return -1;
 
-    if (!sectionMatches) return false;
-
-    if (item.matchQuery) {
-      return searchParams.get(item.matchQuery.param) === item.matchQuery.value;
+    const params = getHrefParams(item.href);
+    for (const [k, v] of params) {
+      if (searchParams.get(k) !== v) return -1;
     }
+    return params.length;
+  }
 
-    // Don't highlight the base section item if a query-specific sibling is active
-    if (item.key === "products" && searchParams.get("action") === "new") {
-      return false;
+  function isItemActive(item: NavItem) {
+    const score = matchesItem(item);
+    if (score < 0) return false;
+    // Only highlight the most specific matching item in the current section
+    for (const group of adminNavGroups) {
+      for (const other of group.items) {
+        if (other !== item && matchesItem(other) > score) {
+          return false;
+        }
+      }
     }
-    if (item.key === "inventory" && searchParams.get("tab") === "low") {
-      return false;
-    }
-
     return true;
   }
 
