@@ -1,5 +1,6 @@
 import { safeEqual } from "./security";
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -62,7 +63,7 @@ export async function authClient() {
     },
   );
 }
-export async function identity() {
+export const identity = cache(async function identity() {
   const auth = await authClient();
   const {
     data: { user },
@@ -188,8 +189,8 @@ export async function identity() {
     }
   }
   return { auth, user, profile: profile as Profile };
-}
-export async function staff(cap?: Capability | "superadmin") {
+});
+export const staff = cache(async function staff(cap?: Capability | "superadmin") {
   const session = await identity();
   const p = session.profile;
   if (
@@ -216,7 +217,7 @@ export async function staff(cap?: Capability | "superadmin") {
   )
     throw new Fault(403, "MFA_REQUIRED");
   return session;
-}
+});
 export function origin(req: Request) {
   if (req.headers.get("sec-fetch-site") === "cross-site") {
     throw new Fault(403, "ORIGIN_REJECTED");

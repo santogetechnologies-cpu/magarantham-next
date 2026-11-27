@@ -23,7 +23,11 @@ export default async function AdminPage({
   )
     notFound();
   try {
-    let session = await staff();
+    const requiredCap =
+      section.length && erpModules[section[0]]
+        ? (erpModules[section[0]].cap as any)
+        : undefined;
+    const session = await staff(requiredCap);
 
     // Dedicated workspace for billing staff:
     // /admin or /admin/dashboard -> Cashier POS Billing Dashboard
@@ -38,7 +42,6 @@ export default async function AdminPage({
         );
       }
       if (section[0] === "pos" || section[0] === "expenses") {
-        session = await staff(erpModules[section[0]].cap as any);
         return (
           <Suspense fallback={null}>
             <ERP module={section[0]} profile={session.profile} />
@@ -49,7 +52,6 @@ export default async function AdminPage({
     }
 
     if (erpModules[section[0]]) {
-      session = await staff(erpModules[section[0]].cap as any);
       return (
         <Suspense fallback={null}>
           <ERP module={section[0]} profile={session.profile} />

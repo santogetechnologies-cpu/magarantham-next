@@ -29,6 +29,20 @@ export default async function Page({
 }) {
   const { path = [] } = await params;
   const route = path.join("/");
+
+  // Fast path for auth routes: render immediately without querying the database for store/catalogue
+  if (["login", "register", "forgot-password"].includes(route)) {
+    const initialTab =
+      route === "register"
+        ? "register"
+        : route === "forgot-password"
+          ? "forgot"
+          : "login";
+    return <CustomerAuthModal isOpen standalone initialTab={initialTab} />;
+  }
+  if (route === "mfa") return <Mfa />;
+  if (route === "reset-password") return <AuthForm mode={route} />;
+
   const store = await getStore();
   if (route === "") return <Home {...store} />;
   if (route === "shop") {
@@ -127,17 +141,8 @@ export default async function Page({
   }
   if (route === "cart") return <Cart {...store} />;
   if (route === "bulk") return <Bulk settings={store.settings} />;
-  if (["login", "register", "forgot-password"].includes(route)) {
-    const initialTab =
-      route === "register"
-        ? "register"
-        : route === "forgot-password"
-          ? "forgot"
-          : "login";
-    return <CustomerAuthModal isOpen standalone initialTab={initialTab} />;
-  }
   if (
-    ["checkout", "mfa", "reset-password", "account"].includes(route) ||
+    ["checkout", "account"].includes(route) ||
     (path[0] === "account" && path[1] === "orders" && path.length === 3)
   ) {
     let session;
@@ -157,8 +162,6 @@ export default async function Page({
       redirect(route === "checkout" ? "/login?returnTo=/checkout" : "/login");
     }
     if (route === "checkout") return <Checkout {...store} profile={session.profile} />;
-    if (route === "mfa") return <Mfa />;
-    if (route === "reset-password") return <AuthForm mode={route} />;
     if (route === "account")
       return (
         <Account

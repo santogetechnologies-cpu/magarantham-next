@@ -91,7 +91,7 @@ export function CustomerAuthModal({
         }
         if (onClose) onClose();
         if (onSuccess) onSuccess();
-        else window.location.assign(res.redirect === '/admin' ? '/admin' : getSafeReturnTo() || res.redirect || initialRedirect || '/');
+        else window.location.replace(res.redirect === '/admin' ? '/admin' : getSafeReturnTo() || res.redirect || initialRedirect || '/');
       } else if (tab === 'register') {
         const res = await api<{ message?: string; redirect?: string }>('/api/auth/register', {
           name: fullName.trim(),
@@ -103,7 +103,7 @@ export function CustomerAuthModal({
         if (res.redirect === '/') {
           if (onClose) onClose();
           if (onSuccess) onSuccess();
-          else window.location.assign(getSafeReturnTo() || '/');
+          else window.location.replace(getSafeReturnTo() || '/');
         } else {
           setStatusMsg(res.message || 'Account created! You can now log in.');
         }

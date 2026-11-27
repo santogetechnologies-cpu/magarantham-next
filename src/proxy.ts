@@ -5,6 +5,15 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = supabaseUrl(), key = supabasePublicKey();
   if (!url || !key) return response;
+
+  // Fast path: if there are no Supabase auth cookies, skip remote network call in middleware
+  const hasAuthCookies = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+  if (!hasAuthCookies) {
+    return response;
+  }
+
   const supabase = createServerClient(
     url,
     key,

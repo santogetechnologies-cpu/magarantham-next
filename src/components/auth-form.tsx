@@ -157,7 +157,7 @@ export function AuthForm({ mode }: { mode: string }) {
           } catch {}
         }
         const target = r.redirect === "/admin" ? "/admin" : getReturnTo() || r.redirect;
-        window.location.assign(target);
+        window.location.replace(target);
       } else {
         setIsError(false);
         setMessage(r.message || "Done.");
@@ -501,7 +501,7 @@ export function Mfa() {
               try {
                 sessionStorage.setItem("ms_admin_tab_session", "1");
               } catch {}
-              window.location.assign(r.redirect);
+              window.location.replace(r.redirect);
             } catch (e) {
               setMessage((e as Error).message);
             } finally {

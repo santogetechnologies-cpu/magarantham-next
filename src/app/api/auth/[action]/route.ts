@@ -90,8 +90,9 @@ export async function POST(
       }
       const session = await identity();
       if (session.profile.role !== "customer") {
-        try {
-          await service().from("audit_log").insert({
+        void service()
+          .from("audit_log")
+          .insert({
             actor_id: session.user.id,
             action: "staff.login",
             entity: "profiles",
@@ -101,8 +102,11 @@ export async function POST(
               name: session.profile.display_name,
               role: session.profile.role,
             },
-          });
-        } catch {}
+          })
+          .then(
+            () => {},
+            () => {},
+          );
       }
       return ok({
         redirect:
