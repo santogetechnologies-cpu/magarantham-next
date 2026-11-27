@@ -78,7 +78,15 @@ function CommandPalette({ profile, open, onClose }: { profile: Profile; open: bo
               } else if (e.key === "Escape") onClose();
             }}
           />
-          <kbd>Esc</kbd>
+          <button
+            type="button"
+            className="ms-btn ms-btn-ghost ms-btn-sm"
+            onClick={onClose}
+            aria-label="Back"
+            style={{ flexShrink: 0, height: 30, padding: "0 10px" }}
+          >
+            ← Back
+          </button>
         </div>
         <ul className="ms-cmd-list">
           {items.length === 0 && <li className="ms-cmd-empty">No matching page.</li>}
