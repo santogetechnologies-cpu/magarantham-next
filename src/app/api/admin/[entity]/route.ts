@@ -874,10 +874,11 @@ export async function DELETE(
         if (arch.error) throw new Fault(503, "DELETE_FAILED");
         archivedInstead = true;
         message = "Saree removed from catalogue (archived for order history).";
-        // Also clean up wishlist and product-level discounts
+        // Also clean up wishlist, product-level discounts, and unbilled in_stock barcode stickers
         await Promise.allSettled([
           db.from("wishlist").delete().eq("product_id", id),
           db.from("catalog_discounts").delete().eq("target_id", id).eq("scope", "product"),
+          db.from("product_units").delete().eq("product_id", id).eq("state", "in_stock"),
         ]);
       }
 
