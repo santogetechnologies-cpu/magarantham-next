@@ -182,7 +182,7 @@ export function Admin({
   }
 
   function reloadCategories() {
-    api<Row>("/api/erp/reference")
+    api<Row>("/api/erp/reference?module=categories")
       .then((r) => setCategories(r.categories || []))
       .catch((e) => notice(e.message));
   }
