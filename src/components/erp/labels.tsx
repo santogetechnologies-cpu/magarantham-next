@@ -38,10 +38,10 @@ export function Labels({ refs }: { refs: References }) {
     void load(0, '', pur);
   }, []);
 
-  async function load(cursor = 0, prodId = product, purId = purchase) {
+  async function load(cursor = 0, prodId = product, purId = purchase, qtyVal = quantity) {
     setLoading(true);
     try {
-      const clampedQty = Math.min(500, Math.max(1, Math.round(Number(quantity) || 20)));
+      const clampedQty = Math.min(500, Math.max(1, Math.round(Number(qtyVal) || 20)));
       const r = await api<Row>(
         `/api/erp/labels?quantity=${clampedQty}&after=${cursor}${
           prodId ? `&product_id=${prodId}` : ''
@@ -59,7 +59,7 @@ export function Labels({ refs }: { refs: References }) {
           isMsu: true,
           printedAt: u.printed_at || null,
         }));
-        const explicitCount = quantity.trim() !== '' ? clampedQty : 0;
+        const explicitCount = qtyVal.trim() !== '' ? clampedQty : 0;
         if (prodId && explicitCount > msuLabels.length) {
           const chosen = products.find((p) => p.id === prodId);
           if (chosen) {
@@ -183,11 +183,16 @@ export function Labels({ refs }: { refs: References }) {
                 const raw = e.target.value;
                 if (raw === '') {
                   setQuantity('');
+                  void load(0, product, purchase, '');
                   return;
                 }
                 const num = Number(raw);
                 if (!Number.isNaN(num)) {
-                  setQuantity(String(Math.max(0, Math.min(500, Math.floor(num)))));
+                  const nextVal = String(Math.max(0, Math.min(500, Math.floor(num))));
+                  setQuantity(nextVal);
+                  if (Number(nextVal) >= 1) {
+                    void load(0, product, purchase, nextVal);
+                  }
                 }
               }}
             />
