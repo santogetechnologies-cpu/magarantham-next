@@ -320,15 +320,20 @@ export function CatalogueHierarchyManager({
   }
 
   async function handleDeleteCategory(cat: CategoryRow) {
-    if (!confirm(`Are you sure you want to delete "${cat.name}"?`)) return;
+    const promptMsg = cat.parent_id
+      ? `Are you sure you want to delete subcategory "${cat.name}"?`
+      : `Are you sure you want to delete "${cat.name}" (and any empty subcategories)?`;
+    if (!confirm(promptMsg)) return;
     try {
-      await api(`/api/erp/product_categories?id=${cat.id}`, undefined, "DELETE");
-      if (onNotice) onNotice(`Category "${cat.name}" deleted.`);
+      const res = await api<{ message?: string }>(`/api/erp/product_categories?id=${cat.id}`, undefined, "DELETE");
+      if (onNotice) onNotice(res.message || `Category "${cat.name}" deleted.`);
       await reloadAll();
       if (selectedSubCategory?.id === cat.id) setSelectedSubCategory(null);
       if (selectedMainCategory?.id === cat.id) setSelectedMainCategory(null);
     } catch (err) {
-      if (onNotice) onNotice((err as Error).message || "Delete failed.");
+      const msg = (err as Error).message || "Delete failed.";
+      if (onNotice) onNotice(msg);
+      alert(msg);
     }
   }
 

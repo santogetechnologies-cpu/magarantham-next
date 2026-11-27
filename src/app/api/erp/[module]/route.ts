@@ -233,12 +233,25 @@ export async function DELETE(req:Request,{params}:{params:Promise<{module:string
  const catId=targetId;
  const {data:cat,error:catErr}=await db.from('product_categories').select('id,parent_id,name').eq('id',catId).single();
  if(catErr||!cat)throw new Fault(404,'NOT_FOUND');
- const {count:childCount}=await db.from('product_categories').select('id',{count:'exact',head:true}).eq('parent_id',catId);
- if((childCount||0)>0)throw new Fault(409,'HAS_SUBCATEGORIES','Remove its subcategories before deleting this main category.');
- // Safely preserve existing products in this subcategory by falling back to sibling 'All styles' or null (keeping their Main Category intact)
- let fallbackSub:string|null=null;
- if(cat.parent_id){const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();fallbackSub=allStyle?.id||null;}
- await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ if(!cat.parent_id){
+  const {data:children}=await db.from('product_categories').select('id,name').eq('parent_id',catId);
+  const childIds=(children||[]).map(c=>c.id);
+  if(childIds.length>0){
+   const {count:childProdCount}=await db.from('products').select('id',{count:'exact',head:true}).in('subcategory_id',childIds);
+   if((childProdCount||0)>0)throw new Fault(409,'CATEGORY_HAS_PRODUCTS',`Cannot delete "${cat.name}" because ${childProdCount} saree(s) are assigned to its subcategories.`);
+   await db.from('banners').update({published:false}).in('category_id',childIds);
+   await db.from('catalog_discounts').delete().in('target_id',childIds).in('scope',['category','subcategory']);
+   const delChildren=await db.from('product_categories').delete().in('id',childIds);
+   if(delChildren.error)throw new Fault(409,'DELETE_FAILED','Could not remove empty subcategories for this category.');
+   for(const cid of childIds){await removeCategoryImage(cid);}
+  }
+ }else{
+  // Safely preserve existing products in this subcategory by falling back to sibling 'All styles' or null (keeping their Main Category intact)
+  let fallbackSub:string|null=null;
+  const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();
+  fallbackSub=allStyle?.id||null;
+  await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ }
  // Rules and banners aimed at this category must not outlive it (a banner whose category is cleared would show on every category page).
  await db.from('banners').update({published:false}).eq('category_id',catId);
  await db.from('catalog_discounts').delete().eq('target_id',catId).in('scope',['category','subcategory']);
