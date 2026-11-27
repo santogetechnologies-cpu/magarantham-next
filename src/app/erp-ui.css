@@ -142,13 +142,17 @@ body:has(.luxury-admin-shell) {
 }
 
 /* ==========================================================================
-   SHELL — SIDEBAR
+   SHELL — SIDEBAR (Warm Silk Ivory / Cream with Maroon Accents)
    ========================================================================== */
 .luxury-admin-shell .luxury-admin-sidebar.ms-side {
   width: var(--ms-side-w);
-  background: radial-gradient(120% 60% at 0% 0%, #3d0b1b 0%, transparent 60%), linear-gradient(180deg, #24070f 0%, #1a0509 100%);
-  color: #f3e7e9;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: #FAF5EE;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 100 100' fill='none' stroke='%23C49A52' stroke-width='1.2' opacity='0.22'%3E%3Cpath d='M50 10 C50 30 35 45 15 45 C35 45 50 60 50 80 C50 60 65 45 85 45 C65 45 50 30 50 10 Z'/%3E%3Cpath d='M50 25 C50 40 40 50 25 50 C40 50 50 60 50 75 C50 60 60 50 75 50 C60 50 50 40 50 25 Z'/%3E%3Ccircle cx='50' cy='50' r='5'/%3E%3Cpath d='M10 90 Q30 70 50 90 T90 90' stroke-width='0.8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right -15px bottom 85px;
+  background-size: 150px 150px;
+  color: #4A0E17;
+  border-right: 1px solid #EADBCE;
   box-shadow: none;
   display: flex;
   flex-direction: column;
@@ -180,9 +184,9 @@ body:has(.luxury-admin-shell) {
   place-items: center;
   font-size: 18px;
   font-weight: 700;
-  color: #2a0710;
-  background: linear-gradient(135deg, #f3d398 0%, #c79a4b 55%, #a87a2f 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(199, 154, 75, 0.25);
+  color: #4A0E17;
+  background: linear-gradient(135deg, #F5DCA3 0%, #D4A359 55%, #B8862F 100%);
+  box-shadow: 0 2px 6px rgba(184, 134, 47, 0.25);
 }
 .ms-brand-text {
   display: flex;
@@ -193,11 +197,11 @@ body:has(.luxury-admin-shell) {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #fff;
+  color: #4A0E17;
 }
 .ms-brand-text small {
   font-size: 11px;
-  color: rgba(243, 231, 233, 0.55);
+  color: #8C6F67;
   margin-top: 3px;
 }
 .ms-side-close {
@@ -205,9 +209,9 @@ body:has(.luxury-admin-shell) {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  color: #4A0E17;
 }
-.ms-side-close:hover { background: rgba(255, 255, 255, 0.08); }
+.ms-side-close:hover { background: #EFE2D5; }
 .ms-side-search {
   margin: 2px 14px 10px;
   display: flex;
@@ -216,32 +220,33 @@ body:has(.luxury-admin-shell) {
   height: 36px;
   padding: 0 11px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.5);
-  transition: background 0.2s, border-color 0.2s;
+  background: #FFFDFB;
+  border: 1px solid #E7D7C8;
+  color: #8C6F67;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .ms-side-search:focus-within {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(243, 211, 152, 0.4);
+  background: #FFFFFF;
+  border-color: #7A1230;
+  box-shadow: 0 0 0 2px rgba(122, 18, 48, 0.12);
 }
 .ms-side-search input {
   all: unset;
   flex: 1;
   font-size: 13px;
-  color: #fff;
+  color: #3B0813;
   min-width: 0;
 }
-.ms-side-search input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.ms-side-search input::placeholder { color: #A38C87; }
 .ms-side-nav {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 4px 10px 16px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  scrollbar-color: #E2D2C2 transparent;
 }
-.ms-side-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+.ms-side-nav::-webkit-scrollbar-thumb { background: #E2D2C2; }
 .ms-nav-group { margin-top: 10px; }
 .ms-nav-group-head {
   width: 100%;
@@ -249,17 +254,17 @@ body:has(.luxury-admin-shell) {
   align-items: center;
   justify-content: space-between;
   padding: 6px 8px;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(243, 231, 233, 0.42);
+  color: #8C6F67;
   border-radius: 6px;
   transition: color 0.2s;
 }
 .ms-nav-group-head:hover,
-.ms-nav-group.has-active .ms-nav-group-head { color: rgba(243, 211, 152, 0.85); }
-.ms-chevron { transition: transform 0.25s var(--ms-ease); }
+.ms-nav-group.has-active .ms-nav-group-head { color: #5A0E1A; }
+.ms-chevron { transition: transform 0.25s var(--ms-ease); color: #A38C87; }
 .ms-chevron.collapsed { transform: rotate(-90deg); }
 .ms-nav-items {
   list-style: none;
@@ -272,7 +277,7 @@ body:has(.luxury-admin-shell) {
 .ms-nav-items.collapsed { display: none; }
 .ms-nav-sub {
   font-size: 10.5px;
-  color: rgba(243, 231, 233, 0.35);
+  color: #8C6F67;
   padding: 10px 10px 3px;
   font-weight: 600;
 }
@@ -284,7 +289,7 @@ body:has(.luxury-admin-shell) {
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 13.5px;
-  color: rgba(243, 231, 233, 0.78);
+  color: #4A0E17;
   text-decoration: none;
   transition: background 0.18s, color 0.18s, transform 0.18s var(--ms-ease);
 }
@@ -292,31 +297,26 @@ body:has(.luxury-admin-shell) {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  opacity: 0.75;
-  transition: opacity 0.18s;
+  color: #5A0E1A;
+  opacity: 0.85;
+  transition: opacity 0.18s, color 0.18s;
 }
 .ms-nav-link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: #F2E4D8;
+  color: #2D050D;
 }
-.ms-nav-link:hover .nav-item-icon { opacity: 1; }
+.ms-nav-link:hover .nav-item-icon { opacity: 1; color: #7A1230; }
 .ms-nav-link:active { transform: scale(0.98); }
 .ms-nav-link.active {
-  background: linear-gradient(90deg, rgba(243, 211, 152, 0.16), rgba(243, 211, 152, 0.04));
-  color: #fff;
+  background: linear-gradient(135deg, #7A1230 0%, #60081C 100%) !important;
+  color: #FFFFFF !important;
   font-weight: 600;
+  box-shadow: 0 2px 6px rgba(96, 8, 28, 0.25);
 }
 .ms-nav-link.active::before {
-  content: "";
-  position: absolute;
-  left: -10px;
-  top: 7px;
-  bottom: 7px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: #f3d398;
+  display: none;
 }
-.ms-nav-link.active .nav-item-icon { opacity: 1; color: #f3d398; }
+.ms-nav-link.active .nav-item-icon { opacity: 1; color: #FFFFFF !important; }
 .ms-nav-label {
   flex: 1;
   min-width: 0;
@@ -330,13 +330,14 @@ body:has(.luxury-admin-shell) {
   letter-spacing: 0.04em;
   padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(244, 128, 108, 0.2);
-  color: #ffb4a6;
+  background: #FEE2E2;
+  color: #991B1B;
 }
 .ms-side-foot {
   flex-shrink: 0;
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid #EADBCE;
+  background: #F5EAE0;
   display: grid;
   gap: 10px;
 }
@@ -352,11 +353,11 @@ body:has(.luxury-admin-shell) {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #9b1b3e, #5e0c24);
-  border: 2px solid rgba(243, 211, 152, 0.5);
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #7A1230 0%, #580816 100%);
+  border: 2px solid #E5CCA2;
   flex-shrink: 0;
 }
 .ms-user-text {
@@ -367,12 +368,13 @@ body:has(.luxury-admin-shell) {
 }
 .ms-user-text strong {
   font-size: 13px;
-  color: #fff;
+  color: #3B0813;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ms-user-text small { font-size: 11px; color: rgba(243, 231, 233, 0.5); }
+.ms-user-text small { font-size: 11px; color: #8C6F67; }
 .ms-foot-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -385,15 +387,16 @@ body:has(.luxury-admin-shell) {
   gap: 6px;
   height: 32px;
   border-radius: 8px;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: rgba(243, 231, 233, 0.8) !important;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 12px;
+  font-weight: 600;
+  color: #4A0E17 !important;
+  background: #FFFDFB;
+  border: 1px solid #E2D4C6;
   text-decoration: none;
-  transition: background 0.18s, color 0.18s;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.ms-foot-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff !important; }
+.ms-foot-btn:hover { background: #EFE2D5; color: #2D050D !important; border-color: #D3C1B0; }
 .ms-backdrop {
   position: fixed;
   inset: 0;
