@@ -19,7 +19,7 @@ type PrintableLabel = {
 export function Labels({ refs }: { refs: References }) {
   const [product, setProduct] = useState('');
   const [purchase, setPurchase] = useState('');
-  const [quantity, setQuantity] = useState(20);
+  const [quantity, setQuantity] = useState('');
   const [after, setAfter] = useState(0);
   const [next, setNext] = useState<number | null>(null);
   const [rows, setRows] = useState<PrintableLabel[]>([]);
@@ -160,8 +160,19 @@ export function Labels({ refs }: { refs: References }) {
               type="number"
               min={1}
               max={500}
+              placeholder="0"
               value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Math.min(500, Number(e.target.value || 1))))}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setQuantity('');
+                  return;
+                }
+                const num = Number(raw);
+                if (!Number.isNaN(num)) {
+                  setQuantity(String(Math.max(0, Math.min(500, Math.floor(num)))));
+                }
+              }}
             />
           </label>
           <label>

@@ -1945,14 +1945,26 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell .ap-variants-table input.ap-cell-input:focus,
 .luxury-admin-shell .ap-variants-table input.ap-cell-input:focus-visible,
 .luxury-admin-shell .ap-variants-table input:focus,
-.luxury-admin-shell .ap-variants-table input:focus-visible {
+.luxury-admin-shell .ap-variants-table input:focus-visible,
+.luxury-admin-shell .ap-cell-box select,
+.luxury-admin-shell .ap-cell-box select:focus,
+.luxury-admin-shell .ap-cell-box select:focus-visible,
+.luxury-admin-shell select.ap-cell-input,
+.luxury-admin-shell select.ap-cell-input:focus,
+.luxury-admin-shell select.ap-cell-input:focus-visible {
   border: none !important;
+  border-width: 0 !important;
   border-color: transparent !important;
+  border-radius: 0 !important;
   box-shadow: none !important;
   outline: none !important;
   outline-offset: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 .luxury-admin-shell .pos-discount-type-toggle button,
 .luxury-admin-shell .pos-dtype-btn {
@@ -2279,3 +2291,30 @@ body:has(.luxury-admin-shell) {
 @media (max-width: 700px) { .ex-approval { grid-template-columns: 1fr; } }
 .pos-offer-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; background: var(--ms-green-bg); color: var(--ms-green); white-space: nowrap; }
 .pos-scan-toast-offer { font-size: 12px; font-weight: 700; color: #bbf7d0; }
+
+/* Category grid card footer layout */
+.luxury-admin-shell .cat-card-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 14px;
+}
+.luxury-admin-shell .cat-card-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.luxury-admin-shell .cat-enter-btn {
+  width: 100%;
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+}
+.luxury-admin-shell .cat-action-btn {
+  width: 100%;
+  height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 12.5px !important;
+}

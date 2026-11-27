@@ -85,6 +85,7 @@ const COLOUR_PRESETS: { name: string; hex: string }[] = [
   { name: "Orange", hex: "#EA580C" },
   { name: "Terracotta", hex: "#B45309" },
   { name: "Wine", hex: "#650019" },
+  { name: "Undefined", hex: "#94A3B8" },
 ];
 
 function colourHex(name: string): string {

@@ -67,6 +67,7 @@ const COLOUR_PRESETS: { name: string; hex: string }[] = [
   { name: "Orange", hex: "#EA580C" },
   { name: "Terracotta", hex: "#B45309" },
   { name: "Wine", hex: "#650019" },
+  { name: "Undefined", hex: "#94A3B8" },
 ];
 
 function colourHex(name?: string): string {
@@ -87,6 +88,7 @@ function colourHex(name?: string): string {
     orange: "#EA580C",
     terracotta: "#B45309",
     wine: "#650019",
+    undefined: "#94A3B8",
   };
   return map[(name || "").trim().toLowerCase()] || "#800020";
 }
@@ -1108,7 +1110,7 @@ export function CatalogueHierarchyManager({
                           >
                             Explore Products →
                           </button>
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div className="cat-card-actions-row">
                             <button
                               type="button"
                               className="button outline-btn cat-action-btn"
@@ -1238,7 +1240,7 @@ export function CatalogueHierarchyManager({
                           >
                             Explore Subcategories →
                           </button>
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div className="cat-card-actions-row">
                             <button
                               type="button"
                               className="button outline-btn cat-action-btn"
