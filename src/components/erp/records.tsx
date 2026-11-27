@@ -24,6 +24,7 @@ export function ERPRecords({
   const [viewingEmployee, setViewingEmployee] = useState<Row | null>(null);
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [login, setLogin] = useState<Row | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const { busy, send, notice } = useERP();
 
   async function load(page = 0) {
@@ -99,7 +100,7 @@ export function ERPRecords({
           }
           disabled={module === 'pos-settings'}
         >
-          Add {module === 'employees' ? 'staff member' : 'new record'} ＋
+          Add {module === 'employees' ? 'staff member' : module === 'suppliers' ? 'supplier' : 'new record'} ＋
         </button>
         <button className="button button-outline" onClick={() => void load()}>
           Refresh records
@@ -291,6 +292,23 @@ export function ERPRecords({
         </form>
       )}
 
+      {actionMsg && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 13.5,
+            fontWeight: 600,
+            background: actionMsg.type === 'err' ? '#FEF2F2' : '#F0FDF4',
+            color: actionMsg.type === 'err' ? '#991B1B' : '#166534',
+            border: `1px solid ${actionMsg.type === 'err' ? '#FECACA' : '#BBF7D0'}`,
+          }}
+        >
+          {actionMsg.text}
+        </div>
+      )}
+
       <div className="data-table">
         <table style={{ minWidth: 700 }}>
           <thead>
@@ -333,29 +351,75 @@ export function ERPRecords({
                         : r.phone || r.divisor_mode || 'Configured'}
                 </td>
                 <td>
-                  {r.active === false || r.enabled === false ? 'Off' : 'Active'}
+                  <span className={`ms-badge ${r.active === false || r.enabled === false ? 'ms-badge-off' : 'ms-badge-live'}`}>
+                    {r.active === false || r.enabled === false ? 'Off' : 'Active'}
+                  </span>
                   {module === 'employees' && (
-                    <small style={{ display: 'block', color: 'var(--erp-text-muted)' }}>
+                    <small style={{ display: 'block', color: 'var(--erp-text-muted)', marginTop: 4 }}>
                       {r.profile_id ? 'Login linked' : 'No login'}
                     </small>
                   )}
                 </td>
                 <td>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     {module === 'employees' && (
                       <button
-                        className="text-link"
-                        style={{ color: 'var(--erp-burgundy, #800020)', fontWeight: 600 }}
+                        type="button"
+                        className="ms-btn ms-btn-soft ms-btn-sm"
                         onClick={() => setViewingEmployee(r)}
                       >
                         View Profile
                       </button>
                     )}
-                    <button className="text-link" onClick={() => edit(r)}>
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn-ghost ms-btn-sm"
+                      onClick={() => edit(r)}
+                    >
                       Edit
                     </button>
+                    {module === 'suppliers' && (
+                      <button
+                        type="button"
+                        className="ms-btn ms-btn-danger-ghost ms-btn-sm"
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              `Delete supplier "${r.name || 'this supplier'}"? This cannot be undone.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          try {
+                            setActionMsg(null);
+                            const res = await api<{ message?: string }>(
+                              `/api/erp/suppliers?id=${encodeURIComponent(String(r.id))}`,
+                              undefined,
+                              'DELETE',
+                            );
+                            const msg = res.message || 'Supplier deleted.';
+                            setActionMsg({ type: 'ok', text: msg });
+                            notice(msg);
+                            if (editing?.id === r.id) setEditing(null);
+                            await load();
+                            await refreshRefs();
+                          } catch (e) {
+                            const msg = (e as Error).message || 'Could not delete supplier.';
+                            setActionMsg({ type: 'err', text: msg });
+                            notice(msg);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
                     {module === 'employees' && !r.profile_id && r.active && (
-                      <button className="text-link" onClick={() => setLogin(r)}>
+                      <button
+                        type="button"
+                        className="ms-btn ms-btn-ghost ms-btn-sm"
+                        onClick={() => setLogin(r)}
+                      >
                         Link login
                       </button>
                     )}

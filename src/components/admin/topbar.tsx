@@ -58,6 +58,7 @@ function CommandPalette({ profile, open, onClose }: { profile: Profile; open: bo
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input
             ref={inputRef}
+            className="ms-cmd-search"
             value={q}
             placeholder="Jump to a page or search sarees…"
             onChange={(e) => {
@@ -77,7 +78,15 @@ function CommandPalette({ profile, open, onClose }: { profile: Profile; open: bo
               } else if (e.key === "Escape") onClose();
             }}
           />
-          <kbd>Esc</kbd>
+          <button
+            type="button"
+            className="ms-btn ms-btn-ghost ms-btn-sm"
+            onClick={onClose}
+            aria-label="Back"
+            style={{ flexShrink: 0, height: 30, padding: "0 10px" }}
+          >
+            ← Back
+          </button>
         </div>
         <ul className="ms-cmd-list">
           {items.length === 0 && <li className="ms-cmd-empty">No matching page.</li>}

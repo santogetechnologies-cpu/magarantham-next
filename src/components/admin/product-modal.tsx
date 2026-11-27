@@ -1,8 +1,7 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { compressImage, validateImageFile } from "@/lib/image-compress";
-import { ColourStockEditor } from "./colour-stock-editor";
 
 export type ProductFormData = {
   id?: string;
@@ -39,6 +38,64 @@ type CategoryOption = {
   image_path?: string;
 };
 
+type PieceRow = {
+  key: string;
+  id?: string;
+  piece_code: string;
+  barcode: string;
+  colour: string;
+  priceRupees: string;
+  purchaseCostRupees: string;
+  quantity?: number | string;
+  minQuantity?: number | string;
+  status: "available" | "reserved" | "sold" | "damaged" | "returned";
+  location: string;
+  image_path?: string;
+  customColour?: boolean;
+};
+
+type VariantRow = {
+  key: string;
+  existingProductId?: string;
+  existingSku?: string;
+  existingSlug?: string;
+  existingStock?: number;
+  typeName: string;
+  colour: string;
+  priceRupees: string;
+  stock: string;
+  minStock: string;
+  image_path: string;
+  uploading?: boolean;
+};
+
+const COLOUR_PRESETS: { name: string; hex: string }[] = [
+  { name: "Purple", hex: "#7C3AED" },
+  { name: "Green", hex: "#2E7D32" },
+  { name: "Red", hex: "#C62828" },
+  { name: "Crimson Red", hex: "#B91C1C" },
+  { name: "Maroon", hex: "#800020" },
+  { name: "Beige", hex: "#D4A373" },
+  { name: "Blue", hex: "#1D4ED8" },
+  { name: "Gold", hex: "#C49A52" },
+  { name: "Pink", hex: "#DB2777" },
+  { name: "Magenta", hex: "#A21CAF" },
+  { name: "Ivory", hex: "#E7DFD3" },
+  { name: "Yellow", hex: "#CA8A04" },
+  { name: "Teal", hex: "#0F766E" },
+  { name: "Orange", hex: "#EA580C" },
+  { name: "Terracotta", hex: "#B45309" },
+  { name: "Wine", hex: "#650019" },
+  { name: "Undefined", hex: "#94A3B8" },
+];
+
+function colourHex(name: string): string {
+  const found = COLOUR_PRESETS.find(
+    (c) => c.name.toLowerCase() === (name || "").trim().toLowerCase(),
+  );
+  return found ? found.hex : "#800020";
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -62,10 +119,7 @@ export function ProductModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  // After the first save of a new saree the screen switches to editing it (to set colours).
-  const [savedId, setSavedId] = useState<string | null>(product?.id || null);
-  useEffect(() => setSavedId(product?.id || null), [product?.id]);
-  const isEditing = Boolean(savedId);
+  const isEditing = Boolean(product?.id);
 
   const [internalCategories, setInternalCategories] = useState<CategoryOption[]>(
     categories && categories.length > 0 ? categories : [],
@@ -200,15 +254,279 @@ export function ProductModal({
     }
   }, [existingSubcategories, subcategoryId]);
 
-  const [barcode, setBarcode] = useState(product?.barcode || "");
-  const [compareRupees, setCompareRupees] = useState(
-    product?.compare_at_price_paise ? String(product.compare_at_price_paise / 100) : "",
-  );
-  const [notice, setNotice] = useState("");
+  // -------------------------------------------------------------
+  // LEVEL 4: INDIVIDUAL PHYSICAL PIECES MANAGEMENT
+  // -------------------------------------------------------------
+  const [pieces, setPieces] = useState<PieceRow[]>([]);
+  const [piecesTab, setPiecesTab] = useState<"pieces" | "variants">("pieces");
+
+  // Load existing individual pieces if editing product
+  useEffect(() => {
+    if (product?.id) {
+      api<{ pieces: any[] }>(`/api/admin/pieces?product_id=${product.id}`)
+        .then((res) => {
+          if (res?.pieces && Array.isArray(res.pieces) && res.pieces.length > 0) {
+            setPieces(
+              res.pieces.map((p) => ({
+                key: p.id || `pc-${Math.random().toString(36).slice(2, 6)}`,
+                id: p.id,
+                piece_code: p.piece_code || "",
+                barcode: p.barcode || "",
+                colour: p.colour || "Purple",
+                priceRupees: p.price_paise ? String(p.price_paise / 100) : "",
+                purchaseCostRupees: p.purchase_cost_paise
+                  ? String(p.purchase_cost_paise / 100)
+                  : "",
+                quantity: p.quantity !== undefined ? p.quantity : (product.stock_on_hand !== undefined && product.stock_on_hand > 0 ? product.stock_on_hand : 1),
+                minQuantity: p.min_quantity !== undefined ? p.min_quantity : (product?.min_stock_level !== undefined ? product.min_stock_level : 0),
+                status: p.status || "available",
+                location: p.location || "Rack A-1",
+                image_path: p.image_path || "",
+              })),
+            );
+          } else {
+            // Initialize 1 default piece from product info
+            setPieces([
+              {
+                key: `pc-init-1`,
+                piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
+                barcode: `MSU${Date.now().toString().slice(-7)}001`,
+                colour: product.colour || "Purple",
+                priceRupees: product.price_paise ? String(product.price_paise / 100) : "",
+                purchaseCostRupees: product.purchase_price_paise
+                  ? String(product.purchase_price_paise / 100)
+                  : "",
+                quantity: product.stock_on_hand !== undefined && product.stock_on_hand > 0 ? product.stock_on_hand : 1,
+                minQuantity: product?.min_stock_level !== undefined ? product.min_stock_level : 0,
+                status: "available",
+                location: "Rack A-1",
+              },
+            ]);
+          }
+        })
+        .catch(() => { });
+    } else {
+      // New Product: Initialize default 1st piece
+      setPieces([
+        {
+          key: `pc-new-1`,
+          piece_code: `${category.slice(0, 3).toUpperCase()}-PUR-001`,
+          barcode: `MSU${Date.now().toString().slice(-7)}001`,
+          colour: "Purple",
+          priceRupees: basePriceRupees || "",
+          purchaseCostRupees: purchasePriceRupees || "",
+          quantity: 1,
+          minQuantity: minStockLevel || 0,
+          status: "available",
+          location: "Rack A-1",
+        },
+      ]);
+    }
+  }, [product?.id]);
+
+  // Variant Rows (for legacy multi-variant mode if needed)
+  const [variants, setVariants] = useState<VariantRow[]>([
+    {
+      key: "v-1",
+      typeName: "",
+      colour: "Purple",
+      priceRupees: "",
+      stock: "",
+      minStock: "0",
+      image_path: "",
+    },
+  ]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const mainFileRef = useRef<HTMLInputElement>(null);
+  const variantFileRef = useRef<HTMLInputElement>(null);
+  const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  // Piece inventory counts
+  const pieceStats = useMemo(() => {
+    const total = pieces.reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const available = pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const reserved = pieces.filter((p) => p.status === "reserved").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const sold = pieces.filter((p) => p.status === "sold").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const damaged = pieces.filter((p) => p.status === "damaged").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    const returned = pieces.filter((p) => p.status === "returned").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+    return { total, available, reserved, sold, damaged, returned };
+  }, [pieces]);
+
+  function addPieceRow() {
+    const nextIdx = pieces.length + 1;
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+    const nextCol = COLOUR_PRESETS[(nextIdx - 1) % COLOUR_PRESETS.length].name;
+    const colCode = nextCol.slice(0, 3).toUpperCase();
+    const pieceCode = `${catCode}-${colCode}-${String(nextIdx).padStart(3, "0")}`;
+    const barcode = `MSU${Date.now().toString().slice(-7)}${String(nextIdx).padStart(3, "0")}`;
+
+    setPieces((prev) => [
+      ...prev,
+      {
+        key: `pc-${Date.now()}-${nextIdx}`,
+        piece_code: pieceCode,
+        barcode,
+        colour: nextCol,
+        priceRupees: basePriceRupees || (prev[prev.length - 1]?.priceRupees || ""),
+        purchaseCostRupees: purchasePriceRupees || (prev[prev.length - 1]?.purchaseCostRupees || ""),
+        quantity: 1,
+        minQuantity: minStockLevel || 0,
+        status: "available",
+        location: `Rack A-${nextIdx}`,
+      },
+    ]);
+  }
+
+  function updatePiece(key: string, patch: Partial<PieceRow>) {
+    setPieces((prev) =>
+      prev.map((p) => (p.key === key ? { ...p, ...patch } : p)),
+    );
+  }
+
+  function removePiece(key: string) {
+    setPieces((prev) => {
+      if (prev.length <= 1) {
+        const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+        return [
+          {
+            key: `pc-${Date.now()}-1`,
+            piece_code: `${catCode}-PUR-001`,
+            barcode: `MSU${Date.now().toString().slice(-7)}001`,
+            colour: "Purple",
+            priceRupees: "",
+            purchaseCostRupees: "",
+            quantity: 1,
+            minQuantity: 0,
+            status: "available",
+            location: "Rack A-1",
+          },
+        ];
+      }
+      return prev.filter((p) => p.key !== key);
+    });
+  }
+
+  function autoGeneratePieceCodes() {
+    const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+    setPieces((prev) =>
+      prev.map((p, idx) => {
+        const colCode = (p.colour || "DEF").slice(0, 3).toUpperCase();
+        return {
+          ...p,
+          piece_code: `${catCode}-${colCode}-${String(idx + 1).padStart(3, "0")}`,
+          barcode: p.barcode || `MSU${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`,
+        };
+      }),
+    );
+  }
+
+  // Smart horizontal auto-scrolling on input focus & keyboard navigation
+  const handleTableFocus = useCallback((e: React.FocusEvent) => {
+    const container = tableScrollRef.current;
+    if (!container) return;
+
+    const target = e.target as HTMLElement;
+    if (!target) return;
+
+    // Find the cell or the element
+    const cell = target.closest("td") || target;
+    const containerRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+
+    const padding = 28; // Comfortable spacing from table edges
+    const cellLeftRelative = cellRect.left - containerRect.left;
+    const cellRightRelative = cellRect.right - containerRect.left;
+
+    // Smoothly scroll only if element is partially or fully out of view
+    if (cellLeftRelative < padding) {
+      const scrollDiff = cellLeftRelative - padding;
+      container.scrollBy({ left: scrollDiff, behavior: "smooth" });
+    } else if (cellRightRelative > containerRect.width - padding) {
+      const scrollDiff = cellRightRelative - (containerRect.width - padding);
+      container.scrollBy({ left: scrollDiff, behavior: "smooth" });
+    }
+  }, []);
+
+  const handleTableKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "SELECT")) {
+        e.preventDefault();
+        const container = tableScrollRef.current;
+        if (!container) return;
+        const focusables = Array.from(
+          container.querySelectorAll<HTMLElement>("input:not([disabled]), select:not([disabled]), button.ap-variant-del-btn")
+        );
+        const idx = focusables.indexOf(target);
+        if (idx >= 0 && idx + 1 < focusables.length) {
+          focusables[idx + 1].focus();
+        } else if (idx === focusables.length - 1) {
+          addPieceRow();
+        }
+      }
+    }
+  }, []);
+
+  // Automatically sync stockInput when physical pieces change
+  useEffect(() => {
+    if (pieces.length > 0) {
+      const avail = pieces
+        .filter((p) => p.status === "available")
+        .reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0);
+      setStockInput(avail);
+    }
+  }, [pieces]);
+
+  function handleStockChange(valStr: string) {
+    if (valStr === "") {
+      setStockInput("");
+      return;
+    }
+    const target = Math.max(0, parseInt(valStr, 10) || 0);
+    setStockInput(target);
+
+    const currentAvailable = pieces.filter((p) => p.status === "available").length;
+    if (target > currentAvailable) {
+      const diff = target - currentAvailable;
+      const catCode = category.slice(0, 3).toUpperCase() || "SAR";
+      const newItems: PieceRow[] = [];
+      for (let i = 0; i < diff; i++) {
+        const idx = pieces.length + i + 1;
+        const nextCol = COLOUR_PRESETS[(idx - 1) % COLOUR_PRESETS.length].name;
+        const colCode = nextCol.slice(0, 3).toUpperCase();
+        newItems.push({
+          key: `pc-${Date.now()}-${idx}`,
+          piece_code: `${catCode}-${colCode}-${String(idx).padStart(3, "0")}`,
+          barcode: `MSU${Date.now().toString().slice(-7)}${String(idx).padStart(3, "0")}`,
+          colour: nextCol,
+          priceRupees: basePriceRupees || (pieces[0]?.priceRupees || ""),
+          purchaseCostRupees: purchasePriceRupees || (pieces[0]?.purchaseCostRupees || ""),
+          quantity: 1,
+          minQuantity: minStockLevel || 0,
+          status: "available",
+          location: `Rack A-${idx}`,
+        });
+      }
+      setPieces((prev) => [...prev, ...newItems]);
+    } else if (target < currentAvailable) {
+      let toRemove = currentAvailable - target;
+      setPieces((prev) => {
+        const nextList: PieceRow[] = [];
+        for (let i = prev.length - 1; i >= 0; i--) {
+          const item = prev[i];
+          if (toRemove > 0 && item.status === "available" && (prev.length - (currentAvailable - target + toRemove - 1)) >= 1) {
+            toRemove--;
+            continue;
+          }
+          nextList.unshift(item);
+        }
+        return nextList.length > 0 ? nextList : prev;
+      });
+    }
+  }
 
   async function compressAndUpload(file: File): Promise<string> {
     const validation = validateImageFile(file);
@@ -300,53 +618,70 @@ export function ProductModal({
         ? String(finalSubcategoryId)
         : null;
 
-    const basePriceNum = Number(String(basePriceRupees || "").replace(/,/g, ""));
+    // Form validation check: Selling Price (₹) from Pieces
+    const basePriceNum = pieces.length > 0 && pieces[0]?.priceRupees
+      ? Number(String(pieces[0].priceRupees).replace(/,/g, ""))
+      : Number(String(basePriceRupees || "").replace(/,/g, ""));
+
     if (!basePriceNum || isNaN(basePriceNum) || basePriceNum <= 0) {
       setError("Selling Price (₹) is required and must be greater than ₹0.");
       return;
     }
     const pricePaise = Math.round(basePriceNum * 100);
-    const purchasePriceNum = purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0;
+
+    // Form validation check: Purchase Cost (₹, optional but cannot be negative)
+    const purchasePriceNum = pieces.length > 0 && pieces[0]?.purchaseCostRupees
+      ? Number(String(pieces[0].purchaseCostRupees).replace(/,/g, ""))
+      : (purchasePriceRupees ? Number(String(purchasePriceRupees).replace(/,/g, "")) : 0);
+
     if (isNaN(purchasePriceNum) || purchasePriceNum < 0) {
       setError("Purchase Cost (₹) cannot be negative.");
       return;
     }
-    const compareNum = compareRupees ? Number(String(compareRupees).replace(/,/g, "")) : 0;
-    const finalMinStock = Math.max(0, parseInt(String(minStockLevel || 0), 10) || 0);
-    const startPieces = Math.max(0, parseInt(String(stockInput || 0), 10) || 0);
-    const code = barcode.trim();
-    if (code && !/^[ -~]{1,48}$/.test(code)) {
-      setError("Barcode can use letters, numbers and symbols only (max 48).");
-      return;
-    }
+    const purchasePricePaise = Math.round(purchasePriceNum * 100);
+
+    // Stock on hand is calculated directly from AVAILABLE pieces
+    const stockOnHand = pieces.length > 0
+      ? pieces.filter((p) => p.status === "available").reduce((sum, p) => sum + (p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1), 0)
+      : (typeof stockInput === "number" ? stockInput : parseInt(String(stockInput || 0), 10) || 0);
+
+    const finalMinStock = pieces.length > 0 && pieces[0]?.minQuantity !== undefined
+      ? Math.max(0, parseInt(String(pieces[0].minQuantity || 0), 10) || 0)
+      : (typeof minStockLevel === "number" ? minStockLevel : parseInt(String(minStockLevel || 0), 10) || 0);
 
     setSaving(true);
     try {
       const catPrefix = slugify(finalCatName).slice(0, 4).toUpperCase() || "SAR";
-      const rawSlug = product?.slug || `${slugify(trimmedName) || "saree"}-${uniqueSuffix()}`;
+      const rawSlug =
+        product?.slug ||
+        `${slugify(trimmedName) || "saree"}-${slugify(pieces[0]?.colour || "silk")}-${uniqueSuffix()}`;
       const baseSlug = slugify(rawSlug).slice(0, 118).replace(/-+$/, "");
       const sku =
         product?.sku ||
         `MS-${catPrefix}-${slugify(trimmedName).slice(0, 5).toUpperCase()}-${uniqueSuffix().toUpperCase()}`;
 
-      const saved = await api<{ id: string }>("/api/admin/products", {
-        id: savedId,
+      const finalImagePath = (mainImage || pieces.find((p) => p.image_path)?.image_path || "/assets/product-01.jpg").trim();
+
+      // 1. Save Product Record
+      const savedProduct = await api<{ id: string }>("/api/admin/products", {
+        id: product?.id && product.id.trim() ? product.id.trim() : null,
         data: {
           name: trimmedName,
           sku,
-          // One barcode per individual saree (all its colours share it). Defaults to the SKU.
-          barcode: code || sku,
+          barcode: product?.barcode?.trim() ? product.barcode.trim() : null,
           slug: baseSlug,
           category: finalCatName,
           subcategory_id: validSubId,
           saree_type: product?.saree_type || finalCatName,
           fabric: fabric.trim(),
+          colour: (pieces[0]?.colour || product?.colour || "Purple").trim(),
           design: design.trim(),
           description: description.trim(),
-          image_path: mainImage.trim(),
-          purchase_price_paise: Math.round(purchasePriceNum * 100),
+          image_path: finalImagePath,
+          purchase_price_paise: purchasePricePaise,
           price_paise: pricePaise,
-          compare_at_price_paise: Math.round((compareNum || 0) * 100),
+          compare_at_price_paise: product?.compare_at_price_paise || 0,
+          // Only sent when not the default so saving works before migration 016 is applied.
           ...(saleUnit !== "piece" || (product?.sale_unit && product.sale_unit !== "piece") ? { sale_unit: saleUnit } : {}),
           discount_percent: product?.discount_percent || 0,
           min_stock_level: finalMinStock,
@@ -355,18 +690,43 @@ export function ProductModal({
           archived: false,
         },
       });
-      const id = saved?.id || savedId;
-      if (!id) throw new Error("Saree saved, but no ID was returned.");
-      if (!savedId) {
-        // New saree: record its pieces (colour undefined until set below), then stay open for colours.
-        if (startPieces > 0) {
-          await api("/api/admin/colours", { product_id: id, rows: [], total: startPieces, reason: "Opening stock (new saree)" });
-        }
-        setBarcode(code || sku);
-        setSavedId(id);
-        setNotice("Saree saved. Now split its pieces by colour and add a photo per colour to show it on the website.");
-        return;
+
+      const targetProductId = savedProduct?.id || product?.id;
+      if (!targetProductId) {
+        throw new Error("Product saved, but no product ID was returned.");
       }
+
+      // 2. Save Level 4 Individual Pieces
+      if (pieces.length > 0) {
+        await api("/api/admin/pieces", {
+          product_id: targetProductId,
+          pieces: pieces.map((p, idx) => {
+            const piecePriceNum = p.priceRupees ? Number(String(p.priceRupees).replace(/,/g, "")) : 0;
+            const pieceCostNum = p.purchaseCostRupees ? Number(String(p.purchaseCostRupees).replace(/,/g, "")) : 0;
+            const pieceQuantity = p.quantity !== undefined && p.quantity !== "" ? Math.max(0, Number(p.quantity)) : 1;
+            const pieceMinQuantity = p.minQuantity !== undefined && p.minQuantity !== "" ? Math.max(0, Number(p.minQuantity)) : 0;
+            const pieceCode = (p.piece_code || "").trim() || `${catPrefix}-${slugify(p.colour || "PUR").slice(0, 3).toUpperCase()}-${String(idx + 1).padStart(3, "0")}`;
+            const barcode = (p.barcode || "").trim() || `MSU${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`;
+            const colour = (p.colour || "").trim() || "Purple";
+            const location = (p.location || "").trim() || "Rack A-1";
+            return {
+              id: p.id && !p.id.startsWith("pc-") ? p.id : undefined,
+              product_id: targetProductId,
+              piece_code: pieceCode,
+              barcode,
+              colour,
+              price_paise: piecePriceNum > 0 ? Math.round(piecePriceNum * 100) : pricePaise,
+              purchase_cost_paise: pieceCostNum > 0 ? Math.round(pieceCostNum * 100) : (purchasePricePaise || undefined),
+              quantity: pieceQuantity,
+              min_quantity: pieceMinQuantity,
+              status: p.status,
+              location,
+              image_path: p.image_path || finalImagePath,
+            };
+          }),
+        });
+      }
+
       onSaved();
     } catch (err) {
       setError((err as Error).message || "Failed to save saree.");
@@ -394,7 +754,7 @@ export function ProductModal({
         <div>
           <h1 className="ap-title">{isEditing ? "Edit Saree" : "Add Saree"}</h1>
           <p className="ap-subtitle">
-            Main Category → Sub Category → Saree (one barcode, one price) → Colours
+            4-Level Hierarchy: Main Category → Sub Category → Product → Individual Pieces
           </p>
         </div>
 
@@ -403,15 +763,15 @@ export function ProductModal({
             type="button"
             className="button outline-btn ap-cancel-btn"
             disabled={saving}
-            onClick={() => (savedId && !product?.id ? onSaved() : onClose())}
+            onClick={onClose}
           >
             Cancel
           </button>
-            <button
-              type="submit"
-              className="button ap-save-btn"
-              disabled={saving || mainUploading}
-            >
+          <button
+            type="submit"
+            className="button ap-save-btn"
+            disabled={saving || mainUploading}
+          >
             <svg
               width="15"
               height="15"
@@ -427,7 +787,7 @@ export function ProductModal({
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            <span>{saving ? "Saving Saree..." : isEditing ? "Save & Close" : "Save & Set Colours"}</span>
+            <span>{saving ? "Saving Saree..." : "Save Saree"}</span>
           </button>
         </div>
       </div>
@@ -438,7 +798,6 @@ export function ProductModal({
         </div>
       )}
 
-      <>
       {/* 2-Column Form Layout */}
       <div className="ap-columns-grid">
         {/* LEFT COLUMN: Main Cover Photo */}
@@ -679,58 +1038,401 @@ export function ProductModal({
             </label>
           </section>
 
-          {/* Card 2: price, barcode and pieces (one barcode + one price per individual saree) */}
-          <section className="ap-card">
-            <h2 className="ap-variants-title">Price, barcode &amp; pieces</h2>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-              <label className="ap-field" style={{ flex: "1 1 150px" }}>
-                <span className="ap-label">Selling Price (₹) <em className="ap-req">*</em></span>
-                <input type="number" min="0" className="ap-input" value={basePriceRupees} onWheel={(e) => e.currentTarget.blur()} onChange={(e) => setBasePriceRupees(e.target.value)} />
-              </label>
-              <label className="ap-field" style={{ flex: "1 1 150px" }}>
-                <span className="ap-label">Purchase Cost (₹)</span>
-                <input type="number" min="0" className="ap-input" value={purchasePriceRupees} onWheel={(e) => e.currentTarget.blur()} onChange={(e) => setPurchasePriceRupees(e.target.value)} />
-              </label>
-              <label className="ap-field" style={{ flex: "1 1 150px" }}>
-                <span className="ap-label">MRP / Compare-at (₹)</span>
-                <input type="number" min="0" className="ap-input" value={compareRupees} onWheel={(e) => e.currentTarget.blur()} onChange={(e) => setCompareRupees(e.target.value)} />
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-              <label className="ap-field" style={{ flex: "2 1 220px" }}>
-                <span className="ap-label">Barcode (one for all colours of this saree)</span>
-                <input type="text" className="ap-input" placeholder="Leave blank to use the SKU" value={barcode} maxLength={48} onChange={(e) => setBarcode(e.target.value)} />
-              </label>
-              {!isEditing && (
-                <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                  <span className="ap-label">Pieces received</span>
-                  <input type="number" min="0" className="ap-input" value={stockInput} onWheel={(e) => e.currentTarget.blur()} onChange={(e) => setStockInput(e.target.value)} />
-                </label>
-              )}
-              <label className="ap-field" style={{ flex: "1 1 140px" }}>
-                <span className="ap-label">Low-stock alert at</span>
-                <input type="number" min="0" className="ap-input" value={minStockLevel} onWheel={(e) => e.currentTarget.blur()} onChange={(e) => setMinStockLevel(e.target.value)} />
-              </label>
-            </div>
-            {product?.sku && <p className="cs-help" style={{ marginTop: 8 }}>SKU: <code>{product.sku}</code></p>}
-          </section>
-
-          {/* Card 3: colour split */}
+          {/* Card 2: LEVEL 4 INDIVIDUAL PHYSICAL PIECES MANAGEMENT */}
           <section className="ap-card ap-variants-card">
             <div className="ap-variants-header">
               <div>
-                <h2 className="ap-variants-title">Colours &amp; stock</h2>
+                <h2 className="ap-variants-title">Level 4: Individual Saree Pieces (Physical Stock)</h2>
                 <p className="ap-variants-subtitle">
-                  Example: 10 pieces = 3 Green + 5 Red + 2 Violet. Unknown colours stay undefined (POS only) until you set them.
+                  Each physical saree has its own unique piece code, individual price, and stock status.
                 </p>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
+                    Available Stock: {pieceStats.available}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#F1F5F9", color: "#475569" }}>
+                    Sold: {pieceStats.sold}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                    Reserved: {pieceStats.reserved}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
+                    Total Stock: {pieceStats.total}
+                  </span>
+                  <span className="cat-count-pill" style={{ background: "#EFF6FF", color: "#1E40AF" }}>
+                    Low Stock: {pieces.length > 0 && pieces[0]?.minQuantity !== undefined && pieces[0]?.minQuantity !== "" ? Number(pieces[0].minQuantity) : (minStockLevel || 0)}
+                  </span>
+                  {(() => {
+                    const lowThreshold = pieces.length > 0 && pieces[0]?.minQuantity !== undefined && pieces[0]?.minQuantity !== "" ? Number(pieces[0].minQuantity) : Number(minStockLevel || 0);
+                    return pieceStats.available <= lowThreshold && lowThreshold > 0 ? (
+                      <span className="cat-count-pill" style={{ background: "#FEE2E2", color: "#991B1B", fontWeight: 700 }}>
+                        ⚠️ Low Stock
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  className="button outline-btn"
+                  onClick={autoGeneratePieceCodes}
+                  title="Auto format piece codes"
+                  style={{ fontSize: 12, padding: "6px 10px" }}
+                >
+                  ⚡ Auto-Code
+                </button>
+                <button
+                  type="button"
+                  className="button ap-add-variant-btn"
+                  onClick={addPieceRow}
+                >
+                  <span className="ap-btn-plus">+</span>
+                  <span>Add Saree Piece</span>
+                </button>
               </div>
             </div>
-            {notice && <div className="cs-help" style={{ background: "#ECFDF5", color: "#065F46", padding: 10, borderRadius: 8, marginBottom: 10 }}>{notice}</div>}
-            {savedId ? (
-              <ColourStockEditor productId={savedId} notice={setNotice} />
-            ) : (
-              <p className="cs-help">Save the saree first; then split its pieces by colour and add a photo for each colour here.</p>
-            )}
+
+            <div
+              className="ap-variants-table-wrapper"
+              ref={tableScrollRef}
+              onFocusCapture={handleTableFocus}
+              onKeyDown={handleTableKeyDown}
+            >
+              <table className="ap-variants-table" style={{ minWidth: 980 }}>
+                <thead>
+                  <tr className="ap-variants-thead-row">
+                    <th style={{ width: 155, minWidth: 155, whiteSpace: "nowrap" }}>Piece Code</th>
+                    <th style={{ width: 130, minWidth: 130, whiteSpace: "nowrap" }}>Colour</th>
+                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Selling Price (₹)</th>
+                    <th style={{ width: 125, minWidth: 125, whiteSpace: "nowrap" }}>Purchase Cost (₹)</th>
+                    <th style={{ width: 85, minWidth: 85, textAlign: "center", whiteSpace: "nowrap" }}>Stock</th>
+                    <th style={{ width: 85, minWidth: 85, textAlign: "center", whiteSpace: "nowrap" }}>Low Stock</th>
+                    <th style={{ width: 110, minWidth: 110, whiteSpace: "nowrap" }}>Location</th>
+                    <th style={{ width: 125, minWidth: 125, textAlign: "center", whiteSpace: "nowrap" }}>Stock Status</th>
+                    <th style={{ width: 65, minWidth: 65, textAlign: "center", whiteSpace: "nowrap" }}>Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pieces.map((pc, idx) => (
+                    <tr className="ap-variant-table-row" key={pc.key}>
+                      {/* Piece Code */}
+                      <td>
+                        <div className="ap-cell-box">
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. KAN-PUR-001"
+                            value={pc.piece_code}
+                            onChange={(e) => updatePiece(pc.key, { piece_code: e.target.value })}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#800020" }}
+                            aria-label="Piece code"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Colour */}
+                      <td>
+                        <div className="ap-cell-box" style={{ gap: 6 }}>
+                          <span
+                            style={{
+                              backgroundColor: colourHex(pc.colour),
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              border: "1px solid rgba(0,0,0,0.15)",
+                            }}
+                          />
+                          {(() => {
+                            const isPreset = COLOUR_PRESETS.some(
+                              (c) =>
+                                c.name !== "Undefined" &&
+                                c.name.toLowerCase() === (pc.colour || "").trim().toLowerCase(),
+                            );
+                            const showTextInput =
+                              Boolean(pc.customColour) || (Boolean(pc.colour) && !isPreset);
+
+                            if (showTextInput) {
+                              return (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={pc.colour}
+                                    placeholder="Enter colour..."
+                                    autoFocus
+                                    onChange={(e) =>
+                                      updatePiece(pc.key, {
+                                        colour: e.target.value,
+                                        customColour: true,
+                                      })
+                                    }
+                                    className="ap-cell-input"
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: 12.5,
+                                      color: "#800020",
+                                      width: "100%",
+                                    }}
+                                    aria-label="Custom piece colour"
+                                  />
+                                  <button
+                                    type="button"
+                                    title="Back to colour list"
+                                    onClick={() =>
+                                      updatePiece(pc.key, {
+                                        colour: "Purple",
+                                        customColour: false,
+                                      })
+                                    }
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      color: "#800020",
+                                      cursor: "pointer",
+                                      fontSize: 13,
+                                      lineHeight: 1,
+                                      padding: "0 2px",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                </>
+                              );
+                            }
+
+                            return (
+                              <select
+                                value={pc.colour}
+                                onChange={(e) => {
+                                  if (e.target.value === "Undefined") {
+                                    updatePiece(pc.key, { colour: "", customColour: true });
+                                  } else {
+                                    updatePiece(pc.key, {
+                                      colour: e.target.value,
+                                      customColour: false,
+                                    });
+                                  }
+                                }}
+                                className="ap-cell-input"
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  fontWeight: 600,
+                                  fontSize: 12.5,
+                                  color: "#800020",
+                                  cursor: "pointer",
+                                  width: "100%",
+                                  padding: 0,
+                                }}
+                                aria-label="Piece colour"
+                              >
+                                {COLOUR_PRESETS.map((c) => (
+                                  <option key={c.name} value={c.name}>
+                                    {c.name}
+                                  </option>
+                                ))}
+                              </select>
+                            );
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* Selling Price (₹) */}
+                      <td>
+                        <div className="ap-cell-box">
+                          <span className="ap-cell-currency">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={basePriceRupees && basePriceRupees !== "0" ? basePriceRupees : "0"}
+                            value={pc.priceRupees === "0" ? "" : (pc.priceRupees || "")}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { priceRupees: val });
+                              }
+                            }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#800020" }}
+                            aria-label="Selling price"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Purchase Cost (₹) */}
+                      <td>
+                        <div className="ap-cell-box" style={{ background: "#FFFDF9", borderColor: "#EAD5C0" }}>
+                          <span className="ap-cell-currency" style={{ color: "#888" }}>₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder={purchasePriceRupees && purchasePriceRupees !== "0" ? purchasePriceRupees : "0"}
+                            value={pc.purchaseCostRupees === "0" ? "" : (pc.purchaseCostRupees || "")}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || Number(val) >= 0) {
+                                updatePiece(pc.key, { purchaseCostRupees: val });
+                              }
+                            }}
+                            className="ap-cell-input"
+                            style={{ color: "#555" }}
+                            aria-label="Purchase cost"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Stock */}
+                      <td style={{ textAlign: "center" }}>
+                        <div className="ap-cell-box">
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="1"
+                            value={pc.quantity !== undefined ? pc.quantity : 1}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updatePiece(pc.key, {
+                                quantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
+                              });
+                            }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 700, color: "#166534", textAlign: "center" }}
+                            aria-label="Stock"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Low Stock */}
+                      <td style={{ textAlign: "center" }}>
+                        <div className="ap-cell-box" style={{ background: "#FFFDF9", borderColor: "#EAD5C0" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={pc.minQuantity === 0 || pc.minQuantity === "0" || pc.minQuantity === undefined ? "" : pc.minQuantity}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updatePiece(pc.key, {
+                                minQuantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0),
+                              });
+                            }}
+                            className="ap-cell-input"
+                            style={{ fontWeight: 600, color: "#475569", textAlign: "center" }}
+                            aria-label="Low stock"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Stock Location */}
+                      <td>
+                        <div className="ap-cell-box">
+                          <input
+                            type="text"
+                            placeholder="e.g. Rack A-1"
+                            value={pc.location}
+                            onChange={(e) => updatePiece(pc.key, { location: e.target.value })}
+                            className="ap-cell-input"
+                            style={{ fontSize: 12.5 }}
+                            aria-label="Location"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Stock Status */}
+                      <td style={{ textAlign: "center" }}>
+                        <select
+                          value={pc.status}
+                          onChange={(e) =>
+                            updatePiece(pc.key, {
+                              status: e.target.value as PieceRow["status"],
+                            })
+                          }
+                          style={{
+                            height: 32,
+                            width: "100%",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            padding: "0 8px",
+                            borderRadius: 6,
+                            border:
+                              pc.status === "available"
+                                ? "1px solid #86EFAC"
+                                : pc.status === "sold"
+                                  ? "1px solid #CBD5E1"
+                                  : pc.status === "reserved"
+                                    ? "1px solid #FCD34D"
+                                    : "1px solid #FECACA",
+                            background:
+                              pc.status === "available"
+                                ? "#DCFCE7"
+                                : pc.status === "sold"
+                                  ? "#F1F5F9"
+                                  : pc.status === "reserved"
+                                    ? "#FEF3C7"
+                                    : "#FEE2E2",
+                            color:
+                              pc.status === "available"
+                                ? "#166534"
+                                : pc.status === "sold"
+                                  ? "#475569"
+                                  : pc.status === "reserved"
+                                    ? "#92400E"
+                                    : "#991B1B",
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            textAlign: "center",
+                          }}
+                          aria-label="Stock status"
+                        >
+                          <option value="available">Available</option>
+                          <option value="reserved">Reserved</option>
+                          <option value="sold">Sold</option>
+                          <option value="damaged">Damaged</option>
+                          <option value="returned">Returned</option>
+                        </select>
+                      </td>
+
+                      {/* Delete */}
+                      <td style={{ textAlign: "center", width: 65 }}>
+                        <button
+                          type="button"
+                          className="ap-variant-del-btn"
+                          onClick={() => removePiece(pc.key)}
+                          title="Delete saree piece"
+                          aria-label="Delete saree piece"
+                        >
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </div>
@@ -745,9 +1447,15 @@ export function ProductModal({
             </div>
           ) : (
             <div className="ap-footer-stats">
-              {basePriceRupees && Number(basePriceRupees) > 0 && (
+              <span className="cat-count-pill" style={{ background: "#DCFCE7", color: "#166534" }}>
+                Available Stock: {pieceStats.available}
+              </span>
+              <span className="cat-count-pill" style={{ background: "#F8EBDD", color: "#800020" }}>
+                Total Pieces: {pieceStats.total}
+              </span>
+              {pieces[0]?.priceRupees && Number(pieces[0].priceRupees) > 0 && (
                 <span className="cat-count-pill" style={{ background: "#FEF3C7", color: "#92400E" }}>
-                  Selling Price: ₹{basePriceRupees}
+                  Selling Price: ₹{pieces[0].priceRupees}
                 </span>
               )}
             </div>
@@ -759,7 +1467,7 @@ export function ProductModal({
             type="button"
             className="button outline-btn ap-cancel-btn"
             disabled={saving}
-            onClick={() => (savedId && !product?.id ? onSaved() : onClose())}
+            onClick={onClose}
           >
             Cancel
           </button>
@@ -783,11 +1491,10 @@ export function ProductModal({
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            <span>{saving ? "Saving Saree..." : isEditing ? "Save & Close" : "Save & Set Colours"}</span>
+            <span>{saving ? "Saving Saree..." : "Save Saree"}</span>
           </button>
         </div>
       </div>
-      </>
     </form>
   );
 }

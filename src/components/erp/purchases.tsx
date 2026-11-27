@@ -5,7 +5,32 @@ import { money } from '@/lib/core';
 import { api } from '../api';
 import { References, Row, useERP, downloadCSV } from './shared';
 
-type Line = { product_id: string; quantity: number; unit_cost_paise: number; tax_bps: number };
+type Line = { product_id: string; colour?: string; customColour?: boolean; quantity: number; unit_cost_paise: number; tax_bps: number };
+
+const COLOUR_PRESETS: { name: string; hex: string }[] = [
+  { name: 'Purple', hex: '#7C3AED' },
+  { name: 'Green', hex: '#2E7D32' },
+  { name: 'Red', hex: '#C62828' },
+  { name: 'Crimson Red', hex: '#B91C1C' },
+  { name: 'Maroon', hex: '#800020' },
+  { name: 'Beige', hex: '#D4A373' },
+  { name: 'Blue', hex: '#1D4ED8' },
+  { name: 'Gold', hex: '#C49A52' },
+  { name: 'Pink', hex: '#DB2777' },
+  { name: 'Magenta', hex: '#A21CAF' },
+  { name: 'Ivory', hex: '#E7DFD3' },
+  { name: 'Yellow', hex: '#CA8A04' },
+  { name: 'Teal', hex: '#0F766E' },
+  { name: 'Orange', hex: '#EA580C' },
+  { name: 'Terracotta', hex: '#B45309' },
+  { name: 'Wine', hex: '#650019' },
+  { name: 'Undefined', hex: '#94A3B8' },
+];
+
+function colourHex(name?: string): string {
+  const found = COLOUR_PRESETS.find((c) => c.name.toLowerCase() === (name || '').trim().toLowerCase());
+  return found ? found.hex : '#800020';
+}
 const STATUS: Record<string, { label: string; badge: string }> = {
   draft: { label: 'Draft', badge: 'off' },
   ordered: { label: 'Ordered', badge: 'scheduled' },
@@ -180,7 +205,11 @@ export function Purchases({ refs }: { refs: References }) {
             e.preventDefault();
             const ids = draft.lines.map((l: Line) => l.product_id);
             if (new Set(ids).size !== ids.length) return notice('Each saree can appear once per purchase. Change the quantity instead.');
-            const { isNew: _n, ...payload } = draft;
+            const { isNew: _n, lines: rawLines, ...restDraft } = draft;
+            const payload = {
+              ...restDraft,
+              lines: (rawLines as Line[]).map(({ customColour: _cc, ...line }) => line),
+            };
             if (await send('purchases', payload, () => load())) {
               setDraft(null);
               setSelected(draft.id);
@@ -220,16 +249,75 @@ export function Purchases({ refs }: { refs: References }) {
           <div className="table-responsive-wrapper pu-lines">
             <table className="luxury-table">
               <thead>
-                <tr><th style={{ minWidth: 280 }}>Saree</th><th>Qty</th><th>Unit cost (₹)</th><th>Tax %</th><th>Margin</th><th>Amount</th><th /></tr>
+                <tr><th style={{ minWidth: 260 }}>Saree</th><th style={{ minWidth: 145 }}>Colour</th><th>Qty</th><th>Unit cost (₹)</th><th>Tax %</th><th>Margin</th><th>Amount</th><th /></tr>
               </thead>
               <tbody>
                 {draft.lines.map((l: Line, i: number) => {
                   const p = product(l.product_id);
                   const sell = Number(p?.price_paise || 0);
                   const margin = sell > 0 && l.unit_cost_paise > 0 ? Math.round(((sell - l.unit_cost_paise) / sell) * 100) : null;
+                  const lineColour = l.colour ?? (p?.colour || 'Purple');
+                  const isPreset = COLOUR_PRESETS.some(
+                    (c) => c.name !== 'Undefined' && c.name.toLowerCase() === lineColour.trim().toLowerCase(),
+                  );
+                  const showTextInput = Boolean(l.customColour) || (Boolean(lineColour) && !isPreset);
                   return (
                     <tr key={i}>
-                      <td><ProductPicker products={products} value={l.product_id} exclude={draft.lines.map((x: Line) => x.product_id)} onChange={(id) => setLine(i, { product_id: id, unit_cost_paise: l.unit_cost_paise || Number(product(id)?.purchase_price_paise || 0) })} /></td>
+                      <td><ProductPicker products={products} value={l.product_id} exclude={draft.lines.map((x: Line) => x.product_id)} onChange={(id) => { const picked = product(id); setLine(i, { product_id: id, colour: picked?.colour || l.colour || 'Purple', customColour: false, unit_cost_paise: l.unit_cost_paise || Number(picked?.purchase_price_paise || 0) }); }} /></td>
+                      <td>
+                        <div className="ap-cell-box" style={{ gap: 6 }}>
+                          <span
+                            style={{
+                              backgroundColor: colourHex(lineColour),
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              flexShrink: 0,
+                              border: '1px solid rgba(0,0,0,0.15)',
+                            }}
+                          />
+                          {showTextInput ? (
+                            <>
+                              <input
+                                type="text"
+                                value={lineColour}
+                                placeholder="Enter colour..."
+                                autoFocus
+                                onChange={(e) => setLine(i, { colour: e.target.value, customColour: true })}
+                                className="ap-cell-input"
+                                style={{ fontWeight: 600, fontSize: 12.5, color: '#800020', width: '100%' }}
+                                aria-label="Custom saree colour"
+                              />
+                              <button
+                                type="button"
+                                title="Back to colour list"
+                                onClick={() => setLine(i, { colour: 'Purple', customColour: false })}
+                                style={{ border: 'none', background: 'transparent', color: '#800020', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                              >
+                                ×
+                              </button>
+                            </>
+                          ) : (
+                            <select
+                              value={lineColour}
+                              onChange={(e) => {
+                                if (e.target.value === 'Undefined') {
+                                  setLine(i, { colour: '', customColour: true });
+                                } else {
+                                  setLine(i, { colour: e.target.value, customColour: false });
+                                }
+                              }}
+                              className="ap-cell-input"
+                              style={{ border: 'none', background: 'transparent', fontWeight: 600, fontSize: 12.5, color: '#800020', cursor: 'pointer', width: '100%', padding: 0 }}
+                              aria-label="Saree colour"
+                            >
+                              {COLOUR_PRESETS.map((c) => (
+                                <option key={c.name} value={c.name}>{c.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </td>
                       <td><input className="pu-num" type="number" min={1} max={10000} value={l.quantity} onChange={(e) => setLine(i, { quantity: Math.max(1, Math.round(Number(e.target.value) || 1)) })} /></td>
                       <td><input className="pu-num" type="number" min={0} step=".01" value={l.unit_cost_paise / 100} onChange={(e) => setLine(i, { unit_cost_paise: Math.max(0, Math.round(Number(e.target.value) * 100)) })} /></td>
                       <td><input className="pu-num pu-tax" type="number" min={0} max={100} step=".01" value={l.tax_bps / 100} onChange={(e) => setLine(i, { tax_bps: Math.max(0, Math.min(10000, Math.round(Number(e.target.value) * 100))) })} /></td>

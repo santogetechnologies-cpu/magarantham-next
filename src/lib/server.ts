@@ -208,10 +208,11 @@ export async function staff(cap?: Capability | "superadmin") {
     throw new Fault(403, "FORBIDDEN");
   const { data, error } =
     await session.auth.auth.mfa.getAuthenticatorAssuranceLevel();
+  const mandatoryMfa = process.env.REQUIRE_STAFF_MFA === "true";
   if (
     error ||
     (data?.currentLevel !== "aal2" &&
-      (process.env.NODE_ENV === "production" || data?.nextLevel === "aal2"))
+      (mandatoryMfa || data?.nextLevel === "aal2"))
   )
     throw new Fault(403, "MFA_REQUIRED");
   return session;

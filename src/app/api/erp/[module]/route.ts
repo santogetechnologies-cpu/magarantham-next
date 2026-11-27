@@ -63,7 +63,7 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
  if(module==='expenses'&&session.profile.role!=='superadmin')q=q.eq('source','manual');
  if(module==='attendance'){const month=z.string().regex(/^\d{4}-\d{2}$/).parse(url.searchParams.get('month'));const start=`${month}-01`;const next=new Date(`${start}T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);q=q.gte('work_on',start).lt('work_on',next.toISOString().slice(0,10));const emp=url.searchParams.get('employee_id');if(emp)q=q.eq('employee_id',id.parse(emp));q=q.order('work_on',{ascending:false});}
  if(module==='expenses'){q=q.order('expense_on',{ascending:false}).order('created_at',{ascending:false});}
- else if(table==='purchases'){q=q.order('number',{ascending:false});}else if(table==='payroll_runs'){q=q.order('period',{ascending:false}).order('id');}else if(table==='suppliers'||table==='expense_categories'){q=q.order('name').order('id');}else{q=q.order(table==='attendance'?'employee_id':table==='product_categories'?'created_at':'id');}
+ else if(table==='purchases'){q=q.order('number',{ascending:false});}else if(table==='payroll_runs'){q=q.order('period',{ascending:false}).order('id');}else if(table==='suppliers'){q=q.eq('active',true).order('name').order('id');}else if(table==='expense_categories'){q=q.order('name').order('id');}else{q=q.order(table==='attendance'?'employee_id':table==='product_categories'?'created_at':'id');}
  const {data,error}=await q.range(page*100,page*100+100);if(error)throw new Fault(503,'ERP_LOAD_FAILED',error.code==='42501'||!(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY)?'Missing SUPABASE_SERVICE_ROLE_KEY in .env.local. Add your Supabase Secret / service_role key and restart the server.':undefined);let list=data.slice(0,100) as unknown as Record<string,any>[];
  if(table==='product_categories')list=await enrichCategories(list);
  if(module==='purchases'&&list.length){const balances=await rpc('purchase_balances',{p_actor:session.user.id,p_ids:list.map(p=>p.id)});return ok({rows:list.map(p=>({...p,due_paise:balances.find((b:{id:string})=>b.id===p.id)?.due_paise||0})),nextPage:data.length>100?page+1:null});}
@@ -112,7 +112,7 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
  else if(module==='attendance'){const p=attendanceSchema.parse(input);await rpc('attendance_save',{p_actor:actor,p_employee:p.employee_id,p_on:p.work_on,p_data:p.data});}
  else if(module==='employee_login'){const p=z.object({employee_id:id,existing_profile_id:id.nullable().default(null),role:z.enum(['billing','manager']),email:z.email().optional(),password:z.string().min(6).max(128).optional()}).strict().parse(input);const db=service();const e=await db.from('employees').select('id,name,active,profile_id').eq('id',p.employee_id).single();if(e.error||!e.data.active||e.data.profile_id)throw new Fault(409,'LOGIN_ALREADY_LINKED');if(p.existing_profile_id){await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:p.existing_profile_id});}
   else{if(!p.email||!p.password)throw new Fault(400,'EMAIL_PASSWORD_REQUIRED');let userId:string;const created=await db.auth.admin.createUser({email:p.email,password:p.password,email_confirm:true,app_metadata:{store_role:p.role},user_metadata:{name:e.data.name}});if(created.data?.user){userId=created.data.user.id;}else{const{data:users}=await db.auth.admin.listUsers();const existing=users?.users?.find(u=>u.email?.toLowerCase()===p.email!.toLowerCase());if(existing){userId=existing.id;await db.auth.admin.updateUserById(userId,{password:p.password,email_confirm:true,app_metadata:{store_role:p.role},user_metadata:{name:e.data.name}});}else{throw new Fault(409,'ACCOUNT_CREATE_FAILED',created.error?.message||'Unable to create staff login');}}try{await rpc('employee_link',{p_actor:actor,p_employee:p.employee_id,p_profile:userId});}catch(error){if(created.data?.user)await db.auth.admin.deleteUser(userId);throw error;}}}
- else if(module==='purchases'){const p=purchaseSchema.parse(input);result=await rpc('purchase_save',{p_actor:actor,p_id:p.id,p_data:p.data,p_lines:p.lines});}
+ else if(module==='purchases'){const p=purchaseSchema.parse(input);const coreLines=p.lines.map(({colour:_colour,...rest})=>rest);result=await rpc('purchase_save',{p_actor:actor,p_id:p.id,p_data:p.data,p_lines:coreLines});}
  else if(module==='purchase_status'){const p=z.object({id,status:z.enum(['ordered','cancelled'])}).strict().parse(input);await rpc('purchase_status',{p_actor:actor,p_id:p.id,p_status:p.status});}
  else if(module==='purchase_receive'){const p=z.object({id,key:id,kind:z.enum(['receive','return']),lines:z.array(z.object({product_id:id,quantity:z.number().int().min(1).max(10000)}).strict()).min(1).max(100),note:z.string().trim().max(1000),update_cost:z.boolean().optional()}).strict().parse(input);result=await rpc('purchase_receive',{p_actor:actor,p_id:p.id,p_key:p.key,p_kind:p.kind,p_lines:p.lines,p_note:p.note});
   // Optional: keep each saree's cost price at its latest purchase cost (used for margins and stock value).
@@ -166,7 +166,22 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
  else throw new Fault(404,'NOT_FOUND');return ok({id:result,message:module==='employee_login'?'Login linked. Confirmation email requested for a newly created account.':module==='expenses'&&session.profile.role!=='superadmin'?'Expense sent to the owner for approval.':module==='expense_review'?'Expense review saved.':module==='expense_status'?'Expense status updated.':'Saved.'});
 }catch(e){return failure(e);}}
 export async function DELETE(req:Request,{params}:{params:Promise<{module:string}>}){try{
- origin(req);const {module}=await params;if(module!=='product_categories'&&module!=='employees'&&module!=='catalog_discounts')throw new Fault(403,'CANNOT_DELETE');const session=await staff('superadmin');await rate(req,'erp-write',session.user.id,60);const targetId=id.parse(new URL(req.url).searchParams.get('id'));const db=service();
+ origin(req);const {module}=await params;if(module!=='product_categories'&&module!=='employees'&&module!=='catalog_discounts'&&module!=='suppliers')throw new Fault(403,'CANNOT_DELETE');const session=await staff(module==='suppliers'?'purchases':'superadmin');await rate(req,'erp-write',session.user.id,60);const targetId=id.parse(new URL(req.url).searchParams.get('id'));const db=service();
+ if(module==='suppliers'){
+  const {data:sup,error:supErr}=await db.from('suppliers').select('id,name,active').eq('id',targetId).single();
+  if(supErr||!sup)throw new Fault(404,'NOT_FOUND');
+  const {count:poCount}=await db.from('purchases').select('id',{count:'exact',head:true}).eq('supplier_id',targetId);
+  if((poCount||0)===0){
+   const del=await db.from('suppliers').delete().eq('id',targetId);
+   if(del.error)throw new Fault(409,'DELETE_FAILED','This supplier could not be deleted.');
+   try{await db.from('audit_log').insert({actor_id:session.user.id,action:'suppliers.deleted',entity:'suppliers',entity_id:targetId,details:{name:sup.name}});}catch{}
+   return ok({message:`Supplier "${sup.name}" deleted.`});
+  }
+  const arch=await db.from('suppliers').update({active:false}).eq('id',targetId);
+  if(arch.error)throw new Fault(409,'DELETE_FAILED','Could not deactivate this supplier.');
+  try{await db.from('audit_log').insert({actor_id:session.user.id,action:'suppliers.deactivated',entity:'suppliers',entity_id:targetId,details:{name:sup.name,purchase_count:poCount}});}catch{}
+  return ok({message:`Supplier "${sup.name}" deactivated (purchase order history preserved).`});
+ }
  if(module==='catalog_discounts'){const del=await db.from('catalog_discounts').delete().eq('id',targetId);if(del.error)throw new Fault(503,'DELETE_FAILED');try{await db.from('audit_log').insert({actor_id:session.user.id,action:'catalog_discounts.deleted',entity:'catalog_discounts',entity_id:targetId,details:{}});}catch{}return ok({message:'Discount removed. Prices are back to normal in POS and online.'});}
  if(module==='employees'){
   const {data:emp,error:empErr}=await db.from('employees').select('id,name,profile_id,joined_on').eq('id',targetId).single();
@@ -194,12 +209,25 @@ export async function DELETE(req:Request,{params}:{params:Promise<{module:string
  const catId=targetId;
  const {data:cat,error:catErr}=await db.from('product_categories').select('id,parent_id,name').eq('id',catId).single();
  if(catErr||!cat)throw new Fault(404,'NOT_FOUND');
- const {count:childCount}=await db.from('product_categories').select('id',{count:'exact',head:true}).eq('parent_id',catId);
- if((childCount||0)>0)throw new Fault(409,'HAS_SUBCATEGORIES','Remove its subcategories before deleting this main category.');
- // Safely preserve existing products in this subcategory by falling back to sibling 'All styles' or null (keeping their Main Category intact)
- let fallbackSub:string|null=null;
- if(cat.parent_id){const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();fallbackSub=allStyle?.id||null;}
- await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ if(!cat.parent_id){
+  const {data:children}=await db.from('product_categories').select('id,name').eq('parent_id',catId);
+  const childIds=(children||[]).map(c=>c.id);
+  if(childIds.length>0){
+   const {count:childProdCount}=await db.from('products').select('id',{count:'exact',head:true}).in('subcategory_id',childIds);
+   if((childProdCount||0)>0)throw new Fault(409,'CATEGORY_HAS_PRODUCTS',`Cannot delete "${cat.name}" because ${childProdCount} saree(s) are assigned to its subcategories.`);
+   await db.from('banners').update({published:false}).in('category_id',childIds);
+   await db.from('catalog_discounts').delete().in('target_id',childIds).in('scope',['category','subcategory']);
+   const delChildren=await db.from('product_categories').delete().in('id',childIds);
+   if(delChildren.error)throw new Fault(409,'DELETE_FAILED','Could not remove empty subcategories for this category.');
+   for(const cid of childIds){await removeCategoryImage(cid);}
+  }
+ }else{
+  // Safely preserve existing products in this subcategory by falling back to sibling 'All styles' or null (keeping their Main Category intact)
+  let fallbackSub:string|null=null;
+  const {data:allStyle}=await db.from('product_categories').select('id').eq('parent_id',cat.parent_id).eq('name','All styles').neq('id',catId).maybeSingle();
+  fallbackSub=allStyle?.id||null;
+  await db.from('products').update({subcategory_id:fallbackSub}).eq('subcategory_id',catId);
+ }
  // Rules and banners aimed at this category must not outlive it (a banner whose category is cleared would show on every category page).
  await db.from('banners').update({published:false}).eq('category_id',catId);
  await db.from('catalog_discounts').delete().eq('target_id',catId).in('scope',['category','subcategory']);

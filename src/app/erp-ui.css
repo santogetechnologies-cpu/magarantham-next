@@ -91,7 +91,7 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell ::selection {
   background: var(--ms-brand-100);
 }
-.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input) {
+.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search) {
   outline: none !important;
   box-shadow: var(--ms-ring) !important;
   border-radius: var(--ms-r-sm);
@@ -525,11 +525,21 @@ body:has(.luxury-admin-shell) {
   border-bottom: 1px solid var(--ms-line);
   color: var(--ms-muted);
 }
-.ms-cmd-input input {
+.ms-cmd-input input,
+.luxury-admin-shell .ms-cmd-input input,
+.luxury-admin-shell .ms-cmd-input input:focus,
+.luxury-admin-shell .ms-cmd-input input:focus-visible {
   all: unset;
   flex: 1;
   font-size: 15px;
   color: var(--ms-ink);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 .ms-cmd-list {
   list-style: none;
@@ -710,8 +720,8 @@ body:has(.luxury-admin-shell) {
 /* ==========================================================================
    FORM CONTROLS
    ========================================================================== */
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input),
-.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select),
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search),
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input),
 .luxury-admin-shell textarea {
   font-family: var(--ms-font) !important;
   font-size: 14px;
@@ -726,7 +736,7 @@ body:has(.luxury-admin-shell) {
   outline: none;
 }
 .luxury-admin-shell textarea { min-height: 84px; line-height: 1.5; resize: vertical; }
-.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select) {
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input) {
   appearance: none;
   -webkit-appearance: none;
   padding-right: 34px;
@@ -735,11 +745,11 @@ body:has(.luxury-admin-shell) {
   background-position: right 12px center;
   cursor: pointer;
 }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):hover,
-.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):hover,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search):hover,
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input):hover,
 .luxury-admin-shell textarea:hover { border-color: #cbbfba; }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):focus,
-.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):focus,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search):focus,
+.luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input):focus,
 .luxury-admin-shell textarea:focus {
   border-color: var(--ms-brand) !important;
   box-shadow: var(--ms-ring) !important;
@@ -1945,14 +1955,26 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell .ap-variants-table input.ap-cell-input:focus,
 .luxury-admin-shell .ap-variants-table input.ap-cell-input:focus-visible,
 .luxury-admin-shell .ap-variants-table input:focus,
-.luxury-admin-shell .ap-variants-table input:focus-visible {
+.luxury-admin-shell .ap-variants-table input:focus-visible,
+.luxury-admin-shell .ap-cell-box select,
+.luxury-admin-shell .ap-cell-box select:focus,
+.luxury-admin-shell .ap-cell-box select:focus-visible,
+.luxury-admin-shell select.ap-cell-input,
+.luxury-admin-shell select.ap-cell-input:focus,
+.luxury-admin-shell select.ap-cell-input:focus-visible {
   border: none !important;
+  border-width: 0 !important;
   border-color: transparent !important;
+  border-radius: 0 !important;
   box-shadow: none !important;
   outline: none !important;
   outline-offset: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 .luxury-admin-shell .pos-discount-type-toggle button,
 .luxury-admin-shell .pos-dtype-btn {
@@ -2279,3 +2301,30 @@ body:has(.luxury-admin-shell) {
 @media (max-width: 700px) { .ex-approval { grid-template-columns: 1fr; } }
 .pos-offer-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; background: var(--ms-green-bg); color: var(--ms-green); white-space: nowrap; }
 .pos-scan-toast-offer { font-size: 12px; font-weight: 700; color: #bbf7d0; }
+
+/* Category grid card footer layout */
+.luxury-admin-shell .cat-card-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 14px;
+}
+.luxury-admin-shell .cat-card-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.luxury-admin-shell .cat-enter-btn {
+  width: 100%;
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+}
+.luxury-admin-shell .cat-action-btn {
+  width: 100%;
+  height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 12.5px !important;
+}
