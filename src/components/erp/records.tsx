@@ -100,7 +100,7 @@ export function ERPRecords({
           }
           disabled={module === 'pos-settings'}
         >
-          Add {module === 'employees' ? 'staff member' : 'new record'} ＋
+          Add {module === 'employees' ? 'staff member' : module === 'suppliers' ? 'supplier' : 'new record'} ＋
         </button>
         <button className="button button-outline" onClick={() => void load()}>
           Refresh records
@@ -351,32 +351,37 @@ export function ERPRecords({
                         : r.phone || r.divisor_mode || 'Configured'}
                 </td>
                 <td>
-                  {r.active === false || r.enabled === false ? 'Off' : 'Active'}
+                  <span className={`ms-badge ${r.active === false || r.enabled === false ? 'ms-badge-off' : 'ms-badge-live'}`}>
+                    {r.active === false || r.enabled === false ? 'Off' : 'Active'}
+                  </span>
                   {module === 'employees' && (
-                    <small style={{ display: 'block', color: 'var(--erp-text-muted)' }}>
+                    <small style={{ display: 'block', color: 'var(--erp-text-muted)', marginTop: 4 }}>
                       {r.profile_id ? 'Login linked' : 'No login'}
                     </small>
                   )}
                 </td>
                 <td>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     {module === 'employees' && (
                       <button
-                        className="text-link"
-                        style={{ color: 'var(--erp-burgundy, #800020)', fontWeight: 600 }}
+                        type="button"
+                        className="ms-btn ms-btn-soft ms-btn-sm"
                         onClick={() => setViewingEmployee(r)}
                       >
                         View Profile
                       </button>
                     )}
-                    <button className="text-link" onClick={() => edit(r)}>
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn-ghost ms-btn-sm"
+                      onClick={() => edit(r)}
+                    >
                       Edit
                     </button>
                     {module === 'suppliers' && (
                       <button
                         type="button"
-                        className="text-link"
-                        style={{ color: '#B91C1C', fontWeight: 600 }}
+                        className="ms-btn ms-btn-danger-ghost ms-btn-sm"
                         disabled={busy}
                         onClick={async () => {
                           if (
@@ -410,7 +415,11 @@ export function ERPRecords({
                       </button>
                     )}
                     {module === 'employees' && !r.profile_id && r.active && (
-                      <button className="text-link" onClick={() => setLogin(r)}>
+                      <button
+                        type="button"
+                        className="ms-btn ms-btn-ghost ms-btn-sm"
+                        onClick={() => setLogin(r)}
+                      >
                         Link login
                       </button>
                     )}
