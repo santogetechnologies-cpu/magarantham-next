@@ -434,7 +434,7 @@ export async function GET(
     const { data, error } = await q.range(page * 100, page * 100 + 100);
     if (error) {
       const detail =
-        error.code === "42501" || !process.env.SUPABASE_SERVICE_ROLE_KEY
+        error.code === "42501" || !(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY)
           ? "Missing SUPABASE_SERVICE_ROLE_KEY in .env.local. Add your Supabase Secret / service_role key and restart the server."
           : undefined;
       throw new Fault(503, "LOAD_FAILED", detail);

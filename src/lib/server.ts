@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Capability, Profile } from "./core";
+import { missingSupabaseEnv, supabasePublicKey, supabaseServiceKey, supabaseUrl } from "./env";
 export class Fault extends Error {
   constructor(
     public status: number,
@@ -16,27 +17,29 @@ export class Fault extends Error {
     super(code);
   }
 }
-export const configured = () =>
-  Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("YOUR_"),
-  );
+/** True when the Supabase URL, public key and server secret key are all set (any accepted name). */
+export const configured = () => missingSupabaseEnv().length === 0;
+function requireSetup() {
+  const missing = missingSupabaseEnv();
+  if (missing.length)
+    throw new Fault(
+      503,
+      "SETUP_REQUIRED",
+      `Store is not connected to Supabase. Missing setting${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. Add ${missing.length > 1 ? "them" : "it"} in your hosting environment variables and redeploy.`,
+    );
+}
 export function service() {
-  if (!configured()) throw new Fault(503, "SETUP_REQUIRED");
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  requireSetup();
+  return createClient(supabaseUrl(), supabaseServiceKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 export async function authClient() {
-  if (!configured()) throw new Fault(503, "SETUP_REQUIRED");
+  requireSetup();
   const jar = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl(),
+    supabasePublicKey(),
     {
       cookieOptions: {
         httpOnly: true,
@@ -293,7 +296,7 @@ export async function rate(
   const ip = header ? req.headers.get(header) || "unknown" : "shared";
   const secret =
     process.env.CRON_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    supabaseServiceKey() ||
     "rate-limit-secret";
   const key = createHmac("sha256", secret)
     .update(`${scope}|${ip}|${who.toLowerCase()}`)

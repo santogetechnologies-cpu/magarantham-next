@@ -14,6 +14,7 @@ import {
   captcha,
 } from "@/lib/server";
 import { indiaDate } from "@/lib/barcode";
+import { supabasePublicKey, supabaseUrl } from "@/lib/env";
 const credentials = z.object({
   email: z.email().max(254),
   password: z.string().min(6).max(128),
@@ -34,8 +35,8 @@ export async function GET(
     if (action === "providers") {
       let google = false;
       try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+        const url = supabaseUrl();
+        const key = supabasePublicKey();
         if (url && key) {
           const res = await fetch(`${url}/auth/v1/settings`, {
             headers: { apikey: key },
