@@ -49,18 +49,34 @@ export function Labels({ refs }: { refs: References }) {
       );
       const unitRows = (r.rows || []) as Row[];
       if (unitRows.length > 0) {
-        setRows(
-          unitRows.map((u) => ({
-            key: `u-${u.id}`,
-            unitId: String(u.id),
-            barcode: String(u.barcode),
-            name: String(u.products?.name || 'Saree'),
-            sku: String(u.products?.sku || ''),
-            pricePaise: Number(u.products?.price_paise || 0),
-            isMsu: true,
-            printedAt: u.printed_at || null,
-          })),
-        );
+        const msuLabels: PrintableLabel[] = unitRows.map((u) => ({
+          key: `u-${u.id}`,
+          unitId: String(u.id),
+          barcode: String(u.barcode),
+          name: String(u.products?.name || 'Saree'),
+          sku: String(u.products?.sku || ''),
+          pricePaise: Number(u.products?.price_paise || 0),
+          isMsu: true,
+          printedAt: u.printed_at || null,
+        }));
+        const explicitCount = quantity.trim() !== '' ? clampedQty : 0;
+        if (prodId && explicitCount > msuLabels.length) {
+          const chosen = products.find((p) => p.id === prodId);
+          if (chosen) {
+            const code = String(chosen.barcode || chosen.sku || 'MS-001');
+            const extraCount = explicitCount - msuLabels.length;
+            const extraLabels: PrintableLabel[] = Array.from({ length: extraCount }, (_, idx) => ({
+              key: `sku-${chosen.id}-${idx}`,
+              barcode: code,
+              name: String(chosen.name || 'Saree'),
+              sku: String(chosen.sku || ''),
+              pricePaise: Number(chosen.price_paise || 0),
+              isMsu: false,
+            }));
+            msuLabels.push(...extraLabels);
+          }
+        }
+        setRows(msuLabels);
         setAfter(cursor);
         setNext(r.nextAfter);
       } else if (prodId) {
