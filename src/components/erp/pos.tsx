@@ -2026,24 +2026,29 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                               <strong className="pos-table-item-name">
                                 {p?.name || line.product_id}
                               </strong>
-                              {p && (Array.isArray(p.colours) && p.colours.length > 0 || Number(p.undefined_quantity || 0) > 0) && (
-                                <div className="pos-colour-pick" aria-label="Colours in this line">
-                                  {colourOptions(p, line)
-                                    .filter((o) => o.free > 0 || (line.colours?.[o.key] || 0) > 0)
-                                    .map((o) => {
+                              {(() => {
+                                if (!p || !Array.isArray(p.colours) || p.colours.length === 0) return null;
+                                const colouredOpts = colourOptions(p, line).filter(
+                                  (o) => o.key !== UNDEF && (o.free > 0 || (line.colours?.[o.key] || 0) > 0)
+                                );
+                                if (colouredOpts.length === 0) return null;
+                                return (
+                                  <div className="pos-colour-pick" aria-label="Colours in this line">
+                                    {colouredOpts.map((o) => {
                                       const n = line.colours?.[o.key] || 0;
                                       return (
-                                        <span key={o.key} className={`pos-colour-chip ${n ? 'active' : ''} ${o.key === UNDEF ? 'undef' : ''}`} title={`${o.free} more free`}>
-                                          {o.key !== UNDEF && <i style={{ background: o.hex || '#C49A52' }} />}
-                                          {o.key === UNDEF ? 'Undefined' : o.label} <small>({o.free} left)</small>
+                                        <span key={o.key} className={`pos-colour-chip ${n ? 'active' : ''}`} title={`${o.free} more free`}>
+                                          <i style={{ background: o.hex || '#C49A52' }} />
+                                          {o.label} <small>({o.free} left)</small>
                                           <button type="button" disabled={!n || busy || line.unit_ids.length > 0} onClick={() => dropPiece(line.product_id, o.key)} aria-label={`One less ${o.label}`}>−</button>
                                           <b>{n}</b>
                                           <button type="button" disabled={o.free < 1 || busy || line.unit_ids.length > 0 || line.quantity >= 100} onClick={() => add(p, undefined, undefined, o.key)} aria-label={`One more ${o.label}`}>+</button>
                                         </span>
                                       );
                                     })}
-                                </div>
-                              )}
+                                  </div>
+                                );
+                              })()}
                               {linePieces.length > 0 && (
                                 <div className="pos-table-piece-chips">
                                   {linePieces.map((code) => (
