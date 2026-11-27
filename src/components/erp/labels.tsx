@@ -41,7 +41,7 @@ export function Labels({ refs }: { refs: References }) {
   async function load(cursor = 0, prodId = product, purId = purchase) {
     setLoading(true);
     try {
-      const clampedQty = Math.min(500, Math.max(1, Math.round(Number(quantity) || 1)));
+      const clampedQty = Math.min(500, Math.max(1, Math.round(Number(quantity) || 20)));
       const r = await api<Row>(
         `/api/erp/labels?quantity=${clampedQty}&after=${cursor}${
           prodId ? `&product_id=${prodId}` : ''
@@ -136,6 +136,7 @@ export function Labels({ refs }: { refs: References }) {
               onChange={(e) => {
                 const val = e.target.value;
                 setProduct(val);
+                void load(0, val, purchase);
               }}
             >
               <option value="">All products (in-stock MSU stickers)</option>
