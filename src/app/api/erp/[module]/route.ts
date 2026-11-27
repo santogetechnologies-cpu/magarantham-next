@@ -192,14 +192,19 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
 export async function DELETE(req:Request,{params}:{params:Promise<{module:string}>}){try{
  origin(req);const {module}=await params;if(module!=='product_categories'&&module!=='employees'&&module!=='catalog_discounts'&&module!=='suppliers')throw new Fault(403,'CANNOT_DELETE');const session=await staff(module==='suppliers'?'purchases':'superadmin');await rate(req,'erp-write',session.user.id,60);const targetId=id.parse(new URL(req.url).searchParams.get('id'));const db=service();
  if(module==='suppliers'){
-  const {data:sup,error:supErr}=await db.from('suppliers').select('id,name').eq('id',targetId).single();
+  const {data:sup,error:supErr}=await db.from('suppliers').select('id,name,active').eq('id',targetId).single();
   if(supErr||!sup)throw new Fault(404,'NOT_FOUND');
   const {count:poCount}=await db.from('purchases').select('id',{count:'exact',head:true}).eq('supplier_id',targetId);
-  if((poCount||0)>0)throw new Fault(409,'SUPPLIER_IN_USE','Cannot delete this supplier because purchase orders exist for them. Edit and mark inactive instead.');
-  const del=await db.from('suppliers').delete().eq('id',targetId);
-  if(del.error)throw new Fault(409,'DELETE_FAILED','This supplier could not be deleted.');
-  try{await db.from('audit_log').insert({actor_id:session.user.id,action:'suppliers.deleted',entity:'suppliers',entity_id:targetId,details:{name:sup.name}});}catch{}
-  return ok({message:`Supplier "${sup.name}" deleted.`});
+  if((poCount||0)===0){
+   const del=await db.from('suppliers').delete().eq('id',targetId);
+   if(del.error)throw new Fault(409,'DELETE_FAILED','This supplier could not be deleted.');
+   try{await db.from('audit_log').insert({actor_id:session.user.id,action:'suppliers.deleted',entity:'suppliers',entity_id:targetId,details:{name:sup.name}});}catch{}
+   return ok({message:`Supplier "${sup.name}" deleted.`});
+  }
+  const arch=await db.from('suppliers').update({active:false}).eq('id',targetId);
+  if(arch.error)throw new Fault(409,'DELETE_FAILED','Could not deactivate this supplier.');
+  try{await db.from('audit_log').insert({actor_id:session.user.id,action:'suppliers.deactivated',entity:'suppliers',entity_id:targetId,details:{name:sup.name,purchase_count:poCount}});}catch{}
+  return ok({message:`Supplier "${sup.name}" deactivated (purchase order history preserved).`});
  }
  if(module==='catalog_discounts'){const del=await db.from('catalog_discounts').delete().eq('id',targetId);if(del.error)throw new Fault(503,'DELETE_FAILED');try{await db.from('audit_log').insert({actor_id:session.user.id,action:'catalog_discounts.deleted',entity:'catalog_discounts',entity_id:targetId,details:{}});}catch{}return ok({message:'Discount removed. Prices are back to normal in POS and online.'});}
  if(module==='employees'){

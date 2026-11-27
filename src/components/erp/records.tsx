@@ -24,6 +24,7 @@ export function ERPRecords({
   const [viewingEmployee, setViewingEmployee] = useState<Row | null>(null);
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [login, setLogin] = useState<Row | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const { busy, send, notice } = useERP();
 
   async function load(page = 0) {
@@ -291,6 +292,23 @@ export function ERPRecords({
         </form>
       )}
 
+      {actionMsg && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 13.5,
+            fontWeight: 600,
+            background: actionMsg.type === 'err' ? '#FEF2F2' : '#F0FDF4',
+            color: actionMsg.type === 'err' ? '#991B1B' : '#166534',
+            border: `1px solid ${actionMsg.type === 'err' ? '#FECACA' : '#BBF7D0'}`,
+          }}
+        >
+          {actionMsg.text}
+        </div>
+      )}
+
       <div className="data-table">
         <table style={{ minWidth: 700 }}>
           <thead>
@@ -369,17 +387,22 @@ export function ERPRecords({
                             return;
                           }
                           try {
+                            setActionMsg(null);
                             const res = await api<{ message?: string }>(
                               `/api/erp/suppliers?id=${encodeURIComponent(String(r.id))}`,
                               undefined,
                               'DELETE',
                             );
-                            notice(res.message || 'Supplier deleted.');
+                            const msg = res.message || 'Supplier deleted.';
+                            setActionMsg({ type: 'ok', text: msg });
+                            notice(msg);
                             if (editing?.id === r.id) setEditing(null);
                             await load();
                             await refreshRefs();
                           } catch (e) {
-                            notice((e as Error).message);
+                            const msg = (e as Error).message || 'Could not delete supplier.';
+                            setActionMsg({ type: 'err', text: msg });
+                            notice(msg);
                           }
                         }}
                       >
