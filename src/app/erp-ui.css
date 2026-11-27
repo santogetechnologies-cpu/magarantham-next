@@ -91,7 +91,7 @@ body:has(.luxury-admin-shell) {
 .luxury-admin-shell ::selection {
   background: var(--ms-brand-100);
 }
-.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input) {
+.luxury-admin-shell :focus-visible:not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search) {
   outline: none !important;
   box-shadow: var(--ms-ring) !important;
   border-radius: var(--ms-r-sm);
@@ -525,11 +525,21 @@ body:has(.luxury-admin-shell) {
   border-bottom: 1px solid var(--ms-line);
   color: var(--ms-muted);
 }
-.ms-cmd-input input {
+.ms-cmd-input input,
+.luxury-admin-shell .ms-cmd-input input,
+.luxury-admin-shell .ms-cmd-input input:focus,
+.luxury-admin-shell .ms-cmd-input input:focus-visible {
   all: unset;
   flex: 1;
   font-size: 15px;
   color: var(--ms-ink);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 .ms-cmd-list {
   list-style: none;
@@ -710,7 +720,7 @@ body:has(.luxury-admin-shell) {
 /* ==========================================================================
    FORM CONTROLS
    ========================================================================== */
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input),
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search),
 .luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input),
 .luxury-admin-shell textarea {
   font-family: var(--ms-font) !important;
@@ -735,10 +745,10 @@ body:has(.luxury-admin-shell) {
   background-position: right 12px center;
   cursor: pointer;
 }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):hover,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search):hover,
 .luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input):hover,
 .luxury-admin-shell textarea:hover { border-color: #cbbfba; }
-.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):focus,
+.luxury-admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pos-discount-input):not(.pos-gst-input):not(.pos-qty-input):not(.ap-cell-input):not(.ap-inline-input):not(.ms-cmd-search):focus,
 .luxury-admin-shell select:not(.sp-filter-select):not(.ap-inline-select):not(.ap-cell-input):focus,
 .luxury-admin-shell textarea:focus {
   border-color: var(--ms-brand) !important;

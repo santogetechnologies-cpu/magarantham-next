@@ -58,6 +58,7 @@ function CommandPalette({ profile, open, onClose }: { profile: Profile; open: bo
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input
             ref={inputRef}
+            className="ms-cmd-search"
             value={q}
             placeholder="Jump to a page or search sarees…"
             onChange={(e) => {
