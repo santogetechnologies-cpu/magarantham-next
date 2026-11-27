@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { money } from "@/lib/core";
+import { money, statusLabel } from "@/lib/core";
 import { api } from "../api";
 
 type OrderSummary = {
@@ -122,7 +122,7 @@ export function OrdersDashboard() {
     { label: "Total Orders", value: summary?.totalOrders ?? 0, accent: "#800020" },
     { label: "New Orders", value: summary?.newOrders ?? 0, accent: "#B45309" },
     { label: "Processing Orders", value: summary?.processingOrders ?? 0, accent: "#1D4ED8" },
-    { label: "Shipped Orders", value: summary?.shippedOrders ?? 0, accent: "#0369A1" },
+    { label: "Dispatched Orders", value: summary?.shippedOrders ?? 0, accent: "#0369A1" },
     { label: "Delivered Orders", value: summary?.deliveredOrders ?? 0, accent: "#15803D" },
     { label: "Cancelled Orders", value: summary?.cancelledOrders ?? 0, accent: "#B91C1C" },
     {
@@ -404,7 +404,7 @@ export function OrdersDashboard() {
                             display: "inline-block",
                           }}
                         >
-                          {o.status.replaceAll("_", " ")}
+                          {statusLabel(o.status)}
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px" }} onClick={(e) => e.stopPropagation()}>

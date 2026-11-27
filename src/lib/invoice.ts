@@ -217,7 +217,7 @@ export async function generateInvoicePdf(
         const lineTotalRs = ((item.line_total_paise || item.quantity * item.unit_price_paise || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
         doc.fillColor(mutedText).fontSize(8.5).font('Helvetica').text(String(index + 1), 46, tableY + 9, { width: 24, align: 'center' });
-        doc.fillColor(darkText).fontSize(9).font('Helvetica-Bold').text(item.name || 'Silk Saree', 80, tableY + 9, { width: 260, lineBreak: false });
+        doc.fillColor(darkText).fontSize(9).font('Helvetica-Bold').text(`${item.name || 'Silk Saree'}${(item as { colour?: string }).colour ? ` (${(item as { colour?: string }).colour})` : ''}`, 80, tableY + 9, { width: 260, lineBreak: false });
         doc.fillColor(darkText).fontSize(9).font('Helvetica').text(String(item.quantity), 350, tableY + 9, { width: 40, align: 'center' });
         doc.fillColor(darkText).fontSize(9).font('Helvetica').text(unitRs, 400, tableY + 9, { width: 70, align: 'right' });
         doc.fillColor(maroon).fontSize(9).font('Helvetica-Bold').text(lineTotalRs, 480, tableY + 9, { width: 65, align: 'right' });

@@ -7,24 +7,27 @@ import {
   ReactNode,
 } from "react";
 
-export type PieceSelection = {
+/** The colour a customer picked (one saree = one barcode; online it is sold per colour). */
+export type ColourSelection = {
   id: string;
-  piece_code: string;
-  price_paise?: number;
-  colour?: string;
+  colour: string;
   image_path?: string;
 };
 
 export type Line = {
   product_id: string;
+  colour_id: string;
+  colour: string;
+  colour_image?: string;
   quantity: number;
-  piece_id?: string;
-  piece_code?: string;
-  piece_price_paise?: number;
-  piece_colour?: string;
 };
 
-const CART_KEY = "ms-cart";
+const CART_KEY = "ms-cart-v2";
+
+/** Colours a customer can buy right now (defined, with a photo, pieces free). */
+export function buyableColours(p: { colours?: { id: string; colour: string; image_path: string; quantity: number; reserved: number }[] }) {
+  return (p.colours || []).filter((c) => c.image_path && c.quantity - c.reserved > 0);
+}
 
 function readCart(): Line[] {
   try {
@@ -35,64 +38,39 @@ function readCart(): Line[] {
         (x) =>
           x &&
           typeof x.product_id === "string" &&
+          typeof x.colour_id === "string" &&
           Number.isInteger(x.quantity) &&
           x.quantity > 0 &&
-          x.quantity <= 20 &&
-          (x.piece_id === undefined || typeof x.piece_id === "string"),
+          x.quantity <= 20,
       )
+      .map((x) => ({ ...x, colour: String(x.colour || "") }))
       .slice(0, 20);
   } catch {
     return [];
   }
 }
 
-/**
- * Lines the server checkout accepts: one line per saree, preserving
- * physical piece selections where chosen.
- */
+const sameLine = (l: Line, productId: string, colourId: string) =>
+  l.product_id === productId && l.colour_id === colourId;
+
+/** Lines the server checkout accepts: one line per saree colour. */
 export function checkoutLines(cart: Line[], availableIds?: Set<string>) {
-  const items: {
-    product_id: string;
-    quantity: number;
-    piece_id?: string;
-    piece_code?: string;
-  }[] = [];
-  const map = new Map<
-    string,
-    {
-      product_id: string;
-      quantity: number;
-      piece_id?: string;
-      piece_code?: string;
-    }
-  >();
+  const map = new Map<string, { product_id: string; colour_id: string; quantity: number }>();
   for (const l of cart) {
     if (availableIds && !availableIds.has(l.product_id)) continue;
-    if (map.has(l.product_id)) {
-      const existing = map.get(l.product_id)!;
-      existing.quantity = Math.min(20, existing.quantity + l.quantity);
-      if (!existing.piece_id && l.piece_id) {
-        existing.piece_id = l.piece_id;
-        existing.piece_code = l.piece_code;
-      }
-    } else {
-      const entry = {
-        product_id: l.product_id,
-        quantity: Math.min(20, l.quantity),
-        piece_id: l.piece_id,
-        piece_code: l.piece_code,
-      };
-      map.set(l.product_id, entry);
-      items.push(entry);
-    }
+    if (!l.colour_id) continue;
+    const key = `${l.product_id}:${l.colour_id}`;
+    const existing = map.get(key);
+    if (existing) existing.quantity = Math.min(20, existing.quantity + l.quantity);
+    else map.set(key, { product_id: l.product_id, colour_id: l.colour_id, quantity: Math.min(20, l.quantity) });
   }
-  return items.slice(0, 20);
+  return [...map.values()].slice(0, 20);
 }
 
 const Context = createContext<{
   cart: Line[];
-  add: (id: string, piece?: PieceSelection) => void;
-  quantity: (id: string, n: number, pieceId?: string) => void;
+  add: (id: string, colour: ColourSelection, max?: number) => void;
+  quantity: (id: string, n: number, colourId: string) => void;
   remove: (ids: string[]) => void;
   clear: () => void;
   notice: (s: string) => void;
@@ -163,46 +141,24 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  function add(id: string, piece?: PieceSelection) {
+  function add(id: string, colour: ColourSelection, max = 20) {
+    let note = `${colour.colour} saree added to bag.`;
     setCart((c) => {
-      if (piece) {
-        // Individual pieces are unique physical sarees
-        const exists = c.find((x) => x.piece_id === piece.id);
-        if (exists) {
-          setMessage(`Piece ${piece.piece_code} is already in your bag.`);
+      const found = c.find((x) => sameLine(x, id, colour.id));
+      if (found) {
+        if (found.quantity >= Math.min(20, max)) {
+          note = `Only ${max} ${colour.colour} piece${max === 1 ? "" : "s"} available.`;
           return c;
         }
-        if (c.length >= 20) return c;
-        return [
-          ...c,
-          {
-            product_id: id,
-            quantity: 1,
-            piece_id: piece.id,
-            piece_code: piece.piece_code,
-            piece_price_paise: piece.price_paise,
-            piece_colour: piece.colour,
-          },
-        ];
+        return c.map((x) => (sameLine(x, id, colour.id) ? { ...x, quantity: x.quantity + 1 } : x));
       }
-
-      const found = c.find((x) => x.product_id === id && !x.piece_id);
-      return found
-        ? c.map((x) =>
-            x.product_id === id && !x.piece_id
-              ? { ...x, quantity: Math.min(20, x.quantity + 1) }
-              : x,
-          )
-        : c.length < 20
-          ? [...c, { product_id: id, quantity: 1 }]
-          : c;
+      if (c.length >= 20) {
+        note = "Your bag can hold 20 different sarees.";
+        return c;
+      }
+      return [...c, { product_id: id, colour_id: colour.id, colour: colour.colour, colour_image: colour.image_path, quantity: 1 }];
     });
-
-    setMessage(
-      piece
-        ? `Saree piece ${piece.piece_code} added to bag.`
-        : "Added to bag.",
-    );
+    setMessage(note);
   }
 
   return (
@@ -210,20 +166,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       value={{
         cart,
         add,
-        quantity: (id, n, pieceId) =>
+        quantity: (id, n, colourId) =>
           setCart((c) =>
             n > 0
-              ? c.map((x) => {
-                  const match = pieceId
-                    ? x.piece_id === pieceId
-                    : x.product_id === id && !x.piece_id;
-                  return match ? { ...x, quantity: Math.min(20, n) } : x;
-                })
-              : c.filter((x) =>
-                  pieceId
-                    ? x.piece_id !== pieceId
-                    : !(x.product_id === id && !x.piece_id),
-                ),
+              ? c.map((x) => (sameLine(x, id, colourId) ? { ...x, quantity: Math.min(20, n) } : x))
+              : c.filter((x) => !sameLine(x, id, colourId)),
           ),
         remove: (ids) => setCart((c) => c.filter((x) => !ids.includes(x.product_id))),
         clear: () => setCart([]),

@@ -217,13 +217,11 @@ export function AuthForm({ mode }: { mode: string }) {
         <form className="form-panel" onSubmit={submit}>
           {mode === "register" && (
             <label>
-              Full Name
+              Full Name (optional)
               <input
                 name="name"
                 autoComplete="name"
                 placeholder="e.g. Priyadharshini"
-                required
-                minLength={2}
                 maxLength={80}
                 className="auth-input"
               />

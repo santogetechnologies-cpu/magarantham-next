@@ -31,20 +31,6 @@ export async function POST(req: Request) {
     if (customerPhone) {
       await service().from("orders").update({ customer_phone: customerPhone }).eq("id", id);
     }
-    for (const item of p.cart) {
-      if (item.piece_id || item.piece_code) {
-        try {
-          await service()
-            .from("order_items")
-            .update({
-              piece_id: item.piece_id || null,
-              piece_code: item.piece_code || null,
-            })
-            .eq("order_id", id)
-            .eq("product_id", item.product_id);
-        } catch {}
-      }
-    }
     try {
       const db = service();
       const { data: createdOrder } = await db

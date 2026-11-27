@@ -1,7 +1,6 @@
 import 'server-only';
 import { Fault, service } from './server';
 import { Profile, publicProduct } from './core';
-import { getPiecesMap } from './piece-server';
 
 const CATEGORY_IMAGES_KEY = 'category-images.json';
 
@@ -215,25 +214,22 @@ export async function posProducts(includeCost = false) {
   const data = await rows('store_catalogue', '*', {
     archived: false,
   });
-  const piecesMap = await getPiecesMap();
-  return data.map((p) => {
-    const pid = String(p.id);
-    const prodPieces = piecesMap[pid] || [];
-    return {
-      ...publicProduct({ ...p, pieces: prodPieces }),
-      barcode: p.barcode,
-      stock_on_hand: Number(p.stock_on_hand ?? 0),
-      min_stock_level: Number(p.min_stock_level ?? 0),
-      category_id: p.category_id ? String(p.category_id) : undefined,
-      category_name: p.category_name ? String(p.category_name) : undefined,
-      subcategory_id: p.subcategory_id ? String(p.subcategory_id) : undefined,
-      subcategory_name: p.subcategory_name ? String(p.subcategory_name) : undefined,
-      pieces: prodPieces, // retain full admin pieces including purchase cost & location
-      category_visible: p.category_visible !== false,
-      // Cost price only for people who manage purchases (never billing staff).
-      ...(includeCost ? { purchase_price_paise: Number(p.purchase_price_paise || 0) } : {}),
-    };
-  });
+  return data.map((p) => ({
+    // colours + undefined_quantity come from the store_catalogue view (one barcode, colour split).
+    ...publicProduct(p),
+    barcode: p.barcode,
+    stock_on_hand: Number(p.stock_on_hand ?? 0),
+    reserved: Number(p.reserved ?? 0),
+    min_stock_level: Number(p.min_stock_level ?? 0),
+    category_id: p.category_id ? String(p.category_id) : undefined,
+    category_name: p.category_name ? String(p.category_name) : undefined,
+    subcategory_id: p.subcategory_id ? String(p.subcategory_id) : undefined,
+    subcategory_name: p.subcategory_name ? String(p.subcategory_name) : undefined,
+    category_visible: p.category_visible !== false,
+    published: p.published !== false,
+    // Cost price only for people who manage purchases (never billing staff).
+    ...(includeCost ? { purchase_price_paise: Number(p.purchase_price_paise || 0) } : {}),
+  }));
 }
 
 export async function erpReferences(profile: Profile) {

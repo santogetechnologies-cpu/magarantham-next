@@ -1,9 +1,8 @@
 import "server-only";
 import { service, configured, Fault } from "./server";
-import { CategoryItem, publicProduct, Settings } from "./core";
+import { CategoryItem, colourOnline, publicProduct, Product, Settings } from "./core";
 import { enrichCategories } from "./erp-server";
 import { seedProducts } from "./seed";
-import { getPiecesMap } from "./piece-server";
 import { getOffersWithTargets } from "./offers-server";
 import { applyOffersToProducts, buildCategoryMap, isOfferValid } from "./offers";
 export const defaultSettings: Settings = {
@@ -33,7 +32,17 @@ export async function getStore() {
   if (!configured())
     return {
       settings: defaultSettings,
-      products: seedProducts.map(publicProduct),
+      products: seedProducts.map((p) => {
+        // Read-only preview: show each sample as one colour so the colour picker renders.
+        const prod = publicProduct(p as Record<string, unknown>);
+        return {
+          ...prod,
+          colours: prod.colours?.length
+            ? prod.colours
+            : [{ id: `preview-${prod.id}`, colour: prod.colour || "As shown", colour_hex: "", quantity: prod.available, reserved: 0, image_path: prod.image_path, sort_order: 0 }],
+          online_ready: true,
+        };
+      }),
       categories: [] as CategoryItem[],
       banners: [],
       offers: [],
@@ -71,18 +80,12 @@ export async function getStore() {
     }
   }
 
-  // Filter out any archived or unpublished products strictly
-  const piecesMap = await getPiecesMap();
+  // Website rule: a saree shows only when it is published, its category is visible and at least one
+  // colour is defined WITH a photo. Undefined pieces (colour not recorded yet) are never sold online.
   const rawPublishedProducts = rawCatalogue
-    // Hidden categories/subcategories are not sellable online (checkout rejects them), so hide them here too.
     .filter((prod: Record<string, unknown>) => prod.published === true && prod.archived !== true && prod.category_visible !== false)
-    .map((prod) => {
-      const pid = String(prod.id);
-      return publicProduct({
-        ...prod,
-        pieces: piecesMap[pid] || [],
-      });
-    });
+    .map((prod) => toWebsiteProduct(prod as Record<string, unknown>))
+    .filter((prod): prod is Product => prod !== null);
 
   const now = Date.now();
   const activeOffers = (allOffers || []).filter((o) => isOfferValid(o, now));
@@ -114,6 +117,22 @@ export async function getStore() {
     banners: (b.data || []).filter(active),
     offers: activeOffers,
     connected: true,
+  };
+}
+/** Storefront view of one saree: only colours with a photo, availability = free pieces of those colours. */
+export function toWebsiteProduct(row: Record<string, unknown>): Product | null {
+  const prod = publicProduct(row);
+  const colours = (prod.colours || []).filter(colourOnline);
+  if (!colours.length) return null;
+  const free = colours.reduce((sum, c) => sum + Math.max(0, c.quantity - c.reserved), 0);
+  const available = row.online_available != null ? Number(row.online_available) : Math.min(prod.available, free);
+  return {
+    ...prod,
+    image_path: prod.image_path || colours[0].image_path,
+    colours,
+    available: Math.max(0, available),
+    undefined_quantity: undefined,
+    stock_on_hand: undefined,
   };
 }
 export async function getOrder(id: string, customer?: string) {

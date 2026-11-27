@@ -71,10 +71,6 @@ export function CustomerAuthModal({
     setStatusMsg('');
 
     if (tab === 'register') {
-      if (fullName.trim().length < 2) {
-        setErrorMsg('Please enter your full name (minimum 2 characters).');
-        return;
-      }
       if (password !== confirmPassword) {
         setErrorMsg('Password and Confirm Password do not match.');
         return;
@@ -296,15 +292,13 @@ export function CustomerAuthModal({
             {tab === 'register' && (
               <label style={{ display: 'block', marginBottom: 0 }}>
                 <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-                  Full Name
+                  Full Name <span style={{ fontWeight: 400, color: '#6B7280' }}>(optional)</span>
                 </span>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Priyadharshini"
-                  required
-                  minLength={2}
                   maxLength={80}
                   className="auth-input"
                 />

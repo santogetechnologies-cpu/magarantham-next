@@ -50,6 +50,43 @@ export type IndividualPiece = {
   sold_refs?: string[];
 };
 
+/**
+ * Colour split of one individual saree. The saree has one barcode and one price;
+ * its pieces are divided into colours. Pieces without a colour are "undefined"
+ * (stock_on_hand - sum of colour quantities) and are never sold online.
+ */
+export type ColourStock = {
+  id: string;
+  colour: string;
+  colour_hex: string;
+  quantity: number;
+  reserved: number;
+  image_path: string;
+  sort_order: number;
+};
+/** Free pieces of a colour (not held by an unpaid online order). */
+export const colourFree = (c: Pick<ColourStock, "quantity" | "reserved">) =>
+  Math.max(0, Number(c.quantity || 0) - Number(c.reserved || 0));
+/** Colour sells online only when it is defined and has its own photo. */
+export const colourOnline = (c: Pick<ColourStock, "image_path">) => Boolean(c.image_path);
+export function parseColours(raw: unknown): ColourStock[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((c) => c && typeof c === "object" && (c as { id?: unknown }).id)
+    .map((c) => {
+      const x = c as Record<string, unknown>;
+      return {
+        id: String(x.id),
+        colour: String(x.colour || ""),
+        colour_hex: String(x.colour_hex || ""),
+        quantity: Math.max(0, Number(x.quantity || 0)),
+        reserved: Math.max(0, Number(x.reserved || 0)),
+        image_path: String(x.image_path || ""),
+        sort_order: Number(x.sort_order || 0),
+      };
+    });
+}
+
 export type CategoryItem = {
   id: string;
   parent_id: string | null;
@@ -90,10 +127,12 @@ export type Product = {
   compare_at_price_paise?: number;
   sale_unit?: string;
   stock_on_hand?: number;
-  pieces?: IndividualPiece[];
-  total_pieces?: number;
-  available_pieces?: number;
-  sold_pieces?: number;
+  /** Colour split (admin/POS: all colours; website: only colours with a photo). */
+  colours?: ColourStock[];
+  /** Pieces whose colour is not recorded yet. */
+  undefined_quantity?: number;
+  /** True when at least one colour is defined with a photo (required to show online). */
+  online_ready?: boolean;
 };
 export type Settings = {
   brand_name: string;
@@ -146,44 +185,27 @@ export function safeReturn(value: string | null) {
     : "/account";
 }
 export const publicProduct = (p: Record<string, unknown>): Product => {
-  const rawPieces = Array.isArray(p.pieces) ? (p.pieces as IndividualPiece[]) : [];
-  // Strip admin-only fields (purchase_cost_paise, location) for public customer consumption
-  const publicPieces: IndividualPiece[] | undefined = rawPieces.length > 0
-    ? rawPieces.map((piece) => ({
-      id: String(piece.id),
-      product_id: String(piece.product_id),
-      piece_code: String(piece.piece_code || ""),
-      barcode: String(piece.barcode || ""),
-      colour: String(piece.colour || p.colour || ""),
-      price_paise: Number(piece.price_paise || p.price_paise || 0),
-      status: (piece.status || "available") as PieceStatus,
-      quantity: piece.quantity != null && Number(piece.quantity) >= 0 ? Number(piece.quantity) : 1,
-      min_quantity: piece.min_quantity != null && Number(piece.min_quantity) >= 0 ? Number(piece.min_quantity) : 0,
-      image_path: piece.image_path ? String(piece.image_path) : undefined,
-      created_at: String(piece.created_at || new Date().toISOString()),
-      unit_id: piece.unit_id != null ? piece.unit_id : undefined,
-    }))
-    : undefined;
-
-  const totalPieces = publicPieces ? publicPieces.reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
-  const availPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "available").reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
-  const soldPieces = publicPieces ? publicPieces.filter((pc) => pc.status === "sold").reduce((sum, p) => sum + (p.quantity || 1), 0) : undefined;
-
+  const colours = parseColours(p.colours).sort(
+    (a, b) => a.sort_order - b.sort_order || a.colour.localeCompare(b.colour),
+  );
+  const stock = Number(p.stock_on_hand || 0);
+  const coloured = colours.reduce((sum, c) => sum + c.quantity, 0);
+  const cover = String(p.image_path || "") || colours.find(colourOnline)?.image_path || "";
   return {
     id: String(p.id),
     sku: String(p.sku),
     slug: String(p.slug),
     name: String(p.name),
     category: String(p.category_name ?? p.category),
-    colour: String(p.colour),
-    description: String(p.description),
-    image_path: String(p.image_path),
+    colour: String(p.colour ?? ""),
+    description: String(p.description ?? ""),
+    image_path: cover,
     price_paise: Number(p.price_paise),
     discount_percent: p.effective_price_paise != null && Number(p.price_paise) > 0
       ? Math.round((1 - Number(p.effective_price_paise) / Number(p.price_paise)) * 10000) / 100
       : Number(p.discount_percent),
-    available: Math.max(0, Number(p.stock_on_hand) - Number(p.reserved)),
-    stock_on_hand: Number(p.stock_on_hand || 0),
+    available: Math.max(0, stock - Number(p.reserved || 0)),
+    stock_on_hand: stock,
     featured: Boolean(p.featured),
     effective_price_paise: p.effective_price_paise == null ? undefined : Number(p.effective_price_paise),
     subcategory_id: p.subcategory_id == null ? undefined : String(p.subcategory_id),
@@ -195,13 +217,18 @@ export const publicProduct = (p: Record<string, unknown>): Product => {
     barcode: p.barcode ? String(p.barcode) : undefined,
     compare_at_price_paise: p.compare_at_price_paise != null ? Number(p.compare_at_price_paise) : undefined,
     sale_unit: p.sale_unit ? String(p.sale_unit) : "piece",
-    pieces: publicPieces,
-    total_pieces: totalPieces,
-    available_pieces: availPieces,
-    sold_pieces: soldPieces,
+    colours,
+    undefined_quantity:
+      p.undefined_quantity != null ? Number(p.undefined_quantity) : Math.max(0, stock - coloured),
+    online_ready: p.online_ready != null ? Boolean(p.online_ready) : colours.some(colourOnline),
   };
 };
 
 /** Short label for prices, e.g. "per set". Empty for single pieces. */
 export const unitSuffix = (unit?: string) =>
   !unit || unit === "piece" ? "" : `per ${unit}`;
+
+/** Customer-friendly order status: packing -> Packed, shipped -> Dispatched. */
+export const statusLabel = (status: string) =>
+  ({ packing: "packed", shipped: "dispatched", awaiting_payment: "awaiting payment" } as Record<string, string>)[status] ||
+  status.replaceAll("_", " ");

@@ -35,9 +35,9 @@ export const checkoutSchema = z
         z
           .object({
             product_id: uuid,
+            // Online orders always name the colour (defined + photo); undefined pieces are POS-only.
+            colour_id: uuid,
             quantity: z.number().int().min(1).max(20),
-            piece_id: z.string().max(80).optional(),
-            piece_code: z.string().max(80).optional(),
           })
           .strict(),
       )
@@ -60,9 +60,10 @@ export const productSchema = z
       .max(120),
     name: text(120),
     category: text(80),
-    colour: text(50),
+    colour: z.string().trim().max(120).default(""),
     description: z.string().trim().max(2000).default(""),
-    image_path: image,
+    // Cover photo is optional: imported sarees get photos per colour later.
+    image_path: z.union([z.literal(""), image]).default(""),
     price_paise: integer(),
     discount_percent: integer(90),
     published: z.boolean(),

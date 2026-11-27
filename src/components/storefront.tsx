@@ -377,27 +377,21 @@ export function ProductDetail({
   settings: Settings;
 }) {
   const { add } = useShop();
-  const pieces = p.pieces || [];
-  const firstAvailablePiece = pieces.find((pc) => pc.status === "available") || pieces[0] || null;
-  const [selectedPiece, setSelectedPiece] = useState(firstAvailablePiece);
+  // One saree, one price; customers choose among the colours that have a photo.
+  const colours = p.colours || [];
+  const firstFree = colours.find((c) => c.quantity - c.reserved > 0) || colours[0] || null;
+  const [selected, setSelected] = useState(firstFree);
+  const free = selected ? Math.max(0, selected.quantity - selected.reserved) : p.available;
 
-  // Active pricing calculation
-  const rawPrice = selectedPiece?.price_paise ?? p.price_paise;
-  const discountRatio =
-    p.price_paise > 0 && p.effective_price_paise !== undefined
-      ? p.effective_price_paise / p.price_paise
-      : p.discount_percent > 0
-        ? 1 - p.discount_percent / 100
-        : 1;
-  const effectivePrice = Math.round(rawPrice * discountRatio);
+  const rawPrice = p.price_paise;
+  const effectivePrice = unitPrice(p);
   const savings = Math.max(0, rawPrice - effectivePrice);
-
-  const isSoldOut = selectedPiece ? selectedPiece.status !== "available" : p.available < 1;
+  const isSoldOut = free < 1;
 
   return (
     <section className="section detail-layout">
       <div className="detail-photo">
-        <img src={selectedPiece?.image_path || p.image_path} alt={p.name} />
+        <img src={selected?.image_path || p.image_path} alt={selected ? `${p.name} in ${selected.colour}` : p.name} />
       </div>
       <div className="detail-copy">
         <nav className="shop-breadcrumbs" aria-label="Breadcrumb">
@@ -426,7 +420,6 @@ export function ProductDetail({
             ? ` · ${p.subcategory_name}`
             : ""}{" "}
           {p.fabric ? ` · ${p.fabric}` : ""}
-          {p.colour ? ` · ${p.colour}` : ""}
         </p>
 
         {/* Dynamic Promotional Offer Pill */}
@@ -475,46 +468,31 @@ export function ProductDetail({
         </p>
         <p>{p.description}</p>
 
-        {/* 4-LEVEL PIECE SELECTOR (Level 4: Individual physical saree pieces) */}
-        {pieces.length > 0 && (
-          <div className="product-pieces-selector">
-            <div className="piece-selector-header">
-              <span className="eyebrow" style={{ margin: 0 }}>
-                Select Physical Saree Piece ({p.available} available):
-              </span>
-              {selectedPiece && (
-                <span className="selected-piece-pill">
-                  Active Piece: <strong>{selectedPiece.piece_code}</strong> ({selectedPiece.colour})
-                </span>
-              )}
-            </div>
-            <div className="piece-chips-grid">
-              {pieces.map((pc) => {
-                const isAvail = pc.status === "available";
-                const isSelected = selectedPiece?.id === pc.id;
+        {colours.length > 0 && (
+          <div className="colour-picker" role="radiogroup" aria-label="Choose colour">
+            <p className="colour-picker-label">
+              Colour: <strong>{selected?.colour || "Choose"}</strong>
+              {selected && <span className="subtle"> · {free > 0 ? `${free} available` : "sold out"}</span>}
+            </p>
+            <div className="colour-swatches">
+              {colours.map((c) => {
+                const left = Math.max(0, c.quantity - c.reserved);
+                const isSel = selected?.id === c.id;
                 return (
                   <button
-                    key={pc.id}
+                    key={c.id}
                     type="button"
-                    className={`piece-chip ${isSelected ? "selected" : ""} ${!isAvail ? "sold" : ""}`}
-                    onClick={() => isAvail && setSelectedPiece(pc)}
-                    disabled={!isAvail}
-                    title={!isAvail ? `Piece ${pc.piece_code} is ${pc.status}` : `Select ${pc.piece_code}`}
+                    role="radio"
+                    aria-checked={isSel}
+                    className={`colour-swatch ${isSel ? "selected" : ""} ${left < 1 ? "sold" : ""}`}
+                    onClick={() => setSelected(c)}
+                    title={left < 1 ? `${c.colour} - sold out` : `${c.colour} - ${left} available`}
                   >
-                    <div className="piece-chip-top">
-                      <span
-                        className="piece-chip-dot"
-                        style={{ backgroundColor: colourHex(pc.colour) }}
-                        aria-hidden="true"
-                      />
-                      <strong className="piece-chip-code">{pc.piece_code}</strong>
-                    </div>
-                    <div className="piece-chip-bottom">
-                      <span className="piece-chip-price">{money(pc.price_paise)}</span>
-                      <span className={`piece-chip-status ${pc.status}`}>
-                        {isAvail ? "Available" : pc.status === "sold" ? "Sold" : pc.status}
-                      </span>
-                    </div>
+                    <img src={c.image_path} alt="" />
+                    <span className="colour-swatch-name">
+                      <i style={{ background: c.colour_hex || colourHex(c.colour) }} aria-hidden="true" />
+                      {c.colour}
+                    </span>
                   </button>
                 );
               })}
@@ -526,29 +504,15 @@ export function ProductDetail({
           {rawPrice === 0
             ? "Please contact us for the price."
             : isSoldOut
-              ? "This saree piece is currently sold out."
+              ? `${selected?.colour || "This saree"} is currently sold out.`
               : "Available to order"}
         </p>
         <button
           className="button"
-          disabled={
-            !s.ordering_enabled || rawPrice === 0 || isSoldOut
-          }
-          onClick={() => {
-            if (selectedPiece) {
-              add(p.id, {
-                id: selectedPiece.id,
-                piece_code: selectedPiece.piece_code,
-                price_paise: effectivePrice,
-                colour: selectedPiece.colour,
-                image_path: selectedPiece.image_path || p.image_path,
-              });
-            } else {
-              add(p.id);
-            }
-          }}
+          disabled={!s.ordering_enabled || rawPrice === 0 || isSoldOut || !selected}
+          onClick={() => selected && add(p.id, { id: selected.id, colour: selected.colour, image_path: selected.image_path }, free)}
         >
-          {isSoldOut ? "Piece Sold Out" : "Add to bag ＋"}
+          {isSoldOut ? "Sold out" : `Add ${selected?.colour || ""} to bag ＋`}
         </button>
         <Link href="/bulk" className="button button-outline">
           Ask about bulk orders ↗
@@ -571,6 +535,11 @@ export function ProductDetail({
     </section>
   );
 }
+const colourOf = (p: Product, colourId: string) => (p.colours || []).find((c) => c.id === colourId);
+const colourLeft = (p: Product, colourId: string) => {
+  const c = colourOf(p, colourId);
+  return c ? Math.max(0, c.quantity - c.reserved) : 0;
+};
 export function Cart({
   products,
   settings: s,
@@ -583,10 +552,15 @@ export function Cart({
   useEffect(() => {
     if (!products.length) return;
     const gone = [...new Set(cart.filter((l) => !products.some((p) => p.id === l.product_id)).map((l) => l.product_id))];
-    if (gone.length) {
-      remove(gone);
-      notice(`${gone.length} saree${gone.length === 1 ? " is" : "s are"} no longer available and ${gone.length === 1 ? "was" : "were"} removed from your bag.`);
-    }
+    // A colour that was sold out at the counter or had its photo removed is no longer sellable online.
+    const goneColours = cart.filter((l) => {
+      const prod = products.find((p) => p.id === l.product_id);
+      return prod && !colourOf(prod, l.colour_id);
+    });
+    for (const l of goneColours) quantity(l.product_id, 0, l.colour_id);
+    if (gone.length) remove(gone);
+    const n = gone.length + goneColours.length;
+    if (n) notice(`${n} item${n === 1 ? " is" : "s are"} no longer available and ${n === 1 ? "was" : "were"} removed from your bag.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, cart.length]);
   const items = cart.map((l) => {
@@ -617,30 +591,26 @@ export function Cart({
       ) : (
         <>
           {items.map(({ l, p, linePrice }) => (
-            <article className="cart-line" key={l.piece_id ? `${l.product_id}-${l.piece_id}` : l.product_id}>
+            <article className="cart-line" key={`${l.product_id}-${l.colour_id}`}>
               {p ? (
                 <>
-                  <img src={p.image_path} alt={p.name} />
+                  <img src={colourOf(p, l.colour_id)?.image_path || l.colour_image || p.image_path} alt={`${p.name} ${l.colour}`} />
                   <div>
                     <Link href={`/products/${p.slug}`}>
                       <h3>{p.name}</h3>
                     </Link>
-                    {l.piece_code && (
-                      <span className="cart-piece-tag">
-                        Piece: <strong>{l.piece_code}</strong> {l.piece_colour ? `· ${l.piece_colour}` : ""}
-                      </span>
-                    )}
+                    <span className="cart-piece-tag">
+                      Colour: <strong>{l.colour}</strong>
+                    </span>
                     <p>{money(linePrice)}</p>
                     <p className="subtle">
-                      {p.available < cart.filter((x) => x.product_id === p.id).reduce((t, x) => t + x.quantity, 0)
-                        ? `Only ${p.available} available.`
-                        : ""}
+                      {!colourOf(p, l.colour_id)
+                        ? "This colour is no longer available."
+                        : colourLeft(p, l.colour_id) < l.quantity
+                          ? `Only ${colourLeft(p, l.colour_id)} ${l.colour} available.`
+                          : ""}
                     </p>
-                    {l.piece_id ? (
-                      <small style={{ color: "var(--erp-text-muted, #6e5854)", display: "block", marginTop: 4 }}>
-                        Unique Serialized Piece (Qty: 1)
-                      </small>
-                    ) : (
+                    {(
                       <div className="cart-qty-control">
                         <span className="cart-qty-label">Quantity:</span>
                         <div className="cart-qty-stepper">
@@ -648,7 +618,7 @@ export function Cart({
                             type="button"
                             className="cart-qty-btn"
                             disabled={l.quantity <= 1}
-                            onClick={() => quantity(p.id, Math.max(1, l.quantity - 1))}
+                            onClick={() => quantity(p.id, Math.max(1, l.quantity - 1), l.colour_id)}
                             aria-label="Decrease quantity"
                             title="Decrease quantity"
                           >
@@ -657,12 +627,12 @@ export function Cart({
                           <input
                             type="number"
                             min="1"
-                            max={Math.min(20, p.available || 20)}
+                            max={Math.min(20, colourLeft(p, l.colour_id) || 1)}
                             value={l.quantity}
                             onChange={(e) => {
                               const n = Number(e.target.value);
                               if (e.target.value !== "" && Number.isInteger(n) && n >= 1) {
-                                quantity(p.id, Math.min(Math.min(20, p.available || 20), n));
+                                quantity(p.id, Math.min(Math.min(20, colourLeft(p, l.colour_id) || 1), n), l.colour_id);
                               }
                             }}
                             className="cart-qty-input"
@@ -671,12 +641,9 @@ export function Cart({
                           <button
                             type="button"
                             className="cart-qty-btn"
-                            disabled={l.quantity >= Math.min(20, p.available || 20)}
+                            disabled={l.quantity >= Math.min(20, colourLeft(p, l.colour_id))}
                             onClick={() =>
-                              quantity(
-                                p.id,
-                                Math.min(20, Math.min(p.available || 20, l.quantity + 1)),
-                              )
+                              quantity(p.id, Math.min(20, Math.min(colourLeft(p, l.colour_id), l.quantity + 1)), l.colour_id)
                             }
                             aria-label="Increase quantity"
                             title="Increase quantity"
@@ -693,7 +660,7 @@ export function Cart({
               )}
               <button
                 type="button"
-                onClick={() => quantity(l.product_id, 0, l.piece_id)}
+                onClick={() => quantity(l.product_id, 0, l.colour_id)}
                 className="cart-remove-btn"
                 title="Remove saree from bag"
               >

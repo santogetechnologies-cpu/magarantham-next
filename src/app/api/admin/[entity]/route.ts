@@ -13,7 +13,7 @@ import {
 } from "@/lib/server";
 import { schemaFor, uuid } from "@/lib/schemas";
 import type { Capability } from "@/lib/core";
-import { getPiecesMap } from "@/lib/piece-server";
+import { parseColours } from "@/lib/core";
 import { enrichCategories } from "@/lib/erp-server";
 import {
   getOffersWithTargets,
@@ -441,16 +441,28 @@ export async function GET(
     }
     let outRows = data.slice(0, 100) as unknown as Record<string, unknown>[];
     if ((entity === "products" || entity === "inventory") && outRows.length > 0) {
-      const piecesMap = await getPiecesMap();
+      // Colour split per saree (one barcode, colours + undefined pieces).
+      const ids = outRows.map((p) => String(p.id || ""));
+      const { data: colourRows } = await db
+        .from("product_colours")
+        .select("id,product_id,colour,colour_hex,quantity,reserved,image_path,sort_order")
+        .in("product_id", ids);
+      const byProduct = new Map<string, unknown[]>();
+      for (const c of colourRows || []) {
+        const list = byProduct.get(String(c.product_id)) || [];
+        list.push(c);
+        byProduct.set(String(c.product_id), list);
+      }
       outRows = outRows.map((p) => {
-        const pid = String(p.id || "");
-        const prodPieces = piecesMap[pid] || [];
+        const colours = parseColours(byProduct.get(String(p.id)) || []).sort(
+          (a, b) => a.sort_order - b.sort_order || a.colour.localeCompare(b.colour),
+        );
+        const coloured = colours.reduce((sum, c) => sum + c.quantity, 0);
         return {
           ...p,
-          pieces: prodPieces,
-          total_pieces: prodPieces.length,
-          available_pieces: prodPieces.filter((pc) => pc.status === "available").length,
-          sold_pieces: prodPieces.filter((pc) => pc.status === "sold").length,
+          colours,
+          undefined_quantity: Math.max(0, Number(p.stock_on_hand || 0) - coloured),
+          online_ready: colours.some((c) => Boolean(c.image_path)),
         };
       });
     } else if (entity === "product_categories" && outRows.length > 0) {

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { api } from "../api";
 import { ProductModal, ProductFormData } from "./product-modal";
 import { ImageUploader } from "./image-uploader";
-import { IndividualPiece, PieceStatus, money } from "@/lib/core";
+import { ColourStock, money } from "@/lib/core";
+import { ColourStockEditor } from "./colour-stock-editor";
 
 export type CategoryRow = {
   id: string;
@@ -44,10 +45,9 @@ export type ProductRow = {
   published: boolean;
   featured: boolean;
   archived: boolean;
-  pieces?: IndividualPiece[];
-  total_pieces?: number;
-  available_pieces?: number;
-  sold_pieces?: number;
+  colours?: ColourStock[];
+  undefined_quantity?: number;
+  online_ready?: boolean;
 };
 
 const COLOUR_PRESETS: { name: string; hex: string }[] = [
@@ -118,15 +118,10 @@ export function CatalogueHierarchyManager({
   const [selectedSubCategory, setSelectedSubCategory] = useState<CategoryRow | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
 
-  // Pieces loaded for selectedProduct
-  const [currentPieces, setCurrentPieces] = useState<IndividualPiece[]>([]);
-  const [piecesLoading, setPiecesLoading] = useState(false);
-
   // Search states at each level
   const [mainSearch, setMainSearch] = useState("");
   const [subSearch, setSubSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  const [pieceSearch, setPieceSearch] = useState("");
 
   // Modals
   const [categoryModal, setCategoryModal] = useState<{
@@ -144,32 +139,27 @@ export function CatalogueHierarchyManager({
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<ProductFormData> | null>(null);
 
-  // Piece add/edit modal
-  const [pieceModal, setPieceModal] = useState<{
-    isOpen: boolean;
-    id?: string;
-    piece_code: string;
-    barcode: string;
-    colour: string;
-    priceRupees: string;
-    purchaseCostRupees: string;
-    status: PieceStatus;
-    location: string;
-  } | null>(null);
-
   const [savingCategory, setSavingCategory] = useState(false);
-  const [savingPiece, setSavingPiece] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch Categories and Products
   async function reloadAll() {
     try {
-      const [catRes, prodRes] = await Promise.all([
-        api<{ rows: CategoryRow[] }>("/api/erp/product_categories?page=0"),
-        api<{ rows: ProductRow[] }>("/api/admin/products?page=0"),
+      const all = async <T,>(path: string) => {
+        const out: T[] = [];
+        for (let page = 0; page < 50; page++) {
+          const r = await api<{ rows: T[]; nextPage: number | null }>(`${path}?page=${page}`);
+          out.push(...(r.rows || []));
+          if (r.nextPage == null) break;
+        }
+        return out;
+      };
+      const [cats, prods] = await Promise.all([
+        all<CategoryRow>("/api/erp/product_categories"),
+        all<ProductRow>("/api/admin/products"),
       ]);
-      setCategories(catRes.rows || []);
-      setProducts(prodRes.rows || []);
+      setCategories(cats);
+      setProducts(prods);
     } catch (e) {
       if (onNotice) onNotice((e as Error).message);
     } finally {
@@ -181,24 +171,6 @@ export function CatalogueHierarchyManager({
     void reloadAll();
   }, []);
 
-  // When selectedProduct changes, load its individual pieces
-  useEffect(() => {
-    if (!selectedProduct) {
-      setCurrentPieces([]);
-      return;
-    }
-    setPiecesLoading(true);
-    api<{ pieces: IndividualPiece[] }>(`/api/admin/pieces?product_id=${selectedProduct.id}`)
-      .then((res) => {
-        setCurrentPieces(res.pieces || []);
-      })
-      .catch((err) => {
-        if (onNotice) onNotice((err as Error).message);
-      })
-      .finally(() => {
-        setPiecesLoading(false);
-      });
-  }, [selectedProduct?.id]);
 
   // Main Categories (parent_id is null)
   const mainCategories = useMemo(
@@ -331,97 +303,6 @@ export function CatalogueHierarchyManager({
   }
 
   // -------------------------------------------------------------
-  // LEVEL 4: PIECE ACTIONS (Add, Edit, Delete, Toggle Status)
-  // -------------------------------------------------------------
-  async function handleSavePiece(e: React.FormEvent) {
-    e.preventDefault();
-    if (!pieceModal || !selectedProduct) return;
-    setSavingPiece(true);
-    try {
-      const pricePaise = Math.round(Number(pieceModal.priceRupees || 0) * 100);
-      const purchaseCostPaise = pieceModal.purchaseCostRupees
-        ? Math.round(Number(pieceModal.purchaseCostRupees) * 100)
-        : undefined;
-
-      let updatedList = [...currentPieces];
-      if (pieceModal.id) {
-        // Edit
-        updatedList = updatedList.map((pc) =>
-          pc.id === pieceModal.id
-            ? {
-                ...pc,
-                piece_code: pieceModal.piece_code.trim(),
-                barcode: pieceModal.barcode.trim(),
-                colour: pieceModal.colour.trim(),
-                price_paise: pricePaise,
-                purchase_cost_paise: purchaseCostPaise,
-                status: pieceModal.status,
-                location: pieceModal.location.trim(),
-              }
-            : pc,
-        );
-      } else {
-        // Add
-        updatedList.push({
-          id: `pc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-          product_id: selectedProduct.id,
-          piece_code: pieceModal.piece_code.trim(),
-          barcode: pieceModal.barcode.trim(),
-          colour: pieceModal.colour.trim(),
-          price_paise: pricePaise,
-          purchase_cost_paise: purchaseCostPaise,
-          status: pieceModal.status,
-          location: pieceModal.location.trim(),
-          created_at: new Date().toISOString(),
-        });
-      }
-
-      const res = await api<{ pieces: IndividualPiece[] }>("/api/admin/pieces", {
-        product_id: selectedProduct.id,
-        pieces: updatedList,
-      });
-
-      setCurrentPieces(res.pieces || updatedList);
-      setPieceModal(null);
-      if (onNotice) onNotice("Physical saree piece saved.");
-      await reloadAll();
-    } catch (err) {
-      if (onNotice) onNotice((err as Error).message || "Failed to save piece.");
-    } finally {
-      setSavingPiece(false);
-    }
-  }
-
-  async function handleTogglePieceStatus(piece: IndividualPiece, newStatus: PieceStatus) {
-    try {
-      await api("/api/admin/pieces", {
-        piece_id: piece.id,
-        status: newStatus,
-      }, "PATCH");
-
-      setCurrentPieces((prev) =>
-        prev.map((pc) => (pc.id === piece.id ? { ...pc, status: newStatus } : pc)),
-      );
-      if (onNotice) onNotice(`Piece ${piece.piece_code} marked as ${newStatus}.`);
-      await reloadAll();
-    } catch (err) {
-      if (onNotice) onNotice((err as Error).message || "Failed to update piece status.");
-    }
-  }
-
-  async function handleDeletePiece(pieceId: string) {
-    if (!selectedProduct) return;
-    if (!confirm("Are you sure you want to remove this piece from inventory?")) return;
-    try {
-      await api(`/api/admin/pieces?product_id=${selectedProduct.id}&piece_id=${pieceId}`, undefined, "DELETE");
-      setCurrentPieces((prev) => prev.filter((pc) => pc.id !== pieceId));
-      if (onNotice) onNotice("Piece deleted.");
-      await reloadAll();
-    } catch (err) {
-      if (onNotice) onNotice((err as Error).message || "Delete failed.");
-    }
-  }
-
   async function handleDeleteProduct(p: ProductRow) {
     if (!confirm(`Permanently delete saree "${p.name}"?`)) return;
     try {
@@ -489,7 +370,7 @@ export function CatalogueHierarchyManager({
               <span className="cat-crumb-sep">›</span>
               <span className="cat-crumb-text current">{selectedProduct.name}</span>
               <span className="cat-crumb-sep">›</span>
-              <span className="cat-crumb-pill">Physical Pieces</span>
+              <span className="cat-crumb-pill">Colours &amp; Stock</span>
             </>
           )}
         </div>
@@ -519,46 +400,21 @@ export function CatalogueHierarchyManager({
             <div className="cat-level-header-info">
               <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
                 <img
-                  src={selectedProduct.image_path || "/assets/brand-logo.png"}
+                  src={selectedProduct.image_path || selectedProduct.colours?.find((c) => c.image_path)?.image_path || "/assets/brand-logo.png"}
                   alt={selectedProduct.name}
                   style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, border: "1px solid #EAD5C0" }}
                 />
                 <div>
-                  <span className="eyebrow" style={{ margin: 0 }}>
-                    LEVEL 4: PHYSICAL PIECES INVENTORY
-                  </span>
+                  <span className="eyebrow" style={{ margin: 0 }}>COLOURS &amp; STOCK</span>
                   <h1 className="cat-level-title">{selectedProduct.name}</h1>
                   <p className="cat-level-desc">
-                    SKU: <strong>{selectedProduct.sku}</strong> · Fabric: {selectedProduct.fabric || "Pure Silk"} · Design: {selectedProduct.design || "Zari Border"}
+                    Barcode: <strong>{selectedProduct.barcode || selectedProduct.sku}</strong> · Price: {money(selectedProduct.price_paise)}
+                    {selectedProduct.fabric ? ` · ${selectedProduct.fabric}` : ""}
                   </p>
                 </div>
               </div>
             </div>
-
             <div className="cat-level-actions">
-              <button
-                type="button"
-                className="button gold-btn"
-                onClick={() => {
-                  const nextIdx = currentPieces.length + 1;
-                  const catPrefix = selectedMainCategory?.name.slice(0, 3).toUpperCase() || "SAR";
-                  const colPrefix = (selectedProduct.colour || "PUR").slice(0, 3).toUpperCase();
-                  setPieceModal({
-                    isOpen: true,
-                    piece_code: `${catPrefix}-${colPrefix}-${String(nextIdx).padStart(3, "0")}`,
-                    barcode: `MSU${Date.now().toString().slice(-7)}${String(nextIdx).padStart(3, "0")}`,
-                    colour: selectedProduct.colour || "Purple",
-                    priceRupees: selectedProduct.price_paise ? String(selectedProduct.price_paise / 100) : "5000",
-                    purchaseCostRupees: selectedProduct.purchase_price_paise
-                      ? String(selectedProduct.purchase_price_paise / 100)
-                      : "3500",
-                    status: "available",
-                    location: `Rack A-${nextIdx}`,
-                  });
-                }}
-              >
-                ＋ Add Individual Piece
-              </button>
               <button
                 type="button"
                 className="button outline-btn"
@@ -567,221 +423,13 @@ export function CatalogueHierarchyManager({
                   setProductModalOpen(true);
                 }}
               >
-                Edit Saree Details
+                Edit Saree Details / Move Category
               </button>
             </div>
           </div>
-
-          {/* Pieces Inventory Summary Badges */}
-          <div className="cat-stats-row">
-            <div className="cat-stat-card">
-              <span className="cat-stat-label">Total Pieces</span>
-              <strong className="cat-stat-num">{currentPieces.length}</strong>
-            </div>
-            <div className="cat-stat-card" style={{ borderColor: "#166534", background: "#F0FDF4" }}>
-              <span className="cat-stat-label" style={{ color: "#166534" }}>Available Stock</span>
-              <strong className="cat-stat-num" style={{ color: "#166534" }}>
-                {currentPieces.filter((p) => p.status === "available").length}
-              </strong>
-            </div>
-            <div className="cat-stat-card" style={{ borderColor: "#475569", background: "#F8FAFC" }}>
-              <span className="cat-stat-label" style={{ color: "#475569" }}>Sold Out</span>
-              <strong className="cat-stat-num" style={{ color: "#475569" }}>
-                {currentPieces.filter((p) => p.status === "sold").length}
-              </strong>
-            </div>
-            <div className="cat-stat-card" style={{ borderColor: "#92400E", background: "#FEFCE8" }}>
-              <span className="cat-stat-label" style={{ color: "#92400E" }}>Reserved</span>
-              <strong className="cat-stat-num" style={{ color: "#92400E" }}>
-                {currentPieces.filter((p) => p.status === "reserved").length}
-              </strong>
-            </div>
+          <div className="ap-card" style={{ padding: 18 }}>
+            <ColourStockEditor key={selectedProduct.id} productId={selectedProduct.id} notice={onNotice} onSaved={() => void reloadAll()} />
           </div>
-
-          {/* Search Pieces Bar */}
-          <div className="cat-table-tools">
-            <input
-              type="search"
-              placeholder="Search pieces by code, barcode, colour or location..."
-              value={pieceSearch}
-              onChange={(e) => setPieceSearch(e.target.value)}
-              className="cat-search-input"
-            />
-          </div>
-
-          {/* Pieces Table */}
-          {piecesLoading ? (
-            <div className="cat-loading-state">Loading physical pieces...</div>
-          ) : currentPieces.length === 0 ? (
-            <div className="cat-empty-state">
-              <p>No individual saree pieces have been added for this saree yet.</p>
-              <button
-                type="button"
-                className="button gold-btn"
-                onClick={() => {
-                  setPieceModal({
-                    isOpen: true,
-                    piece_code: `${selectedMainCategory?.name.slice(0, 3).toUpperCase() || "SAR"}-001`,
-                    barcode: `MSU${Date.now().toString().slice(-7)}001`,
-                    colour: selectedProduct.colour || "Purple",
-                    priceRupees: selectedProduct.price_paise ? String(selectedProduct.price_paise / 100) : "5000",
-                    purchaseCostRupees: selectedProduct.purchase_price_paise
-                      ? String(selectedProduct.purchase_price_paise / 100)
-                      : "3500",
-                    status: "available",
-                    location: "Rack A-1",
-                  });
-                }}
-              >
-                ＋ Add First Saree Piece
-              </button>
-            </div>
-          ) : (
-            <div className="cat-table-wrap">
-              <table className="cat-table">
-                <thead>
-                  <tr>
-                    <th>Piece Code</th>
-                    <th>Barcode</th>
-                    <th>Colour</th>
-                    <th>Selling Price</th>
-                    <th>Purchase Cost (Admin)</th>
-                    <th>Stock Location</th>
-                    <th>Stock Status</th>
-                    <th>Quick Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentPieces
-                    .filter((p) => {
-                      const q = pieceSearch.trim().toLowerCase();
-                      if (!q) return true;
-                      return (
-                        p.piece_code.toLowerCase().includes(q) ||
-                        p.barcode.toLowerCase().includes(q) ||
-                        p.colour.toLowerCase().includes(q) ||
-                        (p.location && p.location.toLowerCase().includes(q))
-                      );
-                    })
-                    .map((piece) => {
-                      return (
-                        <tr key={piece.id}>
-                          <td>
-                            <strong style={{ color: "#800020", fontSize: 14 }}>
-                              {piece.piece_code}
-                            </strong>
-                          </td>
-                          <td>
-                            <code style={{ background: "#FBF7F0", padding: "2px 6px", borderRadius: 4, color: "#666" }}>
-                              {piece.barcode}
-                            </code>
-                          </td>
-                          <td>
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                              <span
-                                style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: "50%",
-                                  backgroundColor: colourHex(piece.colour),
-                                  border: "1px solid rgba(0,0,0,0.15)",
-                                }}
-                              />
-                              <span>{piece.colour}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <strong style={{ color: "#800020" }}>{money(piece.price_paise)}</strong>
-                          </td>
-                          <td>
-                            <span style={{ color: "#666" }}>
-                              {piece.purchase_cost_paise ? money(piece.purchase_cost_paise) : "—"}
-                            </span>
-                          </td>
-                          <td>
-                            <span>{piece.location || "Rack A-1"}</span>
-                          </td>
-                          <td>
-                            <span
-                              className="cat-status-pill"
-                              style={{
-                                background:
-                                  piece.status === "available"
-                                    ? "#DCFCE7"
-                                    : piece.status === "sold"
-                                      ? "#F1F5F9"
-                                      : piece.status === "reserved"
-                                        ? "#FEF3C7"
-                                        : "#FEE2E2",
-                                color:
-                                  piece.status === "available"
-                                    ? "#166534"
-                                    : piece.status === "sold"
-                                      ? "#475569"
-                                      : piece.status === "reserved"
-                                        ? "#92400E"
-                                        : "#991B1B",
-                              }}
-                            >
-                              {piece.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            <select
-                              value={piece.status}
-                              onChange={(e) =>
-                                handleTogglePieceStatus(piece, e.target.value as PieceStatus)
-                              }
-                              className="cat-quick-status-select"
-                            >
-                              <option value="available">Available</option>
-                              <option value="sold">Sold</option>
-                              <option value="reserved">Reserved</option>
-                              <option value="damaged">Damaged</option>
-                              <option value="returned">Returned</option>
-                            </select>
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <button
-                                type="button"
-                                className="text-link"
-                                onClick={() => {
-                                  setPieceModal({
-                                    isOpen: true,
-                                    id: piece.id,
-                                    piece_code: piece.piece_code,
-                                    barcode: piece.barcode,
-                                    colour: piece.colour,
-                                    priceRupees: String(piece.price_paise / 100),
-                                    purchaseCostRupees: piece.purchase_cost_paise
-                                      ? String(piece.purchase_cost_paise / 100)
-                                      : "",
-                                    status: piece.status,
-                                    location: piece.location || "",
-                                  });
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                className="text-link"
-                                style={{ color: "#B91C1C" }}
-                                onClick={() => handleDeletePiece(piece.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
       ) : selectedSubCategory ? (
         /* ------------------------------------------------------------- */
@@ -872,7 +520,7 @@ export function CatalogueHierarchyManager({
                     <th>Base Colour</th>
                     <th>Price</th>
                     <th>Available Stock</th>
-                    <th>Physical Pieces</th>
+                    <th>Colours</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -945,7 +593,7 @@ export function CatalogueHierarchyManager({
                             className="button outline-btn cat-manage-pieces-btn"
                             onClick={() => setSelectedProduct(prod)}
                           >
-                            Manage Pieces →
+                            Colours &amp; Stock →
                           </button>
                         </td>
                         <td>
@@ -1371,126 +1019,6 @@ export function CatalogueHierarchyManager({
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* INDIVIDUAL PIECE ADD / EDIT MODAL                             */}
-      {/* ------------------------------------------------------------- */}
-      {pieceModal && (
-        <div className="cat-modal-backdrop" onClick={() => setPieceModal(null)}>
-          <div className="cat-modal-card" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={handleSavePiece}>
-              <div className="cat-modal-header">
-                <h2>{pieceModal.id ? "Edit Physical Saree Piece" : "Add Physical Saree Piece"}</h2>
-                <button type="button" className="cat-close-btn" onClick={() => setPieceModal(null)}>✕</button>
-              </div>
-
-              <div className="cat-modal-body">
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Piece Code <em className="ap-req">*</em></span>
-                    <input
-                      type="text"
-                      required
-                      value={pieceModal.piece_code}
-                      onChange={(e) => setPieceModal({ ...pieceModal, piece_code: e.target.value })}
-                      className="ap-input"
-                      placeholder="e.g. KAN-PUR-001"
-                    />
-                  </label>
-
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Barcode Sticker</span>
-                    <input
-                      type="text"
-                      value={pieceModal.barcode}
-                      onChange={(e) => setPieceModal({ ...pieceModal, barcode: e.target.value })}
-                      className="ap-input"
-                      placeholder="e.g. MSU000000000001"
-                    />
-                  </label>
-                </div>
-
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Colour</span>
-                    <select
-                      value={pieceModal.colour}
-                      onChange={(e) => setPieceModal({ ...pieceModal, colour: e.target.value })}
-                      className="ap-select"
-                    >
-                      {COLOUR_PRESETS.map((c) => (
-                        <option key={c.name} value={c.name}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Selling Price (₹)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={pieceModal.priceRupees}
-                      onChange={(e) => setPieceModal({ ...pieceModal, priceRupees: e.target.value })}
-                      className="ap-input"
-                      placeholder="e.g. 5000"
-                    />
-                  </label>
-                </div>
-
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Purchase Cost (₹)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={pieceModal.purchaseCostRupees}
-                      onChange={(e) => setPieceModal({ ...pieceModal, purchaseCostRupees: e.target.value })}
-                      className="ap-input"
-                      placeholder="e.g. 3500"
-                    />
-                  </label>
-
-                  <label className="ap-field" style={{ flex: "1 1 180px" }}>
-                    <span className="ap-label">Location in Shop</span>
-                    <input
-                      type="text"
-                      value={pieceModal.location}
-                      onChange={(e) => setPieceModal({ ...pieceModal, location: e.target.value })}
-                      className="ap-input"
-                      placeholder="e.g. Rack A-1"
-                    />
-                  </label>
-                </div>
-
-                <label className="ap-field">
-                  <span className="ap-label">Stock Status</span>
-                  <select
-                    value={pieceModal.status}
-                    onChange={(e) => setPieceModal({ ...pieceModal, status: e.target.value as PieceStatus })}
-                    className="ap-select"
-                  >
-                    <option value="available">Available</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="sold">Sold</option>
-                    <option value="damaged">Damaged</option>
-                    <option value="returned">Returned</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="cat-modal-footer">
-                <button type="button" className="button outline-btn" onClick={() => setPieceModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="button gold-btn" disabled={savingPiece}>
-                  {savingPiece ? "Saving Piece..." : "Save Physical Piece"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ------------------------------------------------------------- */}
       {/* PRODUCT ADD / EDIT MODAL                                      */}

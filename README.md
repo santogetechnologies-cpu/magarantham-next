@@ -60,6 +60,10 @@ WhatsApp does not automatically send a message. Checkout requires consent to sha
 
 Offers apply after product discounts. One eligible coupon or one automatic offer is used per order. Eligible automatic offers use stable ID order, **not best-price optimization**. Amount fields labeled Rs convert to integer paise; the fixed-offer value field explicitly uses paise. Shipping is calculated after the offer; tax applies to discounted merchandise, excluding shipping. Set tax rates with your business requirements before launch; no automatic tax-jurisdiction engine is included.
 
+## Colour stock (one barcode per saree)
+
+Apply `202611270023_colour_stock.sql` then `202611270024_opening_stock_categories.sql`. Each individual saree has one barcode and one price; its pieces are split by colour under **Catalogue → saree → Colours & stock** (e.g. 10 = 3 Green + 5 Red + 2 Violet). Pieces without a colour are *undefined*: the POS can bill them, the website never shows them. A colour appears online only when it has a photo. Scanning a saree at the POS asks which colour is being billed (keys 1–9); online orders reserve the exact colour; payments, cancellations, returns and POS returns move the same colour, so POS and website stay in sync. Migration 024 adds the saree category tree and the opening stock from the supplier bills (selling price = cost, colours undefined). WhatsApp messages after a POS bill and on dispatch are edited under **Settings → WhatsApp messages**.
+
 ## Fulfillment and refunds
 
 Paid orders → packing → save enabled provider and tracking ID → shipped → delivered. Provider links require HTTPS and `{tracking_id}`; IDs are URL-encoded. The optional `/api/webhooks/tracking` is a **custom adapter contract**, not a built-in universal courier integration: sign the raw JSON using HMAC-SHA256 with `TRACKING_WEBHOOK_SECRET` in `x-store-signature`; body fields are `event_id`, `order_id`, `tracking_id`, `status` (`shipped` or `delivered`).

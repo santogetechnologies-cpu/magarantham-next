@@ -38,7 +38,7 @@ test("image validation checks bytes rather than trusting filenames", () => {
 test("checkout forbids price injection and malformed addresses", () => {
   const data = {
     key: crypto.randomUUID(),
-    cart: [{ product_id: crypto.randomUUID(), quantity: 1 }],
+    cart: [{ product_id: crypto.randomUUID(), colour_id: crypto.randomUUID(), quantity: 1 }],
     address: {
       name: "Test user",
       phone: "9876543210",
@@ -53,6 +53,8 @@ test("checkout forbids price injection and malformed addresses", () => {
     whatsapp_consent: false,
   };
   assert(checkoutSchema.safeParse(data).success);
+  // Online lines must name a colour (undefined pieces are POS-only).
+  assert(!checkoutSchema.safeParse({ ...data, cart: [{ product_id: data.cart[0].product_id, quantity: 1 }] }).success);
   assert(!checkoutSchema.safeParse({ ...data, total_paise: 1 }).success);
   assert(
     !checkoutSchema.safeParse({

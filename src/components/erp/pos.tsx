@@ -6,12 +6,57 @@ import { Profile, money, unitPrice, unitSuffix } from '@/lib/core';
 import { api } from '../api';
 import { Row, useERP } from './shared';
 import { buildCategoryMap, EnhancedOffer, resolveProductOffer } from '@/lib/offers';
+import { DEFAULT_TEMPLATES, renderTemplate, whatsappLink } from '@/lib/message-templates';
 
 type CartLine = {
   product_id: string;
   quantity: number;
   unit_ids: string[];
+  /** Pieces billed per colour id; "undef" = pieces whose colour is not recorded. Sum = quantity. */
+  colours: Record<string, number>;
 };
+
+const UNDEF = 'undef';
+type ColourOption = { key: string; label: string; hex: string; image: string; free: number };
+
+/** Colours (and undefined pieces) still free to bill for this saree, after what is already in the bill. */
+function colourOptions(p: Row | undefined, line?: CartLine): ColourOption[] {
+  if (!p) return [];
+  const colours: Row[] = Array.isArray(p.colours) ? p.colours : [];
+  const inBill = (k: string) => Number(line?.colours?.[k] || 0);
+  const colouredQty = colours.reduce((s, c) => s + Number(c.quantity || 0), 0);
+  const colouredHeld = colours.reduce((s, c) => s + Number(c.reserved || 0), 0);
+  const stock = Number(p.stock_on_hand ?? p.available ?? 0);
+  const undefQty = p.undefined_quantity != null ? Number(p.undefined_quantity) : Math.max(0, stock - colouredQty);
+  const undefHeld = Math.max(0, Number(p.reserved || 0) - colouredHeld);
+  const out: ColourOption[] = colours.map((c) => ({
+    key: String(c.id),
+    label: String(c.colour),
+    hex: String(c.colour_hex || ''),
+    image: String(c.image_path || ''),
+    free: Math.max(0, Number(c.quantity || 0) - Number(c.reserved || 0) - inBill(String(c.id))),
+  }));
+  if (undefQty > 0 || inBill(UNDEF) > 0 || !colours.length) {
+    out.push({ key: UNDEF, label: 'Undefined colour', hex: '', image: '', free: Math.max(0, undefQty - undefHeld - inBill(UNDEF)) });
+  }
+  return out;
+}
+const normaliseLine = (l: Partial<CartLine> & { product_id: string; quantity: number }): CartLine => ({
+  product_id: l.product_id,
+  quantity: l.quantity,
+  unit_ids: Array.isArray(l.unit_ids) ? l.unit_ids : [],
+  colours: l.colours && Object.keys(l.colours).length ? { ...l.colours } : { [UNDEF]: l.quantity },
+});
+/** Server cart: colours named per line; pieces not named come from undefined stock. */
+const serverCart = (cart: CartLine[]) =>
+  cart.map((l) => ({
+    product_id: l.product_id,
+    quantity: l.quantity,
+    unit_ids: l.unit_ids,
+    colours: Object.entries(l.colours || {})
+      .filter(([k, n]) => k !== UNDEF && n > 0)
+      .map(([k, n]) => ({ colour_id: k, quantity: n })),
+  }));
 
 type PayMode = 'cash' | 'upi' | 'card' | 'split';
 
@@ -90,6 +135,37 @@ export function POS({ profile }: { profile: Profile }) {
   const [spotOpen, setSpotOpen] = useState<string | null>(null);
   // Piece codes scanned per product, so the exact pieces are marked sold.
   const [scannedPieces, setScannedPieces] = useState<Record<string, string[]>>({});
+  // Scanned saree with several colours: the cashier picks which colour is being billed.
+  const [colourPick, setColourPick] = useState<{ product: Row; unit?: Row; code?: string } | null>(null);
+  // After a bill: offer to send it on WhatsApp with the store's warm message (editable in Settings).
+  const [waPrompt, setWaPrompt] = useState<{ phone: string; text: string } | null>(null);
+  const waTemplate = useRef<string>(DEFAULT_TEMPLATES.pos_bill_whatsapp);
+  const waEnabled = useRef(true);
+  useEffect(() => {
+    api<{ rows: Row[] }>('/api/admin/message-templates')
+      .then((r) => {
+        const t = r.rows.find((x) => x.key === 'pos_bill_whatsapp');
+        if (t) { waTemplate.current = String(t.body); waEnabled.current = t.enabled !== false; }
+      })
+      .catch(() => {});
+  }, []);
+  function billWhatsAppText(sale: Row) {
+    const items = (Array.isArray(sale.items) ? sale.items : [])
+      .map((i: Row) => {
+        const colours = Array.isArray(i.colours) ? i.colours.filter((c: Row) => c.colour).map((c: Row) => c.colour).join(', ') : '';
+        return `• ${i.name}${colours ? ` (${colours})` : ''} × ${i.quantity} — ${money(Number(i.line_paise || 0))}`;
+      })
+      .join('\n');
+    return renderTemplate(waTemplate.current, {
+      customer_name: String(sale.customer_name || '').trim() || 'Customer',
+      store_name: String(settings.business_english || settings.business_name || 'Magarantham Silks'),
+      invoice_no: String(sale.invoice_no || ''),
+      total: money(Number(sale.total_paise || 0)),
+      items,
+      date: new Date(String(sale.created_at || Date.now())).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      store_phone: String(settings.phone || ''),
+    });
+  }
   // Automatic festival offer the server applied to the last quote.
   const [offerInfo, setOfferInfo] = useState<{ paise: number; title: string }>({ paise: 0, title: '' });
   const [bills, setBills] = useState<Row[]>([]);
@@ -337,11 +413,6 @@ export function POS({ profile }: { profile: Profile }) {
     for (const p of catalog) {
       if (p.barcode) map.set(String(p.barcode).toLowerCase(), { product: p, piece: false });
       if (p.sku) map.set(String(p.sku).toLowerCase(), { product: p, piece: false });
-      for (const pc of Array.isArray(p.pieces) ? p.pieces : []) {
-        for (const k of [pc.piece_code, pc.barcode, pc.id]) {
-          if (k) map.set(String(k).toLowerCase(), { product: p, piece: true });
-        }
-      }
     }
     return map;
   }, [catalog]);
@@ -367,11 +438,7 @@ export function POS({ profile }: { profile: Profile }) {
     const hasExactLocal = catalog.some((p) => {
       const b = String(p.barcode || '').toLowerCase();
       const s = String(p.sku || '').toLowerCase();
-      const pieceHit = Array.isArray(p.pieces) && p.pieces.some((pc: any) =>
-        String(pc.piece_code || '').toLowerCase() === q ||
-        String(pc.barcode || '').toLowerCase() === q
-      );
-      return b === q || s === q || pieceHit;
+      return b === q || s === q;
     });
 
     if (hasExactLocal) {
@@ -419,11 +486,7 @@ export function POS({ profile }: { profile: Profile }) {
       const subcat = String(p.subcategory_name || '').toLowerCase();
       const colour = String(p.colour || '').toLowerCase();
       const fabric = String(p.fabric || '').toLowerCase();
-      const pieceMatch = Array.isArray(p.pieces) && p.pieces.some((pc: any) =>
-        (pc.piece_code && String(pc.piece_code).toLowerCase().includes(q)) ||
-        (pc.barcode && String(pc.barcode).toLowerCase().includes(q)) ||
-        (pc.id && String(pc.id).toLowerCase().includes(q))
-      );
+      const pieceMatch = Array.isArray(p.colours) && p.colours.some((c: Row) => String(c.colour || '').toLowerCase().includes(q));
       return (
         name.includes(q) ||
         sku.includes(q) ||
@@ -562,7 +625,7 @@ export function POS({ profile }: { profile: Profile }) {
       return;
     }
     const timer = setTimeout(() => {
-      api<Row>('/api/erp/pos_quote', { cart, discount_paise: discount })
+      api<Row>('/api/erp/pos_quote', { cart: serverCart(cart), discount_paise: discount })
         .then((r) => {
           if (quoteVersion.current === v) {
             setQuote(r);
@@ -707,8 +770,29 @@ export function POS({ profile }: { profile: Profile }) {
     return r.appliedOffer ? { price: r.effectivePricePaise, title: r.appliedOffer.title, badge: r.badgeText } : null;
   }
 
-  function add(product: Row, unit?: Row, scannedCode?: string) {
-    setCatalog((old) => (old.some((p) => p.id === product.id) ? old : [product, ...old]));
+  function add(product: Row, unit?: Row, scannedCode?: string, colourKey?: string) {
+    setCatalog((old) => {
+      const i = old.findIndex((p) => p.id === product.id);
+      if (i < 0) return [product, ...old];
+      // A fresh scan result carries the latest colour counts.
+      if (Array.isArray(product.colours)) { const next = [...old]; next[i] = { ...old[i], ...product }; return next; }
+      return old;
+    });
+    if (!colourKey) {
+      // One barcode per saree: work out which colour this piece is.
+      const opts = colourOptions(product, cart.find((l) => l.product_id === product.id)).filter((o) => o.free > 0);
+      if (!opts.length) {
+        notice(`No more pieces of ${product.name} are free to bill.`);
+        playScanBeep(false);
+        return;
+      }
+      if (opts.length > 1) {
+        setColourPick({ product, unit, code: scannedCode });
+        return;
+      }
+      colourKey = opts[0].key;
+    }
+    const key = colourKey;
     let added = false;
     setCart((old) => {
       const line = old.find((l) => l.product_id === product.id);
@@ -743,6 +827,7 @@ export function POS({ profile }: { profile: Profile }) {
               ...l,
               quantity: l.quantity + 1,
               unit_ids: unit ? [...l.unit_ids, String(unit.id)] : [],
+              colours: { ...l.colours, [key]: (l.colours?.[key] || 0) + 1 },
             }
             : l,
         );
@@ -754,6 +839,7 @@ export function POS({ profile }: { profile: Profile }) {
           product_id: product.id,
           quantity: 1,
           unit_ids: unit ? [String(unit.id)] : [],
+          colours: { [key]: 1 },
         },
       ];
     });
@@ -761,8 +847,9 @@ export function POS({ profile }: { profile: Profile }) {
     if (added || scannedCode) {
       const offer = offerFor(product);
       const price = offer ? offer.price : unitPrice(product as any);
+      const opt = colourOptions(product).find((o) => o.key === key);
       setLastScanned({
-        name: product.name,
+        name: `${product.name}${opt && key !== UNDEF ? ` · ${opt.label}` : ''}`,
         sku: product.sku || '',
         code: scannedCode || unit?.barcode || product.barcode || product.sku || '',
         price_paise: price,
@@ -793,8 +880,6 @@ export function POS({ profile }: { profile: Profile }) {
     const localProd = hit?.product;
     if (localProd) {
       playScanBeep(true);
-      const isPieceCode = Boolean(hit?.piece);
-      if (isPieceCode) rememberPiece(localProd.id, trimmed);
       add(localProd, undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
@@ -806,7 +891,6 @@ export function POS({ profile }: { profile: Profile }) {
     try {
       const r = await api<Row>(`/api/erp/scan?barcode=${encodeURIComponent(trimmed)}`);
       playScanBeep(true);
-      if (r.product?.piece) rememberPiece(r.product.id, String(r.product.piece.id || trimmed));
       add(r.product, r.unit || undefined, trimmed);
       setBarcodeInput('');
       scannerRef.current?.focus();
@@ -822,11 +906,14 @@ export function POS({ profile }: { profile: Profile }) {
   async function openBill(
     id: string,
     triggerPrint = false,
-    extraMeta?: { discount_type_label?: string },
+    extraMeta?: { discount_type_label?: string; whatsapp?: boolean },
   ) {
     try {
       const r = await api<Row>(`/api/erp/pos_sale?id=${id}`);
       if (!r.rows[0]) throw new Error('Bill not found.');
+      if (extraMeta?.whatsapp && waEnabled.current) {
+        setWaPrompt({ phone: String(r.rows[0].customer_phone || ''), text: billWhatsAppText(r.rows[0]) });
+      }
       setReceipt({
         ...r.rows[0],
         ...(extraMeta?.discount_type_label
@@ -900,12 +987,36 @@ export function POS({ profile }: { profile: Profile }) {
     }, 120);
   }
 
+  /** Remove one piece of a colour (or, without a colour, undefined first then the last colour). */
+  function dropPiece(productId: string, key?: string) {
+    setCart((old) =>
+      old.flatMap((l) => {
+        if (l.product_id !== productId) return [l];
+        const c = { ...l.colours };
+        const k = key || (c[UNDEF] ? UNDEF : Object.keys(c).reverse().find((x) => c[x] > 0));
+        if (!k || !c[k]) return [l];
+        c[k] -= 1;
+        if (c[k] <= 0) delete c[k];
+        return l.quantity - 1 <= 0 ? [] : [{ ...l, quantity: l.quantity - 1, colours: c }];
+      }),
+    );
+  }
+
   function updateQty(productId: string, nextQty: number) {
     if (nextQty <= 0) {
       removeItem(productId);
       return;
     }
     const prod = catalog.find((p) => p.id === productId);
+    const current = cart.find((l) => l.product_id === productId);
+    if (current && prod && current.unit_ids.length === 0) {
+      if (nextQty === current.quantity + 1) { add(prod); return; }
+      if (nextQty === current.quantity - 1) { dropPiece(productId); return; }
+      if (nextQty !== current.quantity && Object.keys(current.colours).some((k) => k !== UNDEF)) {
+        notice('Use + / − on each colour to change coloured pieces.');
+        return;
+      }
+    }
     const maxAvail = Math.min(100, Math.max(1, Number(prod?.available ?? 100)));
     if (nextQty > maxAvail && maxAvail < 100) {
       notice(`Only ${maxAvail} piece${maxAvail === 1 ? '' : 's'} available in stock.`);
@@ -913,7 +1024,7 @@ export function POS({ profile }: { profile: Profile }) {
     setCart((old) =>
       old.map((l) =>
         l.product_id === productId
-          ? { ...l, quantity: Math.max(1, Math.min(maxAvail, nextQty)) }
+          ? { ...l, quantity: Math.max(1, Math.min(maxAvail, nextQty)), colours: { [UNDEF]: Math.max(1, Math.min(maxAvail, nextQty)) } }
           : l,
       ),
     );
@@ -985,6 +1096,7 @@ export function POS({ profile }: { profile: Profile }) {
         product_id: c.product_id,
         quantity: c.quantity,
         unit_ids: Array.isArray(c.unit_ids) ? [...c.unit_ids] : [],
+        colours: { ...c.colours },
       })),
       scannedPieces: JSON.parse(JSON.stringify(scannedPieces)),
       lineSpot: { ...lineSpot },
@@ -1019,7 +1131,7 @@ export function POS({ profile }: { profile: Profile }) {
   }
 
   function doResumeBill(bill: HeldBill) {
-    setCart(bill.cart || []);
+    setCart((bill.cart || []).map(normaliseLine));
     setScannedPieces(bill.scannedPieces || {});
     setLineSpot(bill.lineSpot || {});
     setDiscountType(bill.discountType || 'fixed');
@@ -1112,6 +1224,7 @@ export function POS({ profile }: { profile: Profile }) {
         product_id: c.product_id,
         quantity: c.quantity,
         unit_ids: Array.isArray(c.unit_ids) ? [...c.unit_ids] : [],
+        colours: { ...c.colours },
       })),
       scannedPieces: JSON.parse(JSON.stringify(scannedPieces)),
       lineSpot: { ...lineSpot },
@@ -1129,7 +1242,7 @@ export function POS({ profile }: { profile: Profile }) {
     const nextList = [currentParked, ...heldBills.filter((b) => b.id !== billToResume.id)];
     persistHeldBills(nextList);
 
-    setCart(billToResume.cart || []);
+    setCart((billToResume.cart || []).map(normaliseLine));
     setScannedPieces(billToResume.scannedPieces || {});
     setLineSpot(billToResume.lineSpot || {});
     setDiscountType(billToResume.discountType || 'fixed');
@@ -1716,6 +1829,69 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
         <button type="submit" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
       </form>
 
+      {waPrompt && (
+        <div className="cat-modal-backdrop" onClick={() => setWaPrompt(null)} role="presentation">
+          <div className="cat-modal-card" role="dialog" aria-modal="true" aria-label="Send bill on WhatsApp" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <h2 style={{ margin: 0 }}>Send bill on WhatsApp?</h2>
+            <p style={{ margin: '4px 0 12px', fontSize: 13, color: '#6B4F47' }}>WhatsApp opens with this message; tap Send there. The PDF can be attached from “Download PDF”.</p>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+              Customer WhatsApp number
+              <input
+                type="tel"
+                value={waPrompt.phone}
+                autoFocus={!waPrompt.phone}
+                onChange={(e) => setWaPrompt({ ...waPrompt, phone: e.target.value })}
+                placeholder="10-digit mobile"
+                style={{ display: 'block', width: '100%', marginTop: 4 }}
+              />
+            </label>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600 }}>
+              Message
+              <textarea
+                rows={9}
+                value={waPrompt.text}
+                onChange={(e) => setWaPrompt({ ...waPrompt, text: e.target.value })}
+                style={{ display: 'block', width: '100%', marginTop: 4, fontSize: 13 }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className="button outline-btn" onClick={() => setWaPrompt(null)}>Skip</button>
+              <button
+                type="button"
+                className="button"
+                autoFocus={Boolean(waPrompt.phone)}
+                disabled={!whatsappLink(waPrompt.phone, waPrompt.text)}
+                onClick={() => {
+                  const link = whatsappLink(waPrompt.phone, waPrompt.text);
+                  if (link) window.open(link, '_blank', 'noopener,noreferrer');
+                  setWaPrompt(null);
+                  setTimeout(() => scannerRef.current?.focus(), 0);
+                }}
+              >
+                Open WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {colourPick && (
+        <PosColourPicker
+          product={colourPick.product}
+          options={colourOptions(colourPick.product, cart.find((l) => l.product_id === colourPick.product.id)).filter((o) => o.free > 0)}
+          onPick={(key) => {
+            const pick = colourPick;
+            setColourPick(null);
+            add(pick.product, pick.unit, pick.code, key);
+            setTimeout(() => scannerRef.current?.focus(), 0);
+          }}
+          onClose={() => {
+            setColourPick(null);
+            setTimeout(() => scannerRef.current?.focus(), 0);
+          }}
+        />
+      )}
+
       {/* Instant Scanned Confirmation Toast */}
       {lastScanned && (
         <div className="pos-scan-toast" role="status">
@@ -1850,6 +2026,24 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                               <strong className="pos-table-item-name">
                                 {p?.name || line.product_id}
                               </strong>
+                              {p && (Array.isArray(p.colours) && p.colours.length > 0 || Number(p.undefined_quantity || 0) > 0) && (
+                                <div className="pos-colour-pick" aria-label="Colours in this line">
+                                  {colourOptions(p, line)
+                                    .filter((o) => o.free > 0 || (line.colours?.[o.key] || 0) > 0)
+                                    .map((o) => {
+                                      const n = line.colours?.[o.key] || 0;
+                                      return (
+                                        <span key={o.key} className={`pos-colour-chip ${n ? 'active' : ''} ${o.key === UNDEF ? 'undef' : ''}`} title={`${o.free} more free`}>
+                                          {o.key !== UNDEF && <i style={{ background: o.hex || '#C49A52' }} />}
+                                          {o.key === UNDEF ? 'Undefined' : o.label} <small>({o.free} left)</small>
+                                          <button type="button" disabled={!n || busy || line.unit_ids.length > 0} onClick={() => dropPiece(line.product_id, o.key)} aria-label={`One less ${o.label}`}>−</button>
+                                          <b>{n}</b>
+                                          <button type="button" disabled={o.free < 1 || busy || line.unit_ids.length > 0 || line.quantity >= 100} onClick={() => add(p, undefined, undefined, o.key)} aria-label={`One more ${o.label}`}>+</button>
+                                        </span>
+                                      );
+                                    })}
+                                </div>
+                              )}
                               {linePieces.length > 0 && (
                                 <div className="pos-table-piece-chips">
                                   {linePieces.map((code) => (
@@ -1997,7 +2191,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                   : '';
 
               const result = await send('pos_sale', {
-                cart,
+                cart: serverCart(cart),
                 customer: {
                   name: customerName.trim(),
                   phone: customerPhone.trim(),
@@ -2007,11 +2201,6 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 tenders: paymentLines,
                 cash_received_paise: cashReceived,
                 bank_checked: f.get('bank_checked') === 'on',
-                piece_ids: Object.fromEntries(
-                  cart
-                    .filter((l) => scannedPieces[l.product_id]?.length)
-                    .map((l) => [l.product_id, scannedPieces[l.product_id]]),
-                ),
               });
 
               if (result) {
@@ -2021,6 +2210,7 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 await loadBills();
                 await openBill(String(result.id), autoPrint, {
                   discount_type_label: savedDiscountLabel,
+                  whatsapp: true,
                 });
               }
             }}
@@ -2601,6 +2791,13 @@ td { border-bottom: 1px dashed #eee; vertical-align: top; }
                 onClick={() => downloadReceiptPdf(receipt)}
               >
                 ⬇ Download PDF
+              </button>
+              <button
+                type="button"
+                className="button outline-btn"
+                onClick={() => setWaPrompt({ phone: String(receipt.customer_phone || ''), text: billWhatsAppText(receipt) })}
+              >
+                💬 Send on WhatsApp
               </button>
               {profile.role !== 'billing' &&
                 (profile.role === 'superadmin' ||
@@ -3525,6 +3722,11 @@ export function Receipt({ sale: s }: { sale: Row }) {
                   {i.sku && (
                     <span className="pos-receipt-item-sku">SKU: {i.sku}</span>
                   )}
+                  {Array.isArray(i.colours) && i.colours.length > 0 && (
+                    <span className="pos-receipt-item-pieces">
+                      Colour: {i.colours.map((c: Row) => `${c.colour || 'Undefined'} × ${c.quantity}`).join(', ')}
+                    </span>
+                  )}
                   {Array.isArray(i.pieces) && i.pieces.length > 0 && (
                     <span className="pos-receipt-item-pieces">
                       Tags: {i.pieces.join(', ')}
@@ -3619,5 +3821,41 @@ export function Receipt({ sale: s }: { sale: Row }) {
         )}
       </div>
     </article>
+  );
+}
+
+/** Colour chooser shown after scanning a saree that has several colours (keys 1-9, Esc to cancel). */
+function PosColourPicker({ product, options, onPick, onClose }: { product: Row; options: ColourOption[]; onPick: (key: string) => void; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+      const n = Number(e.key);
+      if (Number.isInteger(n) && n >= 1 && n <= options.length) { e.preventDefault(); onPick(options[n - 1].key); }
+    }
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [options, onPick, onClose]);
+  return (
+    <div className="cat-modal-backdrop" onClick={onClose} role="presentation">
+      <div className="cat-modal-card" role="dialog" aria-modal="true" aria-label="Choose colour" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <h2 style={{ margin: 0 }}>Which colour?</h2>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6B4F47' }}>
+          {product.name} · {money(unitPrice(product as any))} · same barcode for all colours
+        </p>
+        <div className="pos-colour-modal-list">
+          {options.map((o, i) => (
+            <button key={o.key} type="button" autoFocus={i === 0} onClick={() => onPick(o.key)}>
+              {o.image ? <img src={o.image} alt="" /> : o.key !== 'undef' ? <i style={{ background: o.hex || '#C49A52' }} /> : <i style={{ background: 'repeating-linear-gradient(45deg,#eee,#eee 3px,#ccc 3px,#ccc 6px)' }} />}
+              <span>
+                <strong>{o.key === 'undef' ? 'Undefined colour' : o.label}</strong>
+                <span className="count"> · {o.free} in stock</span>
+              </span>
+              <kbd>{i + 1}</kbd>
+            </button>
+          ))}
+        </div>
+        <button type="button" className="button outline-btn" onClick={onClose}>Cancel (Esc)</button>
+      </div>
+    </div>
   );
 }

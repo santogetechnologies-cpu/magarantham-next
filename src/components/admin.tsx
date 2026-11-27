@@ -11,6 +11,7 @@ import { AdminSidebar } from "./admin/sidebar";
 import { AdminTopbar } from "./admin/topbar";
 import { DashboardOverview, OverviewData } from "./admin/dashboard-overview";
 import { ProductModal, ProductFormData } from "./admin/product-modal";
+import { MessageTemplatesEditor } from "./admin/message-templates";
 import { StockModal } from "./admin/stock-modal";
 import { DataTable, Column } from "./admin/data-table";
 import { CatalogueHierarchyManager } from "./admin/catalogue-hierarchy";
@@ -1543,6 +1544,8 @@ export function Admin({
               )}
 
               {section === "banners" && <BannersManager />}
+
+              {section === "settings" && profile.role === "superadmin" && <MessageTemplatesEditor notice={notice} />}
 
               {/* GENERAL ADMIN FORMS (Banners, Shipping, Bulk, Coupons, Leaves, Settings) */}
               {form && section !== "products" && section !== "offers" && section !== "banners" && (

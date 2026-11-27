@@ -113,7 +113,8 @@ export async function POST(
     if (action === "register") {
       const p = credentials
         .extend({
-          name: z.string().trim().min(2).max(80),
+          // Name is optional: customers can sign up with just email + password.
+          name: z.string().trim().max(80).optional().default(""),
           confirm_password: z.string().min(6).max(128).optional(),
           captcha_token: z.string().max(4000).default(""),
         })
@@ -131,7 +132,7 @@ export async function POST(
         password: p.password,
         email_confirm: true,
         app_metadata: { store_role: "customer" },
-        user_metadata: { name: p.name },
+        user_metadata: { name: p.name || email.split("@")[0].slice(0, 80) },
       });
       if (createErr) {
         const msg = createErr.message?.toLowerCase().includes("already")
@@ -287,7 +288,8 @@ export async function POST(
       const actor = await staff("superadmin");
       const p = credentials
         .extend({
-          name: z.string().trim().min(2).max(80),
+          // Name is optional: customers can sign up with just email + password.
+          name: z.string().trim().max(80).optional().default(""),
           phone: z.string().trim().max(25).optional().default(""),
           password: z.string().min(6).max(128),
         })

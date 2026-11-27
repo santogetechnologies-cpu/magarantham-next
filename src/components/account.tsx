@@ -1,9 +1,9 @@
 "use client";
 import React, { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Profile, Product, Settings, money, unitPrice } from "@/lib/core";
+import { Profile, Product, Settings, money, unitPrice, statusLabel } from "@/lib/core";
 import { api } from "./api";
-import { useShop } from "./shop-context";
+import { buyableColours, useShop } from "./shop-context";
 import { addressFields } from "./storefront";
 
 type Row = Record<string, any>;
@@ -378,7 +378,7 @@ export function Account({
                 textTransform: "capitalize",
               }}
             >
-              {o.status.replaceAll("_", " ")}
+              {statusLabel(o.status)}
             </span>
             <strong style={{ fontSize: 16, color: DEEP_MAROON, marginLeft: 6 }}>
               {money(o.total_paise)}
@@ -787,7 +787,7 @@ export function Account({
               [
                 ["all", "All Orders"],
                 ["processing", "Processing"],
-                ["shipped", "Shipped"],
+                ["shipped", "Dispatched"],
                 ["delivered", "Delivered"],
                 ["cancelled", "Cancelled"],
               ] as const
@@ -926,7 +926,11 @@ export function Account({
                         <button
                           type="button"
                           disabled={!ordering || p.available < 1 || busy}
-                          onClick={() => add(p.id)}
+                          onClick={() => {
+                            const free = buyableColours(p);
+                            if (free.length === 1) add(p.id, free[0], free[0].quantity - free[0].reserved);
+                            else window.location.href = `/products/${p.slug}`;
+                          }}
                           className="button"
                           style={{
                             flex: 1,

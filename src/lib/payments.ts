@@ -1,5 +1,4 @@
 import "server-only";
-import { syncOrderPieces } from "./piece-server";
 import { Fault, service, rpc, razor } from "./server";
 import { sendOrderConfirmationWhatsApp } from "./whatsapp";
 export async function reconcile(
@@ -38,8 +37,7 @@ export async function reconcile(
     p_currency: payment.currency,
     p_method: payment.method,
   });
-  // Paid online order: mark its sarees' pieces sold (idempotent).
-  await syncOrderPieces(o.id);
+  // Colour stock is consumed inside record_payment (same transaction as the stock ledger).
   // Send WhatsApp confirmation & PDF invoice
   sendOrderConfirmationWhatsApp(o.id).catch((err) =>
     console.warn("[Payments] WhatsApp trigger error:", err),

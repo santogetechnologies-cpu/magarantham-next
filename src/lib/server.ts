@@ -320,10 +320,27 @@ export async function rate(
     }
   }
 }
+/** Colour stock rules (migration 023), worded for staff and customers. */
+const colourMessages: Record<string, string> = {
+  COLOUR_STOCK_EXCEEDS_TOTAL: "Coloured pieces would be more than the saree's pieces in stock. Reduce a colour first (or bill/remove from that colour).",
+  COLOUR_RESERVED_MISMATCH: "Colour holds do not match this saree's online holds. Reload and try again.",
+  COLOUR_HAS_RESERVATIONS: "That colour is held by an unpaid online order, so it cannot be removed yet.",
+  COLOUR_BELOW_RESERVED: "A colour cannot be set below the pieces held by unpaid online orders.",
+  COLOUR_OUT_OF_STOCK: "Not enough pieces of that colour are free.",
+  COLOUR_UNAVAILABLE: "That colour is no longer available. Please choose another colour.",
+  COLOUR_REQUIRED: "Choose a colour for this saree.",
+  INVALID_COLOUR_SELECTION: "Check the colours chosen for this saree.",
+  DUPLICATE_COLOUR: "Each colour can be listed only once for a saree.",
+  INVALID_COLOUR_NAME: "Enter a colour name, or leave those pieces as undefined.",
+};
 export async function rpc(name: string, args: Record<string, unknown>) {
   const { data, error } = await service().rpc(name, args);
   if (error) {
+    // Colour-stock codes first: "COLOUR_OUT_OF_STOCK" also contains "OUT_OF_STOCK".
+    const colourCode = Object.keys(colourMessages).find((v) => error.message.includes(v));
+    if (colourCode) throw new Fault(409, colourCode, colourMessages[colourCode]);
     const known = [
+      "PRODUCT_NOT_FOUND",
       "POS_DISABLED","INVALID_TENDER","BANK_CHECK_REQUIRED","TENDER_MISMATCH","DISCOUNT_LIMIT","DISCOUNT_REASON_REQUIRED","UNIT_UNAVAILABLE","BARCODE_QUANTITY_MISMATCH","BARCODE_ALREADY_USED","RESERVED_BARCODE_PREFIX","UNIT_STOCK_MISMATCH","SUBCATEGORY_REQUIRED","INVALID_CATEGORY_PARENT","SUBCATEGORY_IN_USE","INVALID_DISCOUNT_TARGET","SUPPLIER_UNAVAILABLE","PURCHASE_LOCKED","PURCHASE_NOT_ORDERED","INVALID_PURCHASE_LINES","OVER_RECEIPT","RETURN_EXCEEDS_STOCK","PURCHASE_UNITS_UNAVAILABLE","PAYMENT_DETAILS_REQUIRED","PAYMENT_EXCEEDS_BALANCE","EXPENSE_LOCKED","INVALID_SALARY_DIVISOR","PAYROLL_LOCKED","PAYROLL_STALE","PAYROLL_MONTH_NOT_CLOSED","MISSING_ATTENDANCE","INVALID_ATTENDANCE_DATE","INVALID_ATTENDANCE_UNITS","INVALID_LEAVE_TIERS","INVALID_WORK_WEEK","NO_EMPLOYMENT_IN_PERIOD","SALARY_POLICY_REQUIRED","INVALID_NET_PAY","PAYROLL_PAYMENT_REQUIRED","INVALID_EMPLOYMENT","LOGIN_ALREADY_LINKED","INVALID_EMPLOYEE_LOGIN","PRINT_STOCK_CHANGED","REPORT_DATE_RANGE","RETURN_DETAILS_REQUIRED",
       "FORBIDDEN",
       "ACCOUNT_DISABLED",

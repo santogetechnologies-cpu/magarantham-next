@@ -15,7 +15,6 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
   const likeCode=code.replace(/[\\%_]/g,m=>'\\'+m);
   let productId:string|undefined;
   let unit:Record<string,unknown>|null=null;
-  let matchedPiece:Record<string,unknown>|null=null;
 
   // 1. Check ERP serialized units in product_units (MSU...)
   if(/^MSU[0-9]+$/i.test(code)){
@@ -27,34 +26,13 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
    }
   }
 
-  // 2. Check Level 4 Saree Pieces (piece_code, piece barcode, piece id)
-  if(!productId){
-   try{
-    const {getPiecesMap}=await import('@/lib/piece-server');
-    const piecesMap=await getPiecesMap();
-    const lower=code.toLowerCase();
-    for(const [pid,pieces] of Object.entries(piecesMap)){
-     const found=(pieces||[]).find(pc=>
-      (pc.piece_code&&pc.piece_code.toLowerCase()===lower)||
-      (pc.barcode&&pc.barcode.toLowerCase()===lower)||
-      (pc.id&&pc.id.toLowerCase()===lower)
-     );
-     if(found){
-      productId=pid;
-      matchedPiece={...found};
-      break;
-     }
-    }
-   }catch{}
-  }
-
-  // 3. Check Products table by barcode (case-insensitive)
+  // 2. Check Products table by barcode (case-insensitive)
   if(!productId){
    const r=await db.from('products').select('id').ilike('barcode',likeCode).limit(1).maybeSingle();
    if(r.data?.id)productId=r.data.id;
   }
 
-  // 4. Check Products table by SKU (case-insensitive)
+  // 3. Check Products table by SKU (case-insensitive)
   if(!productId){
    const r=await db.from('products').select('id').ilike('sku',likeCode).limit(1).maybeSingle();
    if(r.data?.id)productId=r.data.id;
@@ -62,7 +40,7 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
 
   if(!productId)throw new Fault(404,'BARCODE_NOT_FOUND',`Barcode or SKU "${code}" was not found in catalogue.`);
 
-  // 5. Load full product data
+  // 4. Load full product data
   let r=await db.from('store_catalogue').select('*').eq('id',productId).maybeSingle();
   if(!r.data){
    r=await db.from('products').select('*').eq('id',productId).maybeSingle();
@@ -70,12 +48,10 @@ export async function GET(req:Request,{params}:{params:Promise<{module:string}>}
   if(r.error||!r.data||r.data.archived)throw new Fault(404,'PRODUCT_UNAVAILABLE','This saree is archived or unavailable for sale.');
 
   const {publicProduct}=await import('@/lib/core');
+  // One barcode per saree: the scan returns its colour split (colours + undefined pieces) so the
+  // cashier picks which colour is being billed.
   const prodData=publicProduct(r.data);
-  if(matchedPiece&&matchedPiece.colour&&matchedPiece.colour!=='Standard'){
-   prodData.name=`${prodData.name} - ${matchedPiece.colour}`;
-  }
-
-  return ok({product:{...prodData,barcode:r.data.barcode||code,piece:matchedPiece},unit});
+  return ok({product:{...prodData,barcode:r.data.barcode||code,stock_on_hand:Number(r.data.stock_on_hand||0),reserved:Number(r.data.reserved||0),category_visible:r.data.category_visible!==false},unit});
  }
  if(module==='pos'){const {data:settings,error}=await db.from('pos_settings').select('*').eq('id',true).single();if(error)throw new Fault(503,'ERP_LOAD_FAILED');const {getOffersWithTargets}=await import('@/lib/offers-server');const {isOfferValid}=await import('@/lib/offers');const posOffers=(await getOffersWithTargets().catch(()=>[])).filter(o=>!o.code&&o.apply_in_pos&&isOfferValid(o));return ok({settings,products:(await posProducts()).filter(p=>p.category_visible!==false),offers:posOffers,references:await erpReferences(session.profile)});}
  if(module==='pos_sale'){const saleId=url.searchParams.get('id');let q=db.from('pos_sales').select('*').order('created_at',{ascending:false}).order('id');if(session.profile.role==='billing')q=q.eq('cashier_id',session.user.id);if(saleId)q=q.eq('id',id.parse(saleId));const {data,error}=await q.range(page*50,page*50+50);if(error)throw new Fault(503,'ERP_LOAD_FAILED');return ok({rows:data.slice(0,50),nextPage:data.length>50?page+1:null});}
@@ -181,9 +157,9 @@ export async function POST(req:Request,{params}:{params:Promise<{module:string}>
   }
  else if(module==='pos_quote'){const p=z.object({cart:posCart,discount_paise:z.number().int().min(0).max(100000000)}).strict().parse(input);result=await rpc('pos_quote',{p_actor:actor,p_cart:p.cart,p_discount:p.discount_paise});return ok(result);}
  else if(module==='pos_sale'){const p=posInput.parse(input);result=await rpc('pos_checkout',{p_actor:actor,p_key:p.key,p_cart:p.cart,p_customer:p.customer,p_discount:p.discount_paise,p_tenders:p.tenders,p_cash_received:p.cash_received_paise,p_bank_checked:p.bank_checked});
-  // Keep Level 4 piece records in step with the stock the sale just used (idempotent per sale).
-  if(result){try{const {markPiecesSold}=await import('@/lib/piece-server');await markPiecesSold(p.cart.map(l=>({product_id:l.product_id,quantity:l.quantity,piece_ids:p.piece_ids?.[l.product_id]})),String(result));}catch(e){console.warn('Piece sale marking failed',e);}}}
- else if(module==='pos_return'){if(!can(session.profile,'inventory'))throw new Fault(403,'FORBIDDEN');const p=z.object({id,reason:z.string().trim().min(3).max(500),reference:z.string().trim().min(6).max(100),checked:z.literal(true)}).strict().parse(input);await rpc('pos_return',{p_actor:actor,p_sale:p.id,p_reason:p.reason,p_reference:p.reference});try{const {restorePieces}=await import('@/lib/piece-server');await restorePieces(String(p.id));}catch{}}
+  // Colour stock is updated inside pos_checkout (same transaction as the stock ledger).
+ }
+ else if(module==='pos_return'){if(!can(session.profile,'inventory'))throw new Fault(403,'FORBIDDEN');const p=z.object({id,reason:z.string().trim().min(3).max(500),reference:z.string().trim().min(6).max(100),checked:z.literal(true)}).strict().parse(input);await rpc('pos_return',{p_actor:actor,p_sale:p.id,p_reason:p.reason,p_reference:p.reference});}
  else if(module==='labels'){const p=z.object({ids:z.array(z.string().regex(/^[1-9][0-9]*$/)).min(1).max(500)}).strict().parse(input);await rpc('labels_printed',{p_actor:actor,p_ids:p.ids});}
  else if(module==='payroll'){const p=payrollInput.parse(input);result=await rpc('payroll_from_attendance',{p_actor:actor,p_employee:p.employee_id,p_period:p.period,p_bonus:p.bonus_paise,p_allowances:p.allowances,p_deductions:p.deductions});}
  else if(module==='payroll_finalize'){const p=z.object({id,action:z.enum(['approve','reopen','paid']),reference:z.string().trim().max(100).default(''),method:z.enum(['cash','upi','card','bank']).default('bank'),checked:z.boolean().default(false)}).strict().parse(input);await rpc('payroll_finalize',{p_actor:actor,p_run:p.id,p_action:p.action,p_reference:p.reference,p_method:p.method,p_checked:p.checked});}

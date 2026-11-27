@@ -28,7 +28,7 @@ export function formatOrderConfirmationMessage(order: InvoiceOrderData): string 
   const itemsText = (order.order_items || [])
     .map(
       (item) =>
-        `Product Name: ${item.name}\nQuantity: ${item.quantity}\nPrice: ₹${((item.unit_price_paise || 0) / 100).toLocaleString('en-IN')}`
+        `Product Name: ${item.name}${(item as { colour?: string }).colour ? ` (${(item as { colour?: string }).colour})` : ""}\nQuantity: ${item.quantity}\nPrice: ₹${((item.unit_price_paise || 0) / 100).toLocaleString('en-IN')}`
     )
     .join('\n\n');
 

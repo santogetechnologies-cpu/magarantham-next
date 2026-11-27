@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CategoryItem, Product, money, unitPrice, unitSuffix } from "@/lib/core";
-import { useShop } from "./shop-context";
+import { buyableColours, useShop } from "./shop-context";
+import { useRouter } from "next/navigation";
 import { api } from "./api";
 
 export function ProductCard({
@@ -13,6 +14,7 @@ export function ProductCard({
   ordering: boolean;
 }) {
   const { add, notice } = useShop();
+  const router = useRouter();
   const hasCustomSub =
     p.subcategory_name && p.subcategory_name.toLowerCase() !== "all styles";
 
@@ -97,13 +99,25 @@ export function ProductCard({
               </span>
             )}
           </div>
+          {(p.colours || []).length > 1 && (
+            <div className="card-colour-dots" aria-label={`${(p.colours || []).length} colours`}>
+              {(p.colours || []).slice(0, 6).map((c) => (
+                <span key={c.id} title={c.colour} style={{ background: c.colour_hex || "#C49A52" }} />
+              ))}
+            </div>
+          )}
           <button
             className="card-add-btn"
-            onClick={() => add(p.id)}
+            onClick={() => {
+              const free = buyableColours(p);
+              // One colour: add straight away. Several: the customer picks on the saree page.
+              if (free.length === 1) add(p.id, free[0], free[0].quantity - free[0].reserved);
+              else router.push(`/products/${p.slug}`);
+            }}
             disabled={!ordering || p.price_paise === 0 || p.available < 1}
             aria-label={`Add ${p.name} to bag`}
           >
-            {p.available < 1 ? "Sold out" : "Add to bag ＋"}
+            {p.available < 1 ? "Sold out" : buyableColours(p).length > 1 ? "Choose colour ↗" : "Add to bag ＋"}
           </button>
         </div>
       </div>

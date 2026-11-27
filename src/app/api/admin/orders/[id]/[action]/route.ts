@@ -13,7 +13,6 @@ import {
 } from "@/lib/server";
 import { getOrder } from "@/lib/store";
 import { reconcile, reconcileRefund } from "@/lib/payments";
-import { syncOrderPieces } from "@/lib/piece-server";
 import { sendOrderConfirmationWhatsApp, formatOrderConfirmationMessage } from "@/lib/whatsapp";
 import { generateInvoicePdf } from "@/lib/invoice";
 import { normalizePhone } from "@/lib/phone";
@@ -146,7 +145,6 @@ export async function POST(
         p_status: p.status,
         p_note: p.note,
       });
-      await syncOrderPieces(id);
     } else if (action === "confirm") {
       const p = z
         .object({
@@ -170,7 +168,6 @@ export async function POST(
         p_actor: s.user.id,
         p_reference: p.reference,
       });
-      await syncOrderPieces(id);
       sendOrderConfirmationWhatsApp(id).catch((err) =>
         console.warn("[Admin Order] WhatsApp trigger error:", err),
       );

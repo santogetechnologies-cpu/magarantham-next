@@ -3,7 +3,8 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useSearchParams } from "next/navigation";
-import { Profile, money } from "@/lib/core";
+import { Profile, money, trackingUrl, statusLabel } from "@/lib/core";
+import { DEFAULT_TEMPLATES, renderTemplate, whatsappLink } from "@/lib/message-templates";
 import { api } from "./api";
 import { useShop } from "./shop-context";
 type Row = Record<string, any>;
@@ -36,6 +37,16 @@ export function OrderView({
       setLoadError((e as Error).message);
     }
   }
+  const [dispatchTemplate, setDispatchTemplate] = useState<string>(DEFAULT_TEMPLATES.order_dispatched_whatsapp);
+  useEffect(() => {
+    if (!admin) return;
+    api<{ rows: Row[] }>("/api/admin/message-templates")
+      .then((r) => {
+        const t = r.rows.find((x) => x.key === "order_dispatched_whatsapp");
+        if (t) setDispatchTemplate(String(t.body));
+      })
+      .catch(() => {});
+  }, [admin]);
   useEffect(() => {
     void load();
     if (admin)
@@ -180,7 +191,7 @@ export function OrderView({
       <div className="section-heading">
         <div>
           <p className="eyebrow" style={{ marginBottom: 4 }}>Order #MS-{o.number}</p>
-          <h1>{o.status.replaceAll("_", " ")}.</h1>
+          <h1>{statusLabel(o.status)}.</h1>
         </div>
         <div
           style={{
@@ -255,8 +266,8 @@ export function OrderView({
             const steps = [
               { key: "awaiting_payment", label: "Order Placed", icon: "🛍️" },
               { key: "confirmed", label: "Confirmed", icon: "✓" },
-              { key: "packing", label: "Packing", icon: "📦" },
-              { key: "shipped", label: "Shipped", icon: "🚚" },
+              { key: "packing", label: "Packed", icon: "📦" },
+              { key: "shipped", label: "Dispatched", icon: "🚚" },
               { key: "delivered", label: "Delivered", icon: "✨" },
             ];
             const currentIdx = Math.max(
@@ -361,7 +372,7 @@ export function OrderView({
               DELIVERY INFORMATION
             </div>
             <div style={{ fontSize: 13, color: "#374151", display: "grid", gap: 4 }}>
-              <div>Delivery Status: <strong style={{ textTransform: "capitalize" }}>{o.status.replaceAll("_", " ")}</strong></div>
+              <div>Delivery Status: <strong style={{ textTransform: "capitalize" }}>{statusLabel(o.status)}</strong></div>
               <div>Tracking ID: <strong>{o.tracking_id || "Not assigned yet"}</strong></div>
               <div>Destination: {o.address?.city}, {o.address?.state} {o.address?.pin}</div>
             </div>
@@ -532,6 +543,7 @@ export function OrderView({
                 />
                 <div>
                   <h3>{i.name}</h3>
+                  {i.colour && <p className="subtle" style={{ margin: 0 }}>Colour: <b>{i.colour}</b></p>}
                   {admin && skuMap[i.product_id] && (
                     <p style={{ fontSize: 11, color: "#6B7280", margin: "0 0 2px" }}>
                       SKU: {skuMap[i.product_id]}
@@ -1001,6 +1013,35 @@ export function OrderView({
               <button disabled={busy} className="button">
                 Save tracking
               </button>
+              {(() => {
+                const prov = providers.find((x) => x.id === o.tracking_provider_id);
+                const link = prov && o.tracking_id ? trackingUrl(String(prov.url_template || ""), o.tracking_id) : null;
+                if (!o.tracking_id) return null;
+                const text = renderTemplate(dispatchTemplate, {
+                  customer_name: o.address?.name || "Customer",
+                  store_name: "Magarantham Silks",
+                  order_no: String(o.number),
+                  total: money(o.total_paise),
+                  courier: String(prov?.name || "courier"),
+                  tracking_id: o.tracking_id,
+                  tracking_link: link || "",
+                });
+                const wa = whatsappLink(o.customer_phone || o.address?.phone || "", text);
+                return (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {link && (
+                      <a href={link} target="_blank" rel="noopener noreferrer" className="button button-outline">
+                        Open {prov?.name} tracking ↗
+                      </a>
+                    )}
+                    {wa && (
+                      <a href={wa} target="_blank" rel="noopener noreferrer" className="button button-outline">
+                        💬 Send dispatch on WhatsApp
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
             </form>
           )}
           {can("orders") && (() => {
@@ -1020,8 +1061,8 @@ export function OrderView({
                           : [];
 
             const statusLabels: Record<string, string> = {
-              packing: "Packing (Processing)",
-              shipped: "Shipped",
+              packing: "Packed",
+              shipped: "Dispatched (needs courier + tracking ID)",
               delivered: "Delivered",
               cancelled: "Cancelled",
               return_requested: "Return Requested",
@@ -1042,7 +1083,7 @@ export function OrderView({
                 <p style={{ fontSize: 13, color: "#4B5563", marginBottom: 14 }}>
                   Current status:{" "}
                   <strong style={{ textTransform: "capitalize", color: "var(--wine)" }}>
-                    {o.status.replaceAll("_", " ")}
+                    {statusLabel(o.status)}
                   </strong>
                 </p>
 
@@ -1057,7 +1098,7 @@ export function OrderView({
                       fontSize: 13,
                     }}
                   >
-                    This order is in a final status (<strong>{o.status.replaceAll("_", " ")}</strong>) and has no further status transitions.
+                    This order is in a final status (<strong>{statusLabel(o.status)}</strong>) and has no further status transitions.
                   </div>
                 ) : (
                   <>
@@ -1082,7 +1123,7 @@ export function OrderView({
                     </label>
                     <p className="subtle">
                       Mark returned only after receiving and checking the physical
-                      sarees. A tracking ID is required before shipping.
+                      sarees. Save the courier and tracking ID before marking Dispatched.
                     </p>
                     <button className="button" disabled={busy}>
                       Update order status
